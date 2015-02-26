@@ -11,20 +11,30 @@
 #include <vector_types.h>
 #include <vector_functions.h>
 #include <helper_math.h>
+#include <iostream>
 
 typedef thrust::tuple<float, float, float> Coordinates;
-typedef thrust::tuple<float, float, float, float, float, float> Parameters;
+typedef thrust::tuple<float, float, float, float, float, float, float> Parameters;
 
-struct UnaryCostFunction : public thrust::binary_function<Coordinates, Parameters, Parameters>
+struct UnaryCostFunction : public thrust::binary_function<Coordinates, Coordinates, float>
 {
-  __host__ __device__ Parameters operator()(Coordinates const& coords, Parameters const& params) const
+  __host__ __device__ float operator()(Coordinates const& coords, Parameters const& params) const
   {
-    float3 p = make_float3(thrust::get<0>(coords), thrust::get<1>(coords), thrust::get<2>(coords));
+    float3 _p = make_float3(thrust::get<0>(coords), thrust::get<1>(coords), thrust::get<2>(coords));
+
     float3 s = make_float3(thrust::get<0>(params), thrust::get<1>(params), thrust::get<2>(params));
     float3 t = make_float3(thrust::get<3>(params), thrust::get<4>(params), thrust::get<5>(params));
+    float sigma = thrust::get<6>(params);
 
-    dot(s, t);
-    return Parameters(s.x, s.y, s.z, t.x, t.y, t.z);
+    float3 dir = normalize(t - s);
+    
+    float a = dot(_p - s, dir);
+
+    //lerp(s, t, );
+    float3 p = s + dir * a;
+    dir = p - _p;
+
+    return dot(dir, dir) / (sigma * sigma);
   }
 };
 
