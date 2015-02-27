@@ -1,3 +1,4 @@
+#include "PairwiseCostFunction.h"
 #include "UnaryCostFunction.h"
 #include <iostream>
 #include <H5Cpp.h>
@@ -49,21 +50,23 @@ int main(int argc, char *argv[])
 
   sourceFile.close();
 
-  thrust::transform(
-    thrust::make_zip_iterator(thrust::make_tuple(px.begin(), py.begin(), pz.begin())),
-    thrust::make_zip_iterator(thrust::make_tuple(px.end(), py.end(), pz.end())),
-    thrust::make_zip_iterator(thrust::make_tuple(sx.begin(), sy.begin(), sz.begin(), tx.begin(), ty.begin(), tz.begin(), sigma.begin())),
-    unaryCostFunctions.begin(),
-    UnaryCostFunction()
-    );
+  //thrust::transform(
+  //  thrust::make_zip_iterator(thrust::make_tuple(px.begin(), py.begin(), pz.begin())),
+  //  thrust::make_zip_iterator(thrust::make_tuple(px.end(), py.end(), pz.end())),
+  //  thrust::make_zip_iterator(thrust::make_tuple(sx.begin(), sy.begin(), sz.begin(), tx.begin(), ty.begin(), tz.begin(), sigma.begin())),
+  //  unaryCostFunctions.begin(),
+  //  UnaryCostFunction()
+  //  );
 
-  for (int i = 0; i < unaryCostFunctions.size(); ++i)
-  {
-    std::cout << unaryCostFunctions[i] << std::endl;
-  }
+  //for (int i = 0; i < unaryCostFunctions.size(); ++i)
+  //{
+  //  std::cout << unaryCostFunctions[i] << std::endl;
+  //}
 
   float unaryCost = thrust::reduce(unaryCostFunctions.begin(), unaryCostFunctions.end());
   std::cout << unaryCost << std::endl;
 
+  auto f = UnaryCostFunction();
+  auto grad = UnaryCostFunction::GradientWithRespectToParams();
 
 }

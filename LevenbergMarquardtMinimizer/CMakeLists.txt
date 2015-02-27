@@ -16,8 +16,12 @@ cuda_add_executable(
   main.cpp
   DoubleMultiVariableFunction.cpp
   DoubleMultiVariableFunction.h
+  DoubleParameterizedFunctional.cpp
+  DoubleParameterizedFunctional.h
   LevenbergMarquardtMinimizer.cpp
   LevenbergMarquardtMinimizer.h
+  PairwiseCostFunction.h
+  ProjectionGradient.cu
   UnaryCostFunction.h
   )
 
