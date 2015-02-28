@@ -21,7 +21,8 @@ cuda_add_executable(
   LevenbergMarquardtMinimizer.cpp
   LevenbergMarquardtMinimizer.h
   PairwiseCostFunction.h
-  ProjectionGradient.cu
+  ProjectionOntoLineAndItsJacobian.cu
+  ProjectionOntoLineAndItsJacobian.h
   UnaryCostFunction.h
   )
 
