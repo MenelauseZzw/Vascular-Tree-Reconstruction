@@ -1,4 +1,6 @@
 #include "ProjectionOntoLineAndItsJacobian.h"
+#include "PairwiseCostFunctionAndItsGradientWithRespectToParams.h"
+#include "UnaryCostFunctionAndItsGradientWithRespectToParams.h"
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cstring>
@@ -6,175 +8,477 @@
 
 int main(int argc, char *argv[])
 {
-  const size_t numPoints = 50000;
+  const size_t numPoints = 65535;
   const size_t numDims = 3;
-  const size_t numParams = 6;
+  const size_t numParams = 12;
 
-  float* pTildeP;
-  float* pS;
-  float* pT;
-  float* pP;
-  float* pJacTildeP;
-  float* pJacS;
-  float* pJacT;
-  float* pJacP;
+  float tildePi[numDims];
+  float tildePj[numDims];
+  float si[numDims];
+  float ti[numDims];
+  float sj[numDims];
+  float tj[numDims];
 
-  const unsigned int numPntBytes = numDims * numPoints * sizeof(float);
-  cudaMalloc((void**)&pTildeP, numPntBytes);
-  cudaMalloc((void**)&pS, numPntBytes);
-  cudaMalloc((void**)&pT, numPntBytes);
-  cudaMalloc((void**)&pP, numPntBytes);
+  memset(tildePi, 0, sizeof(tildePi));
+  memset(tildePj, 0, sizeof(tildePj));
+  memset(si, 0, sizeof(si));
+  memset(ti, 0, sizeof(ti));
+  memset(sj, 0, sizeof(sj));
+  memset(tj, 0, sizeof(tj));
 
-  const unsigned int numJacBytes = numDims * numParams * numPoints * sizeof(float);
-  cudaMalloc((void**)&pJacTildeP, numJacBytes);
-  cudaMalloc((void**)&pJacS, numJacBytes);
-  cudaMalloc((void**)&pJacT, numJacBytes);
-  cudaMalloc((void**)&pJacP, numJacBytes);
+  tildePi[0] = 1;
+  tildePj[1] = 1;
+
+  sj[0] = 0.5;
+
+  ti[0] = ti[1] = ti[2] = 1;
+  tj[0] = tj[1] = tj[2] = 1;
+
+  float* pTildePi;
+  float* pTildePj;
+  float* pSi;
+  float* pTi;
+  float* pSj;
+  float* pTj;
+  float* pPi;
+  float* pPj;
+
+  const int numPntBytes = numDims * numPoints * sizeof(float);
+  cudaMalloc((void**)&pTildePi, numPntBytes);
+  cudaMalloc((void**)&pTildePj, numPntBytes);
+  cudaMalloc((void**)&pSi, numPntBytes);
+  cudaMalloc((void**)&pTi, numPntBytes);
+  cudaMalloc((void**)&pSj, numPntBytes);
+  cudaMalloc((void**)&pTj, numPntBytes);
+  cudaMalloc((void**)&pPi, numPntBytes);
+  cudaMalloc((void**)&pPj, numPntBytes);
+
+  float* pJacTildePi;
+  float* pJacSi;
+  float* pJacTi;
+  float* pJacPi;
+
+  const int numJacBytes = numDims * numParams * numPoints * sizeof(float);
+  cudaMalloc((void**)&pJacTildePi, numJacBytes);
+  cudaMalloc((void**)&pJacSi, numJacBytes);
+  cudaMalloc((void**)&pJacTi, numJacBytes);
+  cudaMalloc((void**)&pJacPi, numJacBytes);
+
+  float* pJacTildePj;
+  float* pJacSj;
+  float* pJacTj;
+  float* pJacPj;
+
+  cudaMalloc((void**)&pJacTildePj, numJacBytes);
+  cudaMalloc((void**)&pJacSj, numJacBytes);
+  cudaMalloc((void**)&pJacTj, numJacBytes);
+  cudaMalloc((void**)&pJacPj, numJacBytes);
+
+  float* pPairwiseCostFunctioni;
+  float* pPairwiseCostFunctionj;
+
+  float* pPairwiseCostGradienti;
+  float* pPairwiseCostGradientj;
+
+  const int numFuncBytes = numPoints * sizeof(float);
+  cudaMalloc((void**)&pPairwiseCostFunctioni, numFuncBytes);
+  cudaMalloc((void**)&pPairwiseCostFunctionj, numFuncBytes);
+
+  float* pUnaryCostGradient;
+
+  const int numGradBytes = numPoints * numParams * sizeof(float);
+  cudaMalloc((void**)&pPairwiseCostGradienti, numGradBytes);
+  cudaMalloc((void**)&pPairwiseCostGradientj, numGradBytes);
 
   float* pTemp = new float[numPoints * numDims];
-  for (int i = 0; i < numPoints * numDims; i += numDims)
-  {
-    pTemp[i + 0] = 0;
-    pTemp[i + 1] = 0;
-    pTemp[i + 2] = 0;
-  }
-
-  cudaMemcpy(pTildeP, pTemp, numPntBytes, cudaMemcpyHostToDevice);
 
   for (int i = 0; i < numPoints * numDims; i += numDims)
   {
-    pTemp[i + 0] = 1;
-    pTemp[i + 1] = 0;
-    pTemp[i + 2] = 0;
+    pTemp[i + 0] = tildePi[0];
+    pTemp[i + 1] = tildePi[1];
+    pTemp[i + 2] = tildePi[2];
   }
 
-  cudaMemcpy(pS, pTemp, numPntBytes, cudaMemcpyHostToDevice);
+  cudaMemcpy(pTildePi, pTemp, numPntBytes, cudaMemcpyHostToDevice);
 
   for (int i = 0; i < numPoints * numDims; i += numDims)
   {
-    pTemp[i + 0] = 0;
-    pTemp[i + 1] = 1;
-    pTemp[i + 2] = 0;
+    pTemp[i + 0] = tildePj[0];
+    pTemp[i + 1] = tildePj[1];
+    pTemp[i + 2] = tildePj[2];
   }
 
-  cudaMemcpy(pT, pTemp, numPntBytes, cudaMemcpyHostToDevice);
+  cudaMemcpy(pTildePj, pTemp, numPntBytes, cudaMemcpyHostToDevice);
+
+  for (int i = 0; i < numPoints * numDims; i += numDims)
+  {
+    pTemp[i + 0] = si[0];
+    pTemp[i + 1] = si[1];
+    pTemp[i + 2] = si[2];
+  }
+
+  cudaMemcpy(pSi, pTemp, numPntBytes, cudaMemcpyHostToDevice);
+
+  for (int i = 0; i < numPoints * numDims; i += numDims)
+  {
+    pTemp[i + 0] = sj[0];
+    pTemp[i + 1] = sj[1];
+    pTemp[i + 2] = sj[2];
+  }
+
+  cudaMemcpy(pSj, pTemp, numPntBytes, cudaMemcpyHostToDevice);
+
+  for (int i = 0; i < numPoints * numDims; i += numDims)
+  {
+    pTemp[i + 0] = ti[0];
+    pTemp[i + 1] = ti[1];
+    pTemp[i + 2] = ti[2];
+  }
+
+  cudaMemcpy(pTi, pTemp, numPntBytes, cudaMemcpyHostToDevice);
+
+  for (int i = 0; i < numPoints * numDims; i += numDims)
+  {
+    pTemp[i + 0] = tj[0];
+    pTemp[i + 1] = tj[1];
+    pTemp[i + 2] = tj[2];
+  }
+
+  cudaMemcpy(pTj, pTemp, numPntBytes, cudaMemcpyHostToDevice);
 
   delete[] pTemp;
 
   pTemp = new float[numPoints * numDims * numParams];
-  for (int i = 0; i < numPoints * numDims * numParams; ++i)
-  {
-    pTemp[i] = 0;
-  }
 
-  cudaMemcpy(pJacTildeP, pTemp, numJacBytes, cudaMemcpyHostToDevice);
+  memset(pTemp, 0, numJacBytes);
 
-  for (int i = 0; i < numPoints * numDims * numParams; i += numDims * numParams)
-  {
-    pTemp[i + 0 * (1 + numParams)] = 1;
-    pTemp[i + 1 * (1 + numParams)] = 1;
-    pTemp[i + 2 * (1 + numParams)] = 1;
-  }
+  cudaMemcpy(pJacTildePi, pTemp, numJacBytes, cudaMemcpyHostToDevice);
+  cudaMemcpy(pJacTildePj, pTemp, numJacBytes, cudaMemcpyHostToDevice);
 
-  cudaMemcpy(pJacS, pTemp, numJacBytes, cudaMemcpyHostToDevice);
-
-  for (int i = 0; i < numPoints * numDims * numParams; ++i)
-  {
-    pTemp[i] = 0;
-  }
+  memset(pTemp, 0, numJacBytes);
 
   for (int i = 0; i < numPoints * numDims * numParams; i += numDims * numParams)
   {
-    pTemp[i + 0 * (1 + numParams) + numDims] = 1;
-    pTemp[i + 1 * (1 + numParams) + numDims] = 1;
-    pTemp[i + 2 * (1 + numParams) + numDims] = 1;
+    pTemp[i + 0 * (1 + numParams) + 0 * numDims] = 1;
+    pTemp[i + 1 * (1 + numParams) + 0 * numDims] = 1;
+    pTemp[i + 2 * (1 + numParams) + 0 * numDims] = 1;
   }
 
-  cudaMemcpy(pJacT, pTemp, numJacBytes, cudaMemcpyHostToDevice);
-  
+  cudaMemcpy(pJacSi, pTemp, numJacBytes, cudaMemcpyHostToDevice);
+
+  memset(pTemp, 0, numJacBytes);
+
+  for (int i = 0; i < numPoints * numDims * numParams; i += numDims * numParams)
+  {
+    pTemp[i + 0 * (1 + numParams) + 1 * numDims] = 1;
+    pTemp[i + 1 * (1 + numParams) + 1 * numDims] = 1;
+    pTemp[i + 2 * (1 + numParams) + 1 * numDims] = 1;
+  }
+
+  cudaMemcpy(pJacTi, pTemp, numJacBytes, cudaMemcpyHostToDevice);
+  memset(pTemp, 0, numJacBytes);
+
+  for (int i = 0; i < numPoints * numDims * numParams; i += numDims * numParams)
+  {
+    pTemp[i + 0 * (1 + numParams) + 2 * numDims] = 1;
+    pTemp[i + 1 * (1 + numParams) + 2 * numDims] = 1;
+    pTemp[i + 2 * (1 + numParams) + 2 * numDims] = 1;
+  }
+
+  cudaMemcpy(pJacSj, pTemp, numJacBytes, cudaMemcpyHostToDevice);
+
+  memset(pTemp, 0, numJacBytes);
+
+  for (int i = 0; i < numPoints * numDims * numParams; i += numDims * numParams)
+  {
+    pTemp[i + 0 * (1 + numParams) + 3 * numDims] = 1;
+    pTemp[i + 1 * (1 + numParams) + 3 * numDims] = 1;
+    pTemp[i + 2 * (1 + numParams) + 3 * numDims] = 1;
+  }
+
+  cudaMemcpy(pJacTj, pTemp, numJacBytes, cudaMemcpyHostToDevice);
+
   delete[] pTemp;
-
-  float tildeP[numDims];
-  float s[numDims];
-  float t[numDims];
-  float p[numDims];
-  /*
-  std::memset(tildeP, 0, sizeof(tildeP));
-  std::memset(s, 0, sizeof(s));
-  std::memset(t, 0, sizeof(t));
-  std::memset(p, 0, sizeof(p));
-
-  s[0] = 1;
-  t[1] = 1;
-  */
 
   float jacTildeP[numDims][numParams];
   float jacS[numDims][numParams];
   float jacT[numDims][numParams];
   float jacP[numDims][numParams];
-  /*
-  std::memset(jacTildeP, 0, sizeof(jacTildeP));
-  std::memset(jacS, 0, sizeof(jacS));
-  std::memset(jacT, 0, sizeof(jacT));
-  std::memset(jacP, 0, sizeof(jacP));
 
-  jacS[0][0] = 1;
-  jacS[1][1] = 1;
-  jacS[2][2] = 1;
-
-  jacT[0][3] = 1;
-  jacT[1][4] = 1;
-  jacT[2][5] = 1;
-
-  cudaMemcpy(pTildeP, tildeP, numPntBytes, cudaMemcpyHostToDevice);
-  cudaMemcpy(pS, s, numPntBytes, cudaMemcpyHostToDevice);
-  cudaMemcpy(pT, t, numPntBytes, cudaMemcpyHostToDevice);
-
-  cudaMemcpy(pJacTildeP, jacTildeP, numJacBytes, cudaMemcpyHostToDevice);
-  cudaMemcpy(pJacS, jacS, numJacBytes, cudaMemcpyHostToDevice);
-  cudaMemcpy(pJacT, jacT, numJacBytes, cudaMemcpyHostToDevice);
-  */
   cudaEvent_t start, stop;
   float time;
+  //cudaEventCreate(&start);
+  //cudaEventCreate(&stop);
+  //cudaEventRecord(start, 0);
+
+  ////ProjectionOntoLineAndItsJacobian3x6(pTildePi, pSi, pTi, pJacTildePi, pJacSi, pJ
+
+  //cudaEventRecord(stop, 0);
+  //cudaEventSynchronize(stop);
+  //cudaEventElapsedTime(&time, start, stop);
+  //std::cout << "Time for the kernel <ProjectionOntoLineAndItsJacobian3x6>: " << time << " ms" << std::endl;
+
+  //float p[numDims];
+
+  //cudaMemcpy(p, &pPi[numDims * (numPoints - 1)], sizeof(p), cudaMemcpyDeviceToHost);
+  //cudaMemcpy(jacP, &pJacPi[numDims * numParams * (numPoints - 1)], sizeof(jacP), cudaMemcpyDeviceToHost);
+
+  //std::cout << "p" << std::endl;
+  //for (int numDim = 0; numDim < numDims; ++numDim)
+  //{
+  //  std::cout << p[numDim] << std::endl;
+  //}
+
+  //std::cout << "jacP" << std::endl;
+  //for (int numDim = 0; numDim < numDims; ++numDim)
+  //{
+  //  for (int numParam = 0; numParam < numParams; ++numParam)
+  //  {
+  //    std::cout << jacP[numDim][numParam] << " ";
+  //  }
+  //  std::cout << std::endl;
+  //}
+
+  //cudaEventDestroy(start);
+  //cudaEventDestroy(stop);
+
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
+
   cudaEventRecord(start, 0);
 
-  ProjectionOntoLineAndItsJacobian3x6(pTildeP, pS, pT, pJacTildeP, pJacS, pJacT, pP, pJacP, numPoints);
+  PairwiseCostFunctionAndItsGradientWithRespectToParams3x12(pTildePi, pSi, pTi, pJacTildePi, pJacSi, pJacTi, pTildePj, pSj, pTj, pJacTildePj, pJacSj, pJacTj, pPairwiseCostFunctioni, pPairwiseCostFunctionj, pPairwiseCostGradienti, pPairwiseCostGradientj, numPoints);
 
   cudaEventRecord(stop, 0);
   cudaEventSynchronize(stop);
   cudaEventElapsedTime(&time, start, stop);
-  std::cout << "Time for the kernel: " << time << " ms" << std::endl;
+  std::cout << std::endl << "Time for the kernel <PairwiseCostFunctionAndItsGradientWithRespectToParams3x12>: " << time << " ms" << std::endl;
 
-  cudaMemcpy(p, pP + numDims * (numPoints - 1), sizeof(p), cudaMemcpyDeviceToHost);
-  cudaMemcpy(jacP, pJacP + numDims * numParams * (numPoints - 1), sizeof(jacP), cudaMemcpyDeviceToHost);
+  float pairwiseCostFunction;
+  cudaMemcpy(&pairwiseCostFunction, &pPairwiseCostFunctioni[numPoints - 1], sizeof(pairwiseCostFunction), cudaMemcpyDeviceToHost);
 
-  std::cout << "p" << std::endl;
-  for (int numDim = 0; numDim < numDims; ++numDim)
+  float pairwiseCostGradient[numParams];
+  cudaMemcpy(pairwiseCostGradient, &pPairwiseCostGradienti[numParams * (numPoints - 1)], sizeof(pairwiseCostGradient), cudaMemcpyDeviceToHost);
+
+  std::cout << "Pairwise cost function: " << pairwiseCostFunction << std::endl;
+
+  std::cout << "Pairwise cost gradient" << std::endl;
+  for (int numParam = 0; numParam < numParams; ++numParam)
   {
-    std::cout << p[numDim] << std::endl;
+    std::cout << pairwiseCostGradient[numParam] << std::endl;
   }
 
-  std::cout << "jacP" << std::endl;
-  for (int numDim = 0; numDim < numDims; ++numDim)
-  {
-    for (int numParam = 0; numParam < numParams; ++numParam)
-    {
-      std::cout << jacP[numDim][numParam] << " ";
-    }
-    std::cout << std::endl;
-  }
-
-  cudaFree(pJacP);
-  cudaFree(pJacT);
-  cudaFree(pJacS);
-  cudaFree(pJacTildeP);
-  cudaFree(pP);
-  cudaFree(pT);
-  cudaFree(pS);
-  cudaFree(pTildeP);
+  cudaFree(pPairwiseCostGradientj);
+  cudaFree(pPairwiseCostGradienti);
+  cudaFree(pPairwiseCostFunctionj);
+  cudaFree(pPairwiseCostFunctioni);
+  cudaFree(pJacPj);
+  cudaFree(pJacPi);
+  cudaFree(pJacTj);
+  cudaFree(pJacTi);
+  cudaFree(pJacSj);
+  cudaFree(pJacSi);
+  cudaFree(pJacTildePj);
+  cudaFree(pJacTildePi);
+  cudaFree(pPj);
+  cudaFree(pPi);
+  cudaFree(pTj);
+  cudaFree(pSj);
+  cudaFree(pTi);
+  cudaFree(pSi);
+  cudaFree(pTildePj);
+  cudaFree(pTildePi);
 }
+
+/*int main(int argc, char *argv[])
+{
+const size_t numPoints = 65535;
+const size_t numDims = 3;
+const size_t numParams = 6;
+
+float tildeP[numDims];
+float s[numDims];
+float t[numDims];
+
+memset(tildeP, 0, sizeof(tildeP));
+memset(s, 0, sizeof(s));
+memset(t, 0, sizeof(t));
+
+tildeP[0] = 1;
+t[0] = t[1] = t[2] = 1;
+
+float* pTildeP;
+float* pS;
+float* pT;
+float* pP;
+
+const int numPntBytes = numDims * numPoints * sizeof(float);
+cudaMalloc((void**)&pTildeP, numPntBytes);
+cudaMalloc((void**)&pS, numPntBytes);
+cudaMalloc((void**)&pT, numPntBytes);
+cudaMalloc((void**)&pP, numPntBytes);
+
+float* pJacTildeP;
+float* pJacS;
+float* pJacT;
+float* pJacP;
+
+const int numJacBytes = numDims * numParams * numPoints * sizeof(float);
+cudaMalloc((void**)&pJacTildeP, numJacBytes);
+cudaMalloc((void**)&pJacS, numJacBytes);
+cudaMalloc((void**)&pJacT, numJacBytes);
+cudaMalloc((void**)&pJacP, numJacBytes);
+
+float* pUnaryCostFunction;
+
+const int numFuncBytes = numPoints * sizeof(float);
+cudaMalloc((void**)&pUnaryCostFunction, numFuncBytes);
+
+float* pUnaryCostGradient;
+
+const int numGradBytes = numPoints * numParams * sizeof(float);
+cudaMalloc((void**)&pUnaryCostGradient, numGradBytes);
+
+float* pTemp = new float[numPoints * numDims];
+
+for (int i = 0; i < numPoints * numDims; i += numDims)
+{
+pTemp[i + 0] = tildeP[0];
+pTemp[i + 1] = tildeP[1];
+pTemp[i + 2] = tildeP[2];
+}
+
+cudaMemcpy(pTildeP, pTemp, numPntBytes, cudaMemcpyHostToDevice);
+
+for (int i = 0; i < numPoints * numDims; i += numDims)
+{
+pTemp[i + 0] = s[0];
+pTemp[i + 1] = s[1];
+pTemp[i + 2] = s[2];
+}
+
+cudaMemcpy(pS, pTemp, numPntBytes, cudaMemcpyHostToDevice);
+
+for (int i = 0; i < numPoints * numDims; i += numDims)
+{
+pTemp[i + 0] = t[0];
+pTemp[i + 1] = t[1];
+pTemp[i + 2] = t[2];
+}
+
+cudaMemcpy(pT, pTemp, numPntBytes, cudaMemcpyHostToDevice);
+
+delete[] pTemp;
+
+pTemp = new float[numPoints * numDims * numParams];
+
+memset(pTemp, 0, numJacBytes);
+
+cudaMemcpy(pJacTildeP, pTemp, numJacBytes, cudaMemcpyHostToDevice);
+
+memset(pTemp, 0, numJacBytes);
+
+for (int i = 0; i < numPoints * numDims * numParams; i += numDims * numParams)
+{
+pTemp[i + 0 * (1 + numParams)] = 1;
+pTemp[i + 1 * (1 + numParams)] = 1;
+pTemp[i + 2 * (1 + numParams)] = 1;
+}
+
+cudaMemcpy(pJacS, pTemp, numJacBytes, cudaMemcpyHostToDevice);
+
+memset(pTemp, 0, numJacBytes);
+
+for (int i = 0; i < numPoints * numDims * numParams; i += numDims * numParams)
+{
+pTemp[i + 0 * (1 + numParams) + numDims] = 1;
+pTemp[i + 1 * (1 + numParams) + numDims] = 1;
+pTemp[i + 2 * (1 + numParams) + numDims] = 1;
+}
+
+cudaMemcpy(pJacT, pTemp, numJacBytes, cudaMemcpyHostToDevice);
+
+delete[] pTemp;
+
+float jacTildeP[numDims][numParams];
+float jacS[numDims][numParams];
+float jacT[numDims][numParams];
+float jacP[numDims][numParams];
+
+cudaEvent_t start, stop;
+float time;
+cudaEventCreate(&start);
+cudaEventCreate(&stop);
+cudaEventRecord(start, 0);
+
+ProjectionOntoLineAndItsJacobian3x6(pTildeP, pS, pT, pJacTildeP, pJacS, pJacT, pP, pJacP, numPoints);
+
+cudaEventRecord(stop, 0);
+cudaEventSynchronize(stop);
+cudaEventElapsedTime(&time, start, stop);
+std::cout << "Time for the kernel <ProjectionOntoLineAndItsJacobian3x6>: " << time << " ms" << std::endl;
+
+float p[numDims];
+
+cudaMemcpy(p, &pP[numDims * (numPoints - 1)], sizeof(p), cudaMemcpyDeviceToHost);
+cudaMemcpy(jacP, &pJacP[numDims * numParams * (numPoints - 1)], sizeof(jacP), cudaMemcpyDeviceToHost);
+
+std::cout << "p" << std::endl;
+for (int numDim = 0; numDim < numDims; ++numDim)
+{
+std::cout << p[numDim] << std::endl;
+}
+
+std::cout << "jacP" << std::endl;
+for (int numDim = 0; numDim < numDims; ++numDim)
+{
+for (int numParam = 0; numParam < numParams; ++numParam)
+{
+std::cout << jacP[numDim][numParam] << " ";
+}
+std::cout << std::endl;
+}
+
+cudaEventDestroy(start);
+cudaEventDestroy(stop);
+
+cudaEventCreate(&start);
+cudaEventCreate(&stop);
+
+cudaEventRecord(start, 0);
+
+UnaryCostFunctionAndItsGradientWithRespectToParams3x6(pTildeP, pS, pT, pJacTildeP, pJacS, pJacT, pUnaryCostFunction, pUnaryCostGradient, numPoints);
+
+cudaEventRecord(stop, 0);
+cudaEventSynchronize(stop);
+cudaEventElapsedTime(&time, start, stop);
+std::cout << std::endl << "Time for the kernel <UnaryCostFunctionAndItsGradientWithRespectToParams3x6>: " << time << " ms" << std::endl;
+
+float unaryCostFunction;
+cudaMemcpy(&unaryCostFunction, &pUnaryCostFunction[numPoints - 1], sizeof(unaryCostFunction), cudaMemcpyDeviceToHost);
+
+float unaryCostGradient[numParams];
+cudaMemcpy(unaryCostGradient, &pUnaryCostGradient[numParams * (numPoints - 1)], sizeof(unaryCostGradient), cudaMemcpyDeviceToHost);
+
+std::cout << "Unary cost function: " << unaryCostFunction << std::endl;
+
+std::cout << "Unary cost gradient" << std::endl;
+for (int numParam = 0; numParam < numParams; ++numParam)
+{
+std::cout << unaryCostGradient[numParam] << std::endl;
+}
+
+cudaFree(pUnaryCostGradient);
+cudaFree(pUnaryCostFunction);
+cudaFree(pJacP);
+cudaFree(pJacT);
+cudaFree(pJacS);
+cudaFree(pJacTildeP);
+cudaFree(pP);
+cudaFree(pT);
+cudaFree(pS);
+cudaFree(pTildeP);
+}*/
 
 //#include "PairwiseCostFunction.h"
 //#include "UnaryCostFunction.h"

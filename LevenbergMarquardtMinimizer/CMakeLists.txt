@@ -21,9 +21,14 @@ cuda_add_executable(
   LevenbergMarquardtMinimizer.cpp
   LevenbergMarquardtMinimizer.h
   PairwiseCostFunction.h
+  PairwiseCostFunctionAndItsGradientWithRespectToParams.cu
+  PairwiseCostFunctionAndItsGradientWithRespectToParams.h
   ProjectionOntoLineAndItsJacobian.cu
+  ProjectionOntoLineAndItsJacobian.cuh
   ProjectionOntoLineAndItsJacobian.h
   UnaryCostFunction.h
+  UnaryCostFunctionAndItsGradientWithRespectToParams.cu
+  UnaryCostFunctionAndItsGradientWithRespectToParams.h
   )
 
 target_link_libraries(
