@@ -26,6 +26,10 @@ cuda_add_executable(
   ProjectionOntoLineAndItsJacobian.cu
   ProjectionOntoLineAndItsJacobian.cuh
   ProjectionOntoLineAndItsJacobian.h
+  TestPairwiseCostFunction.cu
+  TestPairwiseCostFunction.h
+  TestProjectionOntoLineAndUnaryCostFunction.cu
+  TestProjectionOntoLineAndUnaryCostFunction.h
   UnaryCostFunction.h
   UnaryCostFunctionAndItsGradientWithRespectToParams.cu
   UnaryCostFunctionAndItsGradientWithRespectToParams.h
