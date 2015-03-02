@@ -4,6 +4,9 @@
 #include <algorithm>
 #include <cusp/array1d.h>
 #include <cusp/array2d.h>
+#include <cusp/csr_matrix.h>
+#include <cusp/multiply.h>
+#include <cusp/transpose.h>
 #include <cusp/print.h>
 #include <iostream>
 #include <thrust/device_ptr.h>
@@ -110,8 +113,25 @@ void testProjectionOntoLineAndUnaryCostFunction(size_t numPoints, size_t maxPoin
   cudaEventElapsedTime(&timeElapsedMs, start, stop);
   std::cout << "Time for the kernel <ProjectionOntoLineAndItsJacobian3x6> " << timeElapsedMs << " ms" << std::endl;
 
-  DeviceArray1d deviceUnaryCostFunction(numPoints);
-  DeviceArray2d deviceUnaryCostGradient(numPoints, numParams);
+  DeviceArray1d e(numPoints);
+
+  const size_t numCols = numPoints * numParams;
+  HostArray1d columnIndices(numCols);
+  for (int i = 0; i < numCols; ++i)
+  {
+    columnIndices[i] = i;
+  }
+
+  HostArray1d rowOffsets(numPoints + 1);
+  for (int i = 0; i <= numPoints; ++i)
+  {
+    rowOffsets[i] = i * numParams;
+  }
+
+  typedef cusp::csr_matrix<int, float, cusp::device_memory> DeviceCsrMatrix;
+  DeviceCsrMatrix jacE(numPoints, numCols, numPoints * numParams);
+  jacE.row_offsets = rowOffsets;
+  jacE.column_indices = columnIndices;
 
   cudaEventRecord(start, 0);
 
@@ -127,10 +147,10 @@ void testProjectionOntoLineAndUnaryCostFunction(size_t numPoints, size_t maxPoin
     float* pJacT = thrust::raw_pointer_cast(&deviceJacT(i, 0));
     float* pJacP = thrust::raw_pointer_cast(&deviceJacP(i, 0));
 
-    float* pUnaryCostFunction = thrust::raw_pointer_cast(&deviceUnaryCostFunction[i]);
-    float* pUnaryCostGradient = thrust::raw_pointer_cast(&deviceUnaryCostGradient(i, 0));
+    float* pE = thrust::raw_pointer_cast(&e[i]);
+    float* pJacE = thrust::raw_pointer_cast(&jacE.values[i * numParams]);
 
-    UnaryCostFunctionAndItsGradientWithRespectToParams3x6(pTildeP, pS, pT, pJacTildeP, pJacS, pJacT, pUnaryCostFunction, pUnaryCostGradient, std::min(numPoints - i, maxPoints));
+    UnaryCostFunctionAndItsGradientWithRespectToParams3x6(pTildeP, pS, pT, pJacTildeP, pJacS, pJacT, pE, pJacE, std::min(numPoints - i, maxPoints));
   }
 
   cudaEventRecord(stop, 0);
@@ -150,10 +170,44 @@ void testProjectionOntoLineAndUnaryCostFunction(size_t numPoints, size_t maxPoin
   std::cout << "jacP" << std::endl;
   cusp::print(jacP);
 
-  float unaryCostFunction = deviceUnaryCostFunction[numPoints - 1];
-  std::cout << "Unary cost function " << unaryCostFunction << std::endl;
+  //std::cout << "e" << std::endl;
+  //cusp::print(e);
 
-  HostArray1d unaryCostGradient = deviceUnaryCostGradient.row(numPoints - 1);
-  std::cout << "Unary cost gradient " << std::endl;
-  cusp::print(unaryCostGradient);
+  //std::cout << "jacE" << std::endl;
+  //cusp::print(jacE);
+
+  DeviceCsrMatrix jacEt;
+
+  cudaEventRecord(start, 0);
+
+  cusp::transpose(jacE, jacEt);
+
+  cudaEventRecord(stop, 0);
+  cudaEventSynchronize(stop);
+
+  cudaEventElapsedTime(&timeElapsedMs, start, stop);
+  std::cout << "Time for transpose(jacE) " << timeElapsedMs << " ms" << std::endl;
+
+  DeviceCsrMatrix jacEtTimesJacE;
+
+  cudaEventRecord(start, 0);
+
+  cusp::multiply(jacEt, jacE, jacEtTimesJacE);
+
+  cudaEventRecord(stop, 0);
+  cudaEventSynchronize(stop);
+
+  cudaEventElapsedTime(&timeElapsedMs, start, stop);
+  std::cout << "Time for multiply(jacEt, jacE) " << timeElapsedMs << " ms" << std::endl;
+  
+  DeviceArray1d jacEtTimesE(jacEt.num_rows);
+
+  cudaEventRecord(start, 0);
+  cusp::multiply(jacEt, e, jacEtTimesE);
+
+  cudaEventRecord(stop, 0);
+  cudaEventSynchronize(stop);
+
+  cudaEventElapsedTime(&timeElapsedMs, start, stop);
+  std::cout << "Time for multiply(jacEt, e) " << timeElapsedMs << " ms" << std::endl;
 }

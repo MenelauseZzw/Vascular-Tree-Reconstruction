@@ -3,6 +3,10 @@
 #include <algorithm>
 #include <cusp/array1d.h>
 #include <cusp/array2d.h>
+#include <cusp/csr_matrix.h>
+#include <cusp/elementwise.h>
+#include <cusp/multiply.h>
+#include <cusp/transpose.h>
 #include <cusp/print.h>
 #include <iostream>
 #include <thrust/device_ptr.h>
@@ -124,8 +128,8 @@ void testPairwiseCostFunction(size_t numPoints, size_t maxPoints/*= 65535*/)
     cusp::array2d_view<HostArray2d::row_view, cusp::row_major> jac(numDims, numParams, numParams, jacTj.row(i));
 
     jac(0, 9) = 1;
-    jac(1,10) = 1;
-    jac(2,11) = 1;
+    jac(1, 10) = 1;
+    jac(2, 11) = 1;
   }
 
   DeviceArray2d deviceJacTildePi(jacTildePi);
@@ -142,11 +146,45 @@ void testPairwiseCostFunction(size_t numPoints, size_t maxPoints/*= 65535*/)
   cudaEvent_t stop;
   cudaEventCreate(&stop);
 
-  DeviceArray1d devicePairwiseCostFunctioni(numPoints);
-  DeviceArray2d devicePairwiseCostGradienti(numPoints, numParams);
+  DeviceArray1d ei(numPoints);
+  DeviceArray1d ej(numPoints);
 
-  DeviceArray1d devicePairwiseCostFunctionj(numPoints);
-  DeviceArray2d devicePairwiseCostGradientj(numPoints, numParams);
+  const size_t numCols = numPoints * numParams;
+
+  HostArray1d columnIndicesi(numCols);
+  HostArray1d columnIndicesj(numCols);
+
+  for (int i = 0; i < numCols; ++i)
+  {
+    columnIndicesi[i] = i;
+    if ((i % numParams) < (numParams / 2))
+    {
+      columnIndicesj[i + numParams / 2] = i;
+    }
+    else
+    {
+      columnIndicesj[i - numParams / 2] = i;
+    }
+  }
+
+  HostArray1d rowOffsetsi(numPoints + 1);
+  HostArray1d rowOffsetsj(numPoints + 1);
+
+  for (int i = 0; i <= numPoints; ++i)
+  {
+    rowOffsetsi[i] = i * numParams;
+    rowOffsetsj[i] = i * numParams;
+  }
+
+  typedef cusp::csr_matrix<int, float, cusp::device_memory> DeviceCsrMatrix;
+
+  DeviceCsrMatrix jacEi(numPoints, numCols, numPoints * numParams);
+  jacEi.row_offsets = rowOffsetsi;
+  jacEi.column_indices = columnIndicesi;
+
+  DeviceCsrMatrix jacEj(numPoints, numCols, numPoints * numParams);
+  jacEj.row_offsets = rowOffsetsj;
+  jacEj.column_indices = columnIndicesj;
 
   cudaEventRecord(start, 0);
 
@@ -168,17 +206,16 @@ void testPairwiseCostFunction(size_t numPoints, size_t maxPoints/*= 65535*/)
     float* pJacSj = thrust::raw_pointer_cast(&deviceJacSj(i, 0));
     float* pJacTj = thrust::raw_pointer_cast(&deviceJacTj(i, 0));
 
-    float* pPairwiseCostFunctioni = thrust::raw_pointer_cast(&devicePairwiseCostFunctioni[i]);
-    float* pPairwiseCostGradienti = thrust::raw_pointer_cast(&devicePairwiseCostGradienti(i, 0));
+    float* pEi = thrust::raw_pointer_cast(&ei[i]);
+    float* pJacEi = thrust::raw_pointer_cast(&jacEi.values[i * numParams]);
 
-    float* pPairwiseCostFunctionj = thrust::raw_pointer_cast(&devicePairwiseCostFunctionj[i]);
-    float* pPairwiseCostGradientj = thrust::raw_pointer_cast(&devicePairwiseCostGradientj(i, 0));
+    float* pEj = thrust::raw_pointer_cast(&ej[i]);
+    float* pJacEj = thrust::raw_pointer_cast(&jacEj.values[i * numParams]);
 
     PairwiseCostFunctionAndItsGradientWithRespectToParams3x12(
       pTildePi, pSi, pTi, pJacTildePi, pJacSi, pJacTi,
       pTildePj, pSj, pTj, pJacTildePj, pJacSj, pJacTj,
-      pPairwiseCostFunctioni, pPairwiseCostFunctionj,
-      pPairwiseCostGradienti, pPairwiseCostGradientj, std::min(numPoints - i, maxPoints));
+      pEi, pEj, pJacEi, pJacEj, std::min(numPoints - i, maxPoints));
   }
 
   cudaEventRecord(stop, 0);
@@ -188,17 +225,91 @@ void testPairwiseCostFunction(size_t numPoints, size_t maxPoints/*= 65535*/)
   cudaEventElapsedTime(&timeElapsedMs, start, stop);
   std::cout << "Time for the kernel <PairwiseCostFunctionAndItsGradientWithRespectToParams3x12> " << timeElapsedMs << " ms" << std::endl;
 
-  float pairwiseCostFunctioni = devicePairwiseCostFunctioni[numPoints - 1];
-  std::cout << "Pairwise cost function (i) " << pairwiseCostFunctioni << std::endl;
+  DeviceCsrMatrix jacEit;
 
-  HostArray1d pairwiseCostGradienti = devicePairwiseCostGradienti.row(numPoints - 1);
-  std::cout << "Pairwise cost gradient (i) " << std::endl;
-  cusp::print(pairwiseCostGradienti);
+  cudaEventRecord(start, 0);
 
-  float pairwiseCostFunctionj = devicePairwiseCostFunctionj[numPoints - 1];
-  std::cout << "Pairwise cost function (j) " << pairwiseCostFunctionj << std::endl;
+  cusp::transpose(jacEi, jacEit);
 
-  HostArray1d pairwiseCostGradientj = devicePairwiseCostGradientj.row(numPoints - 1);
-  std::cout << "Pairwise cost gradient (j) " << std::endl;
-  cusp::print(pairwiseCostGradientj);
+  cudaEventRecord(stop, 0);
+  cudaEventSynchronize(stop);
+
+  cudaEventElapsedTime(&timeElapsedMs, start, stop);
+  std::cout << "Time for transpose(jacEi) " << timeElapsedMs << " ms" << std::endl;
+
+  DeviceCsrMatrix jacEjt;
+
+  cudaEventRecord(start, 0);
+
+  cusp::transpose(jacEj, jacEjt);
+
+  cudaEventRecord(stop, 0);
+  cudaEventSynchronize(stop);
+
+  cudaEventElapsedTime(&timeElapsedMs, start, stop);
+  std::cout << "Time for transpose(jacEj) " << timeElapsedMs << " ms" << std::endl;
+
+  DeviceArray1d jacEitTimesEi(jacEit.num_rows);
+
+  cudaEventRecord(start, 0);
+  
+  cusp::multiply(jacEit, ei, jacEitTimesEi);
+
+  cudaEventRecord(stop, 0);
+  cudaEventSynchronize(stop);
+
+  cudaEventElapsedTime(&timeElapsedMs, start, stop);
+  std::cout << "Time for multiply(jacEit, ei) " << timeElapsedMs << " ms" << std::endl;
+
+  DeviceArray1d jacEjtTimesEj(jacEjt.num_rows);
+
+  cudaEventRecord(start, 0);
+
+  cusp::multiply(jacEjt, ej, jacEjtTimesEj);
+
+  cudaEventRecord(stop, 0);
+  cudaEventSynchronize(stop);
+
+  cudaEventElapsedTime(&timeElapsedMs, start, stop);
+  std::cout << "Time for multiply(jacEjt, ej) " << timeElapsedMs << " ms" << std::endl;
+
+  DeviceArray1d jacETimesE;
+
+  cudaEventRecord(start, 0);
+
+  DeviceCsrMatrix jacEitTimesJacEi;
+
+  cudaEventRecord(start, 0);
+
+  cusp::multiply(jacEit, jacEi, jacEitTimesJacEi);
+
+  cudaEventRecord(stop, 0);
+  cudaEventSynchronize(stop);
+
+  cudaEventElapsedTime(&timeElapsedMs, start, stop);
+  std::cout << "Time for multiply(jacEit, jacEi) " << timeElapsedMs << " ms" << std::endl;
+
+  DeviceCsrMatrix jacEjtTimesJacEj;
+
+  cudaEventRecord(start, 0);
+
+  cusp::multiply(jacEjt, jacEj, jacEjtTimesJacEj);
+
+  cudaEventRecord(stop, 0);
+  cudaEventSynchronize(stop);
+
+  cudaEventElapsedTime(&timeElapsedMs, start, stop);
+  std::cout << "Time for multiply(jacEjt, jacEj) " << timeElapsedMs << " ms" << std::endl;
+
+  DeviceCsrMatrix jacEtTimesJacE;
+
+  cudaEventRecord(start, 0);
+
+  cusp::add(jacEitTimesJacEi, jacEjtTimesJacEj, jacEtTimesJacE);
+
+  cudaEventRecord(stop, 0);
+  cudaEventSynchronize(stop);
+
+  cudaEventElapsedTime(&timeElapsedMs, start, stop);
+  std::cout << "Time for add(jacEitTimesJacEi, jacEjtTimesJacEj) " << timeElapsedMs << " ms" << std::endl;
 }

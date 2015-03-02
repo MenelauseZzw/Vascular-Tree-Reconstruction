@@ -4,8 +4,8 @@
 
 int main(int args, char *argv[])
 {
-  testProjectionOntoLineAndUnaryCostFunction(100000);
-  testPairwiseCostFunction(100000);
+  testProjectionOntoLineAndUnaryCostFunction(200000);
+  testPairwiseCostFunction(200000);
 }
 
 //#include "PairwiseCostFunction.h"
