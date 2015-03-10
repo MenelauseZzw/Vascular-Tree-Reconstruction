@@ -7,7 +7,7 @@
 #include <cusp/csr_matrix.h>
 #include <cusp/ell_matrix.h>
 #include <cusp/elementwise.h>
-#include <cusp/krylov/cg_m.h>
+#include <cusp/krylov/bicgstab_m.h>
 #include <cusp/linear_operator.h>
 #include <cusp/monitor.h>
 #include <cusp/multiply.h>
@@ -118,8 +118,6 @@ void testLevenbergMarquardtMinimizer(float* pTildeP, float* pS, float* pT, float
   cusp::ell_matrix<int, int, cusp::device_memory> indPi(hIndPi);
   cusp::ell_matrix<int, int, cusp::device_memory> indPj(hIndPj);
 
-  cusp::identity_operator<float, cusp::device_memory> I(numPoints * numParams, numPoints * numParams);
-
   cusp::array1d<float, cusp::device_memory> e(numPoints);
 
   typedef cusp::csr_matrix<int, float, cusp::device_memory> csr_matrix;
@@ -175,11 +173,11 @@ void testLevenbergMarquardtMinimizer(float* pTildeP, float* pS, float* pT, float
     {
       if (i % numParamsPlusNumParams < numParams)
       {
-        column_indices[i] = (i % numParams) + numParams * pIndPj[i / numParamsPlusNumParams];
+        column_indices[i] = (i % numParams) + numParams * pIndPi[i / numParamsPlusNumParams];
       }
       else
       {
-        column_indices[i] = (i % numParams) + numParams * pIndPi[i / numParamsPlusNumParams];
+        column_indices[i] = (i % numParams) + numParams * pIndPj[i / numParamsPlusNumParams];
       }
     }
     jacEj.column_indices = column_indices;
@@ -277,11 +275,11 @@ void testLevenbergMarquardtMinimizer(float* pTildeP, float* pS, float* pT, float
   std::cout << "Unary cost function " << cusp::blas::dot(e, e) << std::endl;
   std::cout << "Pairwise cost function " << cusp::blas::dot(ei, ei) + cusp::blas::dot(ej, ej) << std::endl;
 
-  cusp::default_monitor<float> monitor(jacEtTimesE, 1000, 1e-1);
-  cusp::array1d<float, cusp::device_memory> x(numPoints * numParams);
-  cusp::array1d<float, cusp::device_memory> lambda(1, 200);
+  cusp::default_monitor<float> monitor(jacEtTimesE, 1000, 1e-3);
+  cusp::array1d<float, cusp::device_memory> x(numPoints * numParams, 0);
+  cusp::array1d<float, cusp::device_memory> lambda(1, 10);
 
-  cusp::krylov::cg_m(jacEtTimesJacE, x, jacEtTimesE, lambda, monitor);
+  cusp::krylov::bicgstab_m(jacEtTimesJacE, x, jacEtTimesE, lambda, monitor);
 
   if (monitor.converged())
   {
@@ -293,4 +291,77 @@ void testLevenbergMarquardtMinimizer(float* pTildeP, float* pS, float* pT, float
     std::cout << "Solver reached iteration limit " << monitor.iteration_limit() << " before converging";
     std::cout << " to " << monitor.relative_tolerance() << " relative tolerance " << std::endl;
   }
+
+  cusp::array1d<float, cusp::host_memory> hX(x);
+  cusp::array2d<float, cusp::host_memory> hSPlusX(hS);
+  cusp::array2d<float, cusp::host_memory> hTPlusX(hT);
+
+  for (int i = 0; i < x.size(); ++i)
+  {
+    int ind = i % numDims;
+    if ((i % numParams) < numParams / 2)
+    {
+      hSPlusX(i / numParams, ind) += hX[i];
+    }
+    else
+    {
+      hTPlusX(i / numParams, ind) += hX[i];
+    }
+  }
+
+  cusp::array2d<float, cusp::device_memory> sPlusX(hSPlusX);
+  cusp::array2d<float, cusp::device_memory> tPlusX(hTPlusX);
+
+  UnaryCostFunctionAndItsGradientWithRespectToParams3x6(
+    thrust::raw_pointer_cast(&tildeP(0, 0)),
+    thrust::raw_pointer_cast(&sPlusX(0, 0)),
+    thrust::raw_pointer_cast(&tPlusX(0, 0)),
+    thrust::raw_pointer_cast(&jacTildeP(0, 0)),
+    thrust::raw_pointer_cast(&jacS(0, 0)),
+    thrust::raw_pointer_cast(&jacT(0, 0)),
+    thrust::raw_pointer_cast(&e[0]),
+    thrust::raw_pointer_cast(&jacE.values[0]),
+    numPoints
+    );
+
+  cusp::array2d<float, cusp::host_memory> hSPlusXi(numPairs, numDims);
+  cusp::array2d<float, cusp::host_memory> hTPlusXi(numPairs, numDims);
+
+  cusp::array2d<float, cusp::host_memory> hSPlusXj(numPairs, numDims);
+  cusp::array2d<float, cusp::host_memory> hTPlusXj(numPairs, numDims);
+
+  cusp::multiply(hIndPi, hSPlusX, hSPlusXi);
+  cusp::multiply(hIndPi, hTPlusX, hTPlusXi);
+
+  cusp::multiply(hIndPj, hSPlusX, hSPlusXj);
+  cusp::multiply(hIndPj, hTPlusX, hTPlusXj);
+
+  cusp::array2d<float, cusp::device_memory> sPlusXi(hSPlusXi);
+  cusp::array2d<float, cusp::device_memory> tPlusXi(hTPlusXi);
+
+  cusp::array2d<float, cusp::device_memory> sPlusXj(hSPlusXj);
+  cusp::array2d<float, cusp::device_memory> tPlusXj(hTPlusXj);
+
+  PairwiseCostFunctionAndItsGradientWithRespectToParams3x12(
+    thrust::raw_pointer_cast(&tildePi(0, 0)),
+    thrust::raw_pointer_cast(&sPlusXi(0, 0)),
+    thrust::raw_pointer_cast(&tPlusXi(0, 0)),
+    thrust::raw_pointer_cast(&jacTildePi(0, 0)),
+    thrust::raw_pointer_cast(&jacSi(0, 0)),
+    thrust::raw_pointer_cast(&jacTi(0, 0)),
+    thrust::raw_pointer_cast(&tildePj(0, 0)),
+    thrust::raw_pointer_cast(&sPlusXj(0, 0)),
+    thrust::raw_pointer_cast(&tPlusXj(0, 0)),
+    thrust::raw_pointer_cast(&jacTildePj(0, 0)),
+    thrust::raw_pointer_cast(&jacSj(0, 0)),
+    thrust::raw_pointer_cast(&jacTj(0, 0)),
+    thrust::raw_pointer_cast(&ei[0]),
+    thrust::raw_pointer_cast(&ej[0]),
+    thrust::raw_pointer_cast(&jacEi.values[0]),
+    thrust::raw_pointer_cast(&jacEj.values[0]),
+    numPairs
+    );
+
+  std::cout << "Unary cost function " << cusp::blas::dot(e, e) << std::endl;
+  std::cout << "Pairwise cost function " << cusp::blas::dot(ei, ei) + cusp::blas::dot(ej, ej) << std::endl;
 }
