@@ -14,7 +14,7 @@ __device__ void UnaryCostFunctionAndItsGradientWithRespectToParamsAt(const float
     pMinusTildeP[i] = p[i] - tildeP[i];
     pMinusTildePSq += pMinusTildeP[i] * pMinusTildeP[i];
   }
-
+  
   float invPMinusTildePSq = rsqrtf(pMinusTildePSq);
   float nablaPMinusTildeP = 0;
   for (int i = 0; i < numDims; ++i)

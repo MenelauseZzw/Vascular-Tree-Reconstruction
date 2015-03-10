@@ -1,11 +1,44 @@
-#include <cstddef>
-#include "TestPairwiseCostFunction.h"
-#include "TestProjectionOntoLineAndUnaryCostFunction.h"
+#include "TestLevenbergMarquardtMinimizer.h"
+#include <H5Cpp.h>
+#include <iostream>
+#include <vector>
+
+#ifndef H5_NO_NAMESPACE
+using namespace H5;
+#endif
+
+template<typename T>
+PredType TypeOf();
+
+template<>
+PredType TypeOf<float>() { return PredType::NATIVE_FLOAT; }
+
+template<>
+PredType TypeOf<int>() { return PredType::NATIVE_INT; }
+
+template<typename T>
+std::vector<T> readVector(H5File sourceFile, const H5std_string& targetName)
+{
+  DataSet targetDataSet = sourceFile.openDataSet(targetName);
+  DataSpace targetSpace = targetDataSet.getSpace();
+
+  std::vector<T> targetVector(targetSpace.getSimpleExtentNpoints());
+  targetDataSet.read(&targetVector[0], TypeOf<T>());
+  return targetVector;
+}
 
 int main(int args, char *argv[])
 {
-  testProjectionOntoLineAndUnaryCostFunction(200000);
-  testPairwiseCostFunction(200000);
+  H5File sourceFile("C:\\WesternU\\test.h5", H5F_ACC_RDONLY);
+
+  std::vector<float> tildeP = readVector<float>(sourceFile, "tildeP");
+  std::vector<float> s = readVector<float>(sourceFile, "s");
+  std::vector<float> t = readVector<float>(sourceFile, "t");
+  std::vector<int> indPi = readVector<int>(sourceFile, "indPi");
+  std::vector<int> indPj = readVector<int>(sourceFile, "indPj");
+  std::vector<float> sigma = readVector<float>(sourceFile, "sigma");
+
+  testLevenbergMarquardtMinimizer(&tildeP[0], &s[0], &t[0], &sigma[0], 1/*tildeP.size() / 3*/, &indPi[0], &indPj[0], 2/*indPi.size()*/);
 }
 
 //#include "PairwiseCostFunction.h"
