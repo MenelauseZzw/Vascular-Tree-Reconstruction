@@ -38,7 +38,17 @@ int main(int args, char *argv[])
   std::vector<int> indPj = readVector<int>(sourceFile, "indPj");
   std::vector<float> sigma = readVector<float>(sourceFile, "sigma");
 
-  testLevenbergMarquardtMinimizer(&tildeP[0], &s[0], &t[0], &sigma[0], 1/*tildeP.size() / 3*/, &indPi[0], &indPj[0], 2/*indPi.size()*/);
+  testLevenbergMarquardtMinimizer(&tildeP[0], &s[0], &t[0], &sigma[0], tildeP.size() / 3, &indPi[0], &indPj[0], indPi.size());
+
+  const int rank = 1;
+  const hsize_t dims[rank] = { tildeP.size() };
+  DataSpace space(rank, dims);
+
+  H5File resultFile("C:\\WesternU\\testResult.h5", H5F_ACC_TRUNC);
+  resultFile.createDataSet("tildeP", PredType::NATIVE_FLOAT, space).write(&tildeP[0], PredType::NATIVE_FLOAT);
+  resultFile.createDataSet("s", PredType::NATIVE_FLOAT, space).write(&s[0], PredType::NATIVE_FLOAT);
+  resultFile.createDataSet("t", PredType::NATIVE_FLOAT, space).write(&t[0], PredType::NATIVE_FLOAT);
+  resultFile.close();
 }
 
 //#include "PairwiseCostFunction.h"

@@ -5,9 +5,10 @@
 #include <cusp/array2d.h>
 #include <cusp/blas.h>
 #include <cusp/csr_matrix.h>
+#include <cusp/copy.h>
 #include <cusp/ell_matrix.h>
 #include <cusp/elementwise.h>
-#include <cusp/krylov/bicgstab_m.h>
+#include <cusp/krylov/cg_m.h>
 #include <cusp/linear_operator.h>
 #include <cusp/monitor.h>
 #include <cusp/multiply.h>
@@ -91,8 +92,6 @@ void testLevenbergMarquardtMinimizer(float* pTildeP, float* pS, float* pT, float
   }
 
   cusp::array2d<float, cusp::device_memory> tildeP(hTildeP);
-  cusp::array2d<float, cusp::device_memory> s(hS);
-  cusp::array2d<float, cusp::device_memory> t(hT);
   cusp::array1d<float, cusp::device_memory> sigma(hSigma);
 
   cusp::array2d<float, cusp::device_memory> jacTildeP(hJacTildeP);
@@ -131,7 +130,7 @@ void testLevenbergMarquardtMinimizer(float* pTildeP, float* pS, float* pT, float
     }
     jacE.column_indices = column_indices;
 
-    cusp::array1d<float, cusp::host_memory> row_offsets(jacE.num_rows);
+    cusp::array1d<float, cusp::host_memory> row_offsets(jacE.num_rows + 1);
     for (int i = 0; i <= jacE.num_rows; ++i)
     {
       row_offsets[i] = i * numParams;
@@ -156,9 +155,10 @@ void testLevenbergMarquardtMinimizer(float* pTildeP, float* pS, float* pT, float
         column_indices[i] = (i % numParams) + numParams * pIndPj[i / numParamsPlusNumParams];
       }
     }
+
     jacEi.column_indices = column_indices;
 
-    cusp::array1d<float, cusp::host_memory> row_offsets(jacEi.num_rows);
+    cusp::array1d<float, cusp::host_memory> row_offsets(jacEi.num_rows + 1);
     for (int i = 0; i <= jacEi.num_rows; ++i)
     {
       row_offsets[i] = i * numParamsPlusNumParams;
@@ -182,7 +182,7 @@ void testLevenbergMarquardtMinimizer(float* pTildeP, float* pS, float* pT, float
     }
     jacEj.column_indices = column_indices;
 
-    cusp::array1d<float, cusp::host_memory> row_offsets(jacEj.num_rows);
+    cusp::array1d<float, cusp::host_memory> row_offsets(jacEj.num_rows + 1);
     for (int i = 0; i <= jacEj.num_rows; ++i)
     {
       row_offsets[i] = i * numParamsPlusNumParams;
@@ -190,178 +190,209 @@ void testLevenbergMarquardtMinimizer(float* pTildeP, float* pS, float* pT, float
     jacEj.row_offsets = row_offsets;
   }
 
-  UnaryCostFunctionAndItsGradientWithRespectToParams3x6(
-    thrust::raw_pointer_cast(&tildeP(0, 0)),
-    thrust::raw_pointer_cast(&s(0, 0)),
-    thrust::raw_pointer_cast(&t(0, 0)),
-    thrust::raw_pointer_cast(&jacTildeP(0, 0)),
-    thrust::raw_pointer_cast(&jacS(0, 0)),
-    thrust::raw_pointer_cast(&jacT(0, 0)),
-    thrust::raw_pointer_cast(&e[0]),
-    thrust::raw_pointer_cast(&jacE.values[0]),
-    numPoints
-    );
+  float unaryCostFunction1, unaryCostFunction2;
+  float pairwiseCostFunction1, pairwiseCostFunction2;
 
-  csr_matrix jacEt;
-  cusp::array1d<float, cusp::device_memory> jacEtTimesE(numPoints * numParams);
-  csr_matrix jacEtTimesJacE;
+  const float E = 2;
+  const float D = 1 / E;
 
-  cusp::transpose(jacE, jacEt);
-  cusp::multiply(jacEt, e, jacEtTimesE);
-  cusp::multiply(jacEt, jacE, jacEtTimesJacE);
+  cusp::array1d<float, cusp::device_memory> lambda(1, 100);
 
-  cusp::multiply(hIndPi, hTildeP, hTildePi);
-  cusp::multiply(hIndPi, hS, hSi);
-  cusp::multiply(hIndPi, hT, hTi);
-
-  cusp::multiply(hIndPj, hTildeP, hTildePj);
-  cusp::multiply(hIndPj, hS, hSj);
-  cusp::multiply(hIndPj, hT, hTj);
-
-  cusp::array2d<float, cusp::device_memory> tildePi(hTildePi);
-  cusp::array2d<float, cusp::device_memory> si(hSi);
-  cusp::array2d<float, cusp::device_memory> ti(hTi);
-
-  cusp::array2d<float, cusp::device_memory> tildePj(hTildePj);
-  cusp::array2d<float, cusp::device_memory> sj(hSj);
-  cusp::array2d<float, cusp::device_memory> tj(hTj);
-
-  PairwiseCostFunctionAndItsGradientWithRespectToParams3x12(
-    thrust::raw_pointer_cast(&tildePi(0, 0)),
-    thrust::raw_pointer_cast(&si(0, 0)),
-    thrust::raw_pointer_cast(&ti(0, 0)),
-    thrust::raw_pointer_cast(&jacTildePi(0, 0)),
-    thrust::raw_pointer_cast(&jacSi(0, 0)),
-    thrust::raw_pointer_cast(&jacTi(0, 0)),
-    thrust::raw_pointer_cast(&tildePj(0, 0)),
-    thrust::raw_pointer_cast(&sj(0, 0)),
-    thrust::raw_pointer_cast(&tj(0, 0)),
-    thrust::raw_pointer_cast(&jacTildePj(0, 0)),
-    thrust::raw_pointer_cast(&jacSj(0, 0)),
-    thrust::raw_pointer_cast(&jacTj(0, 0)),
-    thrust::raw_pointer_cast(&ei[0]),
-    thrust::raw_pointer_cast(&ej[0]),
-    thrust::raw_pointer_cast(&jacEi.values[0]),
-    thrust::raw_pointer_cast(&jacEj.values[0]),
-    numPairs
-    );
-
+  for (int iter = 0; iter < 50; ++iter)
   {
-    csr_matrix jacEit;
-    cusp::array1d<float, cusp::device_memory> jacEitTimesEi(numPoints * numParams);
-    csr_matrix jacEitTimesJacEi;
+    cusp::array2d<float, cusp::device_memory> s(hS);
+    cusp::array2d<float, cusp::device_memory> t(hT);
 
-    cusp::transpose(jacEi, jacEit);
-    cusp::multiply(jacEit, ei, jacEitTimesEi);
-    cusp::multiply(jacEit, jacEi, jacEitTimesJacEi);
+    UnaryCostFunctionAndItsGradientWithRespectToParams3x6(
+      thrust::raw_pointer_cast(&tildeP(0, 0)),
+      thrust::raw_pointer_cast(&s(0, 0)),
+      thrust::raw_pointer_cast(&t(0, 0)),
+      thrust::raw_pointer_cast(&jacTildeP(0, 0)),
+      thrust::raw_pointer_cast(&jacS(0, 0)),
+      thrust::raw_pointer_cast(&jacT(0, 0)),
+      thrust::raw_pointer_cast(&e[0]),
+      thrust::raw_pointer_cast(&jacE.values[0]),
+      numPoints
+      );
 
-    cusp::blas::axpy(jacEitTimesEi, jacEtTimesE, 1.0);
-    cusp::add(jacEtTimesJacE, jacEitTimesJacEi, jacEtTimesJacE);
-  }
+    csr_matrix jacEt;
+    cusp::array1d<float, cusp::device_memory> jacEtTimesE(numPoints * numParams);
+    csr_matrix jacEtTimesJacE;
 
-  {
-    csr_matrix jacEjt;
-    cusp::array1d<float, cusp::device_memory> jacEjtTimesEj(numPoints * numParams);
-    csr_matrix jacEjtTimesJacEj;
+    cusp::transpose(jacE, jacEt);
+    cusp::multiply(jacEt, e, jacEtTimesE);
+    cusp::multiply(jacEt, jacE, jacEtTimesJacE);
 
-    cusp::transpose(jacEj, jacEjt);
-    cusp::multiply(jacEj, ej, jacEjtTimesEj);
-    cusp::multiply(jacEjt, jacEj, jacEjtTimesJacEj);
+    cusp::multiply(hIndPi, hTildeP, hTildePi);
+    cusp::multiply(hIndPi, hS, hSi);
+    cusp::multiply(hIndPi, hT, hTi);
 
-    cusp::blas::axpy(jacEjtTimesEj, jacEtTimesE, 1.0);
-    cusp::add(jacEtTimesJacE, jacEjtTimesJacEj, jacEtTimesJacE);
-  }
+    cusp::multiply(hIndPj, hTildeP, hTildePj);
+    cusp::multiply(hIndPj, hS, hSj);
+    cusp::multiply(hIndPj, hT, hTj);
 
-  std::cout << "Unary cost function " << cusp::blas::dot(e, e) << std::endl;
-  std::cout << "Pairwise cost function " << cusp::blas::dot(ei, ei) + cusp::blas::dot(ej, ej) << std::endl;
+    cusp::array2d<float, cusp::device_memory> tildePi(hTildePi);
+    cusp::array2d<float, cusp::device_memory> si(hSi);
+    cusp::array2d<float, cusp::device_memory> ti(hTi);
 
-  cusp::default_monitor<float> monitor(jacEtTimesE, 1000, 1e-3);
-  cusp::array1d<float, cusp::device_memory> x(numPoints * numParams, 0);
-  cusp::array1d<float, cusp::device_memory> lambda(1, 10);
+    cusp::array2d<float, cusp::device_memory> tildePj(hTildePj);
+    cusp::array2d<float, cusp::device_memory> sj(hSj);
+    cusp::array2d<float, cusp::device_memory> tj(hTj);
 
-  cusp::krylov::bicgstab_m(jacEtTimesJacE, x, jacEtTimesE, lambda, monitor);
+    PairwiseCostFunctionAndItsGradientWithRespectToParams3x12(
+      thrust::raw_pointer_cast(&tildePi(0, 0)),
+      thrust::raw_pointer_cast(&si(0, 0)),
+      thrust::raw_pointer_cast(&ti(0, 0)),
+      thrust::raw_pointer_cast(&jacTildePi(0, 0)),
+      thrust::raw_pointer_cast(&jacSi(0, 0)),
+      thrust::raw_pointer_cast(&jacTi(0, 0)),
+      thrust::raw_pointer_cast(&tildePj(0, 0)),
+      thrust::raw_pointer_cast(&sj(0, 0)),
+      thrust::raw_pointer_cast(&tj(0, 0)),
+      thrust::raw_pointer_cast(&jacTildePj(0, 0)),
+      thrust::raw_pointer_cast(&jacSj(0, 0)),
+      thrust::raw_pointer_cast(&jacTj(0, 0)),
+      thrust::raw_pointer_cast(&ei[0]),
+      thrust::raw_pointer_cast(&ej[0]),
+      thrust::raw_pointer_cast(&jacEi.values[0]),
+      thrust::raw_pointer_cast(&jacEj.values[0]),
+      numPairs
+      );
 
-  if (monitor.converged())
-  {
-    std::cout << "Solver converged to " << monitor.relative_tolerance() << " relative tolerance";
-    std::cout << " after " << monitor.iteration_count() << " iterations" << std::endl;
-  }
-  else
-  {
-    std::cout << "Solver reached iteration limit " << monitor.iteration_limit() << " before converging";
-    std::cout << " to " << monitor.relative_tolerance() << " relative tolerance " << std::endl;
-  }
-
-  cusp::array1d<float, cusp::host_memory> hX(x);
-  cusp::array2d<float, cusp::host_memory> hSPlusX(hS);
-  cusp::array2d<float, cusp::host_memory> hTPlusX(hT);
-
-  for (int i = 0; i < x.size(); ++i)
-  {
-    int ind = i % numDims;
-    if ((i % numParams) < numParams / 2)
     {
-      hSPlusX(i / numParams, ind) += hX[i];
+      csr_matrix jacEit;
+      cusp::array1d<float, cusp::device_memory> jacEitTimesEi(numPoints * numParams);
+      csr_matrix jacEitTimesJacEi;
+
+      cusp::transpose(jacEi, jacEit);
+      cusp::multiply(jacEit, ei, jacEitTimesEi);
+      cusp::multiply(jacEit, jacEi, jacEitTimesJacEi);
+
+      cusp::blas::scal(jacEtTimesE, -1);
+      cusp::blas::axpy(jacEitTimesEi, jacEtTimesE, -1);
+      cusp::add(jacEtTimesJacE, jacEitTimesJacEi, jacEtTimesJacE);
+    }
+
+    {
+      csr_matrix jacEjt;
+      cusp::array1d<float, cusp::device_memory> jacEjtTimesEj(numPoints * numParams);
+      csr_matrix jacEjtTimesJacEj;
+
+      cusp::transpose(jacEj, jacEjt);
+      cusp::multiply(jacEjt, ej, jacEjtTimesEj);
+      cusp::multiply(jacEjt, jacEj, jacEjtTimesJacEj);
+
+      cusp::blas::axpy(jacEjtTimesEj, jacEtTimesE, -1);
+      cusp::add(jacEtTimesJacE, jacEjtTimesJacEj, jacEtTimesJacE);
+    }
+
+    std::cout << "Unary cost function " << (unaryCostFunction1 = cusp::blas::dot(e, e)) << std::endl;
+    std::cout << "Pairwise cost function " << (pairwiseCostFunction1 = cusp::blas::dot(ei, ei) + cusp::blas::dot(ej, ej)) << std::endl;
+
+    cusp::convergence_monitor<float> monitor(jacEtTimesE, 1000, 1e-6);
+
+    cusp::array1d<float, cusp::device_memory> x(numPoints * numParams, 0);
+
+    cusp::krylov::cg_m(jacEtTimesJacE, x, jacEtTimesE, lambda, monitor);
+
+    if (monitor.converged())
+    {
+      std::cout << "Solver converged to " << monitor.relative_tolerance() << " relative tolerance";
+      std::cout << " after " << monitor.iteration_count() << " iterations" << std::endl;
     }
     else
     {
-      hTPlusX(i / numParams, ind) += hX[i];
+      std::cout << "Solver reached iteration limit " << monitor.iteration_limit() << " before converging";
+      std::cout << " to " << monitor.relative_tolerance() << " relative tolerance " << std::endl;
     }
+
+    cusp::array1d<float, cusp::host_memory> hX(x);
+    cusp::array2d<float, cusp::host_memory> hSPlusX(hS);
+    cusp::array2d<float, cusp::host_memory> hTPlusX(hT);
+
+    for (int i = 0; i < x.size(); ++i)
+    {
+      int ind = i % numDims;
+      if ((i % numParams) < numParams / 2)
+      {
+        hSPlusX(i / numParams, ind) += hX[i];
+      }
+      else
+      {
+        hTPlusX(i / numParams, ind) += hX[i];
+      }
+    }
+
+    cusp::array2d<float, cusp::device_memory> sPlusX(hSPlusX);
+    cusp::array2d<float, cusp::device_memory> tPlusX(hTPlusX);
+
+    UnaryCostFunctionAndItsGradientWithRespectToParams3x6(
+      thrust::raw_pointer_cast(&tildeP(0, 0)),
+      thrust::raw_pointer_cast(&sPlusX(0, 0)),
+      thrust::raw_pointer_cast(&tPlusX(0, 0)),
+      thrust::raw_pointer_cast(&jacTildeP(0, 0)),
+      thrust::raw_pointer_cast(&jacS(0, 0)),
+      thrust::raw_pointer_cast(&jacT(0, 0)),
+      thrust::raw_pointer_cast(&e[0]),
+      thrust::raw_pointer_cast(&jacE.values[0]),
+      numPoints
+      );
+
+    cusp::array2d<float, cusp::host_memory> hSPlusXi(numPairs, numDims);
+    cusp::array2d<float, cusp::host_memory> hTPlusXi(numPairs, numDims);
+
+    cusp::array2d<float, cusp::host_memory> hSPlusXj(numPairs, numDims);
+    cusp::array2d<float, cusp::host_memory> hTPlusXj(numPairs, numDims);
+
+    cusp::multiply(hIndPi, hSPlusX, hSPlusXi);
+    cusp::multiply(hIndPi, hTPlusX, hTPlusXi);
+
+    cusp::multiply(hIndPj, hSPlusX, hSPlusXj);
+    cusp::multiply(hIndPj, hTPlusX, hTPlusXj);
+
+    cusp::array2d<float, cusp::device_memory> sPlusXi(hSPlusXi);
+    cusp::array2d<float, cusp::device_memory> tPlusXi(hTPlusXi);
+
+    cusp::array2d<float, cusp::device_memory> sPlusXj(hSPlusXj);
+    cusp::array2d<float, cusp::device_memory> tPlusXj(hTPlusXj);
+
+    PairwiseCostFunctionAndItsGradientWithRespectToParams3x12(
+      thrust::raw_pointer_cast(&tildePi(0, 0)),
+      thrust::raw_pointer_cast(&sPlusXi(0, 0)),
+      thrust::raw_pointer_cast(&tPlusXi(0, 0)),
+      thrust::raw_pointer_cast(&jacTildePi(0, 0)),
+      thrust::raw_pointer_cast(&jacSi(0, 0)),
+      thrust::raw_pointer_cast(&jacTi(0, 0)),
+      thrust::raw_pointer_cast(&tildePj(0, 0)),
+      thrust::raw_pointer_cast(&sPlusXj(0, 0)),
+      thrust::raw_pointer_cast(&tPlusXj(0, 0)),
+      thrust::raw_pointer_cast(&jacTildePj(0, 0)),
+      thrust::raw_pointer_cast(&jacSj(0, 0)),
+      thrust::raw_pointer_cast(&jacTj(0, 0)),
+      thrust::raw_pointer_cast(&ei[0]),
+      thrust::raw_pointer_cast(&ej[0]),
+      thrust::raw_pointer_cast(&jacEi.values[0]),
+      thrust::raw_pointer_cast(&jacEj.values[0]),
+      numPairs
+      );
+
+    std::cout << "Unary cost function " << (unaryCostFunction2 = cusp::blas::dot(e, e)) << std::endl;
+    std::cout << "Pairwise cost function " << (pairwiseCostFunction2 = cusp::blas::dot(ei, ei) + cusp::blas::dot(ej, ej)) << std::endl;
+
+    if (unaryCostFunction1 + pairwiseCostFunction1 > unaryCostFunction2 + pairwiseCostFunction2)
+    {
+      cusp::copy(hSPlusX.values, hS.values);
+      cusp::copy(hTPlusX.values, hT.values);
+      lambda[0] *= D;
+
+      std::cout << "lambda = D lambda" << std::endl;
+    }
+    else
+    {
+      lambda[0] *= E;
+
+      std::cout << "lambda = E lambda" << std::endl;
+    }
+    std::cout << "lambda " << lambda[0] << std::endl;
   }
-
-  cusp::array2d<float, cusp::device_memory> sPlusX(hSPlusX);
-  cusp::array2d<float, cusp::device_memory> tPlusX(hTPlusX);
-
-  UnaryCostFunctionAndItsGradientWithRespectToParams3x6(
-    thrust::raw_pointer_cast(&tildeP(0, 0)),
-    thrust::raw_pointer_cast(&sPlusX(0, 0)),
-    thrust::raw_pointer_cast(&tPlusX(0, 0)),
-    thrust::raw_pointer_cast(&jacTildeP(0, 0)),
-    thrust::raw_pointer_cast(&jacS(0, 0)),
-    thrust::raw_pointer_cast(&jacT(0, 0)),
-    thrust::raw_pointer_cast(&e[0]),
-    thrust::raw_pointer_cast(&jacE.values[0]),
-    numPoints
-    );
-
-  cusp::array2d<float, cusp::host_memory> hSPlusXi(numPairs, numDims);
-  cusp::array2d<float, cusp::host_memory> hTPlusXi(numPairs, numDims);
-
-  cusp::array2d<float, cusp::host_memory> hSPlusXj(numPairs, numDims);
-  cusp::array2d<float, cusp::host_memory> hTPlusXj(numPairs, numDims);
-
-  cusp::multiply(hIndPi, hSPlusX, hSPlusXi);
-  cusp::multiply(hIndPi, hTPlusX, hTPlusXi);
-
-  cusp::multiply(hIndPj, hSPlusX, hSPlusXj);
-  cusp::multiply(hIndPj, hTPlusX, hTPlusXj);
-
-  cusp::array2d<float, cusp::device_memory> sPlusXi(hSPlusXi);
-  cusp::array2d<float, cusp::device_memory> tPlusXi(hTPlusXi);
-
-  cusp::array2d<float, cusp::device_memory> sPlusXj(hSPlusXj);
-  cusp::array2d<float, cusp::device_memory> tPlusXj(hTPlusXj);
-
-  PairwiseCostFunctionAndItsGradientWithRespectToParams3x12(
-    thrust::raw_pointer_cast(&tildePi(0, 0)),
-    thrust::raw_pointer_cast(&sPlusXi(0, 0)),
-    thrust::raw_pointer_cast(&tPlusXi(0, 0)),
-    thrust::raw_pointer_cast(&jacTildePi(0, 0)),
-    thrust::raw_pointer_cast(&jacSi(0, 0)),
-    thrust::raw_pointer_cast(&jacTi(0, 0)),
-    thrust::raw_pointer_cast(&tildePj(0, 0)),
-    thrust::raw_pointer_cast(&sPlusXj(0, 0)),
-    thrust::raw_pointer_cast(&tPlusXj(0, 0)),
-    thrust::raw_pointer_cast(&jacTildePj(0, 0)),
-    thrust::raw_pointer_cast(&jacSj(0, 0)),
-    thrust::raw_pointer_cast(&jacTj(0, 0)),
-    thrust::raw_pointer_cast(&ei[0]),
-    thrust::raw_pointer_cast(&ej[0]),
-    thrust::raw_pointer_cast(&jacEi.values[0]),
-    thrust::raw_pointer_cast(&jacEj.values[0]),
-    numPairs
-    );
-
-  std::cout << "Unary cost function " << cusp::blas::dot(e, e) << std::endl;
-  std::cout << "Pairwise cost function " << cusp::blas::dot(ei, ei) + cusp::blas::dot(ej, ej) << std::endl;
 }
