@@ -20,8 +20,8 @@ __device__ void PairwiseCostFunctionAndItsGradientWithRespectToParamsAt(const fl
   float normPiMinusPiPrime = sqrtf(piMinusPiPrimeSq);
   float normPiMinusPj = sqrtf(piMinusPjSq);
 
-  *pPairwiseCostFunction = normPiMinusPiPrime * invPiMinusPj;
-  *pPairwiseCostGradient = (normPiMinusPj * nablaPiMinusPiPrime - normPiMinusPiPrime * nablaPiMinusPj) / piMinusPjSq;
+  *pPairwiseCostFunction = fmaxf(normPiMinusPiPrime * invPiMinusPj, 0);
+  *pPairwiseCostGradient = fmaxf((normPiMinusPj * nablaPiMinusPiPrime - normPiMinusPiPrime * nablaPiMinusPj) / piMinusPjSq, 0);
 }
 
 template<int numDims>

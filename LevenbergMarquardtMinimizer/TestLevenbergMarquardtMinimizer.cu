@@ -197,23 +197,27 @@ void testLevenbergMarquardtMinimizer(float* pTildeP, float* pS, float* pT, float
   const float D = 1 / E;
 
   cusp::array1d<float, cusp::device_memory> lambda(1, 100);
+  const int maxNumPoints = 65535;
 
-  for (int iter = 0; iter < 50; ++iter)
+  for (int iter = 0; iter < 10; ++iter)
   {
     cusp::array2d<float, cusp::device_memory> s(hS);
     cusp::array2d<float, cusp::device_memory> t(hT);
 
-    UnaryCostFunctionAndItsGradientWithRespectToParams3x6(
-      thrust::raw_pointer_cast(&tildeP(0, 0)),
-      thrust::raw_pointer_cast(&s(0, 0)),
-      thrust::raw_pointer_cast(&t(0, 0)),
-      thrust::raw_pointer_cast(&jacTildeP(0, 0)),
-      thrust::raw_pointer_cast(&jacS(0, 0)),
-      thrust::raw_pointer_cast(&jacT(0, 0)),
-      thrust::raw_pointer_cast(&e[0]),
-      thrust::raw_pointer_cast(&jacE.values[0]),
-      numPoints
-      );
+    for (int numPnt0 = 0; numPnt0 < numPoints; numPnt0 += maxNumPoints)
+    {
+      UnaryCostFunctionAndItsGradientWithRespectToParams3x6(
+        thrust::raw_pointer_cast(&tildeP(numPnt0, 0)),
+        thrust::raw_pointer_cast(&s(numPnt0, 0)),
+        thrust::raw_pointer_cast(&t(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacTildeP(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacS(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacT(numPnt0, 0)),
+        thrust::raw_pointer_cast(&e[numPnt0]),
+        thrust::raw_pointer_cast(&jacE.values[jacE.row_offsets[numPnt0]]),
+        std::min(numPoints - numPnt0, maxNumPoints)
+        );
+    }
 
     csr_matrix jacEt;
     cusp::array1d<float, cusp::device_memory> jacEtTimesE(numPoints * numParams);
@@ -239,25 +243,28 @@ void testLevenbergMarquardtMinimizer(float* pTildeP, float* pS, float* pT, float
     cusp::array2d<float, cusp::device_memory> sj(hSj);
     cusp::array2d<float, cusp::device_memory> tj(hTj);
 
-    PairwiseCostFunctionAndItsGradientWithRespectToParams3x12(
-      thrust::raw_pointer_cast(&tildePi(0, 0)),
-      thrust::raw_pointer_cast(&si(0, 0)),
-      thrust::raw_pointer_cast(&ti(0, 0)),
-      thrust::raw_pointer_cast(&jacTildePi(0, 0)),
-      thrust::raw_pointer_cast(&jacSi(0, 0)),
-      thrust::raw_pointer_cast(&jacTi(0, 0)),
-      thrust::raw_pointer_cast(&tildePj(0, 0)),
-      thrust::raw_pointer_cast(&sj(0, 0)),
-      thrust::raw_pointer_cast(&tj(0, 0)),
-      thrust::raw_pointer_cast(&jacTildePj(0, 0)),
-      thrust::raw_pointer_cast(&jacSj(0, 0)),
-      thrust::raw_pointer_cast(&jacTj(0, 0)),
-      thrust::raw_pointer_cast(&ei[0]),
-      thrust::raw_pointer_cast(&ej[0]),
-      thrust::raw_pointer_cast(&jacEi.values[0]),
-      thrust::raw_pointer_cast(&jacEj.values[0]),
-      numPairs
-      );
+    for (int numPnt0 = 0; numPnt0 < numPairs; numPnt0 += maxNumPoints)
+    {
+      PairwiseCostFunctionAndItsGradientWithRespectToParams3x12(
+        thrust::raw_pointer_cast(&tildePi(numPnt0, 0)),
+        thrust::raw_pointer_cast(&si(numPnt0, 0)),
+        thrust::raw_pointer_cast(&ti(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacTildePi(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacSi(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacTi(numPnt0, 0)),
+        thrust::raw_pointer_cast(&tildePj(numPnt0, 0)),
+        thrust::raw_pointer_cast(&sj(numPnt0, 0)),
+        thrust::raw_pointer_cast(&tj(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacTildePj(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacSj(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacTj(numPnt0, 0)),
+        thrust::raw_pointer_cast(&ei[numPnt0]),
+        thrust::raw_pointer_cast(&ej[numPnt0]),
+        thrust::raw_pointer_cast(&jacEi.values[jacEi.row_offsets[numPnt0]]),
+        thrust::raw_pointer_cast(&jacEj.values[jacEj.row_offsets[numPnt0]]),
+        std::min(numPairs - numPnt0, maxNumPoints)
+        );
+    }
 
     {
       csr_matrix jacEit;
@@ -325,18 +332,21 @@ void testLevenbergMarquardtMinimizer(float* pTildeP, float* pS, float* pT, float
 
     cusp::array2d<float, cusp::device_memory> sPlusX(hSPlusX);
     cusp::array2d<float, cusp::device_memory> tPlusX(hTPlusX);
-
-    UnaryCostFunctionAndItsGradientWithRespectToParams3x6(
-      thrust::raw_pointer_cast(&tildeP(0, 0)),
-      thrust::raw_pointer_cast(&sPlusX(0, 0)),
-      thrust::raw_pointer_cast(&tPlusX(0, 0)),
-      thrust::raw_pointer_cast(&jacTildeP(0, 0)),
-      thrust::raw_pointer_cast(&jacS(0, 0)),
-      thrust::raw_pointer_cast(&jacT(0, 0)),
-      thrust::raw_pointer_cast(&e[0]),
-      thrust::raw_pointer_cast(&jacE.values[0]),
-      numPoints
-      );
+    
+    for (int numPnt0 = 0; numPnt0 < numPoints; numPnt0 += maxNumPoints)
+    {
+      UnaryCostFunctionAndItsGradientWithRespectToParams3x6(
+        thrust::raw_pointer_cast(&tildeP(numPnt0, 0)),
+        thrust::raw_pointer_cast(&sPlusX(numPnt0, 0)),
+        thrust::raw_pointer_cast(&tPlusX(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacTildeP(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacS(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacT(numPnt0, 0)),
+        thrust::raw_pointer_cast(&e[numPnt0]),
+        thrust::raw_pointer_cast(&jacE.values[jacE.row_offsets[numPnt0]]),
+        std::min(numPoints - numPnt0, maxNumPoints)
+        );
+    }
 
     cusp::array2d<float, cusp::host_memory> hSPlusXi(numPairs, numDims);
     cusp::array2d<float, cusp::host_memory> hTPlusXi(numPairs, numDims);
@@ -356,25 +366,28 @@ void testLevenbergMarquardtMinimizer(float* pTildeP, float* pS, float* pT, float
     cusp::array2d<float, cusp::device_memory> sPlusXj(hSPlusXj);
     cusp::array2d<float, cusp::device_memory> tPlusXj(hTPlusXj);
 
-    PairwiseCostFunctionAndItsGradientWithRespectToParams3x12(
-      thrust::raw_pointer_cast(&tildePi(0, 0)),
-      thrust::raw_pointer_cast(&sPlusXi(0, 0)),
-      thrust::raw_pointer_cast(&tPlusXi(0, 0)),
-      thrust::raw_pointer_cast(&jacTildePi(0, 0)),
-      thrust::raw_pointer_cast(&jacSi(0, 0)),
-      thrust::raw_pointer_cast(&jacTi(0, 0)),
-      thrust::raw_pointer_cast(&tildePj(0, 0)),
-      thrust::raw_pointer_cast(&sPlusXj(0, 0)),
-      thrust::raw_pointer_cast(&tPlusXj(0, 0)),
-      thrust::raw_pointer_cast(&jacTildePj(0, 0)),
-      thrust::raw_pointer_cast(&jacSj(0, 0)),
-      thrust::raw_pointer_cast(&jacTj(0, 0)),
-      thrust::raw_pointer_cast(&ei[0]),
-      thrust::raw_pointer_cast(&ej[0]),
-      thrust::raw_pointer_cast(&jacEi.values[0]),
-      thrust::raw_pointer_cast(&jacEj.values[0]),
-      numPairs
-      );
+    for (int numPnt0 = 0; numPnt0 < numPairs; numPnt0 += maxNumPoints)
+    {
+      PairwiseCostFunctionAndItsGradientWithRespectToParams3x12(
+        thrust::raw_pointer_cast(&tildePi(numPnt0, 0)),
+        thrust::raw_pointer_cast(&sPlusXi(numPnt0, 0)),
+        thrust::raw_pointer_cast(&tPlusXi(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacTildePi(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacSi(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacTi(numPnt0, 0)),
+        thrust::raw_pointer_cast(&tildePj(numPnt0, 0)),
+        thrust::raw_pointer_cast(&sPlusXj(numPnt0, 0)),
+        thrust::raw_pointer_cast(&tPlusXj(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacTildePj(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacSj(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacTj(numPnt0, 0)),
+        thrust::raw_pointer_cast(&ei[numPnt0]),
+        thrust::raw_pointer_cast(&ej[numPnt0]),
+        thrust::raw_pointer_cast(&jacEi.values[jacEi.row_offsets[numPnt0]]),
+        thrust::raw_pointer_cast(&jacEj.values[jacEj.row_offsets[numPnt0]]),
+        std::min(numPairs - numPnt0, maxNumPoints)
+        );
+    }
 
     std::cout << "Unary cost function " << (unaryCostFunction2 = cusp::blas::dot(e, e)) << std::endl;
     std::cout << "Pairwise cost function " << (pairwiseCostFunction2 = cusp::blas::dot(ei, ei) + cusp::blas::dot(ej, ej)) << std::endl;

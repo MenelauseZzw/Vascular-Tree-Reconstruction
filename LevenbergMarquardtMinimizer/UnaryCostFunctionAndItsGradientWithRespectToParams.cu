@@ -15,15 +15,15 @@ __device__ void UnaryCostFunctionAndItsGradientWithRespectToParamsAt(const float
     pMinusTildePSq += pMinusTildeP[i] * pMinusTildeP[i];
   }
   
-  float invPMinusTildePSq = rsqrtf(pMinusTildePSq);
+  float invPMinusTildeP = rsqrtf(pMinusTildePSq);
   float nablaPMinusTildeP = 0;
   for (int i = 0; i < numDims; ++i)
   {
-    nablaPMinusTildeP += pMinusTildeP[i] * (jacP[i] - jacTildeP[i]) * invPMinusTildePSq;
+    nablaPMinusTildeP += pMinusTildeP[i] * (jacP[i] - jacTildeP[i]) * invPMinusTildeP;
   }
 
   *pUnaryCostFunction = sqrtf(pMinusTildePSq);
-  *pUnaryCostGradient = nablaPMinusTildeP;
+  *pUnaryCostGradient = fmaxf(nablaPMinusTildeP, 0);
 }
 
 template<int numDims>
