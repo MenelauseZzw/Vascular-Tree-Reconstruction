@@ -1,5 +1,6 @@
 #include "TestLevenbergMarquardtMinimizer.h"
 #include "PairwiseCostFunctionAndItsGradientWithRespectToParams.h"
+#include "ProjectionOntoLineAndItsJacobian.h"
 #include "UnaryCostFunctionAndItsGradientWithRespectToParams.h"
 #include <cusp/array1d.h>
 #include <cusp/array2d.h>
@@ -17,7 +18,7 @@
 #include <iostream>
 #include <thrust/device_ptr.h>
 
-void testLevenbergMarquardtMinimizer(float* pTildeP, float* pS, float* pT, float* pSigma, int numPoints, int* pIndPi, int* pIndPj, int numPairs)
+void testLevenbergMarquardtMinimizer(float* pTildeP, float* pS, float* pT, float* pSigma, int numPoints, int* pIndPi, int* pIndPj, int numPairs, float* pP)
 {
   int numDims = 3;
 
@@ -199,10 +200,15 @@ void testLevenbergMarquardtMinimizer(float* pTildeP, float* pS, float* pT, float
   cusp::array1d<float, cusp::device_memory> lambda(1, 100);
   const int maxNumPoints = 65535;
 
-  for (int iter = 0; iter < 10; ++iter)
+  cusp::array2d<float, cusp::device_memory> s(hS);
+  cusp::array2d<float, cusp::device_memory> t(hT);
+  cusp::array2d<float, cusp::device_memory> p(numPoints, numDims);
+  cusp::array2d<float, cusp::device_memory> jacP(numDims * numPoints, numParams);
+
+  for (int iter = 0; iter < 50; ++iter)
   {
-    cusp::array2d<float, cusp::device_memory> s(hS);
-    cusp::array2d<float, cusp::device_memory> t(hT);
+    cusp::copy(hS, s);
+    cusp::copy(hT, t);
 
     for (int numPnt0 = 0; numPnt0 < numPoints; numPnt0 += maxNumPoints)
     {
@@ -332,7 +338,7 @@ void testLevenbergMarquardtMinimizer(float* pTildeP, float* pS, float* pT, float
 
     cusp::array2d<float, cusp::device_memory> sPlusX(hSPlusX);
     cusp::array2d<float, cusp::device_memory> tPlusX(hTPlusX);
-    
+
     for (int numPnt0 = 0; numPnt0 < numPoints; numPnt0 += maxNumPoints)
     {
       UnaryCostFunctionAndItsGradientWithRespectToParams3x6(
@@ -408,4 +414,22 @@ void testLevenbergMarquardtMinimizer(float* pTildeP, float* pS, float* pT, float
     }
     std::cout << "lambda " << lambda[0] << std::endl;
   }
+
+  for (int numPnt0 = 0; numPnt0 < numPoints; numPnt0 += maxNumPoints)
+  {
+    ProjectionOntoLineAndItsJacobian3x6(
+      thrust::raw_pointer_cast(&tildeP(numPnt0, 0)),
+      thrust::raw_pointer_cast(&s(numPnt0, 0)),
+      thrust::raw_pointer_cast(&t(numPnt0, 0)),
+      thrust::raw_pointer_cast(&jacTildeP(numPnt0, 0)),
+      thrust::raw_pointer_cast(&jacS(numPnt0, 0)),
+      thrust::raw_pointer_cast(&jacT(numPnt0, 0)),
+      thrust::raw_pointer_cast(&p(numPnt0, 0)),
+      thrust::raw_pointer_cast(&jacP(numPnt0, 0)),
+      std::min(numPoints - numPnt0, maxNumPoints)
+      );
+  }
+
+  array2d_view hP(numPoints, numDims, numDims, array1d_view(pP, pP + numDims * numPoints));
+  cusp::copy(p, hP);
 }
