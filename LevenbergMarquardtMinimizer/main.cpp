@@ -1,5 +1,6 @@
 #include "TestLevenbergMarquardtMinimizer.h"
 #include <gflags/gflags.h>
+#include <glog/logging.h>
 #include <H5Cpp.h>
 #include <iostream>
 #include <vector>
@@ -30,6 +31,7 @@ std::vector<T> readVector(H5File sourceFile, const H5std_string& targetName)
 
 int main(int argc, char *argv[])
 {
+  google::InitGoogleLogging(argv[0]);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   H5File sourceFile("C:\\WesternU\\test.h5", H5F_ACC_RDONLY);
