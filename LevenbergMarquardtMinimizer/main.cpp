@@ -1,4 +1,5 @@
 #include "TestLevenbergMarquardtMinimizer.h"
+#include <gflags/gflags.h>
 #include <H5Cpp.h>
 #include <iostream>
 #include <vector>
@@ -27,8 +28,10 @@ std::vector<T> readVector(H5File sourceFile, const H5std_string& targetName)
   return targetVector;
 }
 
-int main(int args, char *argv[])
+int main(int argc, char *argv[])
 {
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+
   H5File sourceFile("C:\\WesternU\\test.h5", H5F_ACC_RDONLY);
 
   std::vector<float> tildeP = readVector<float>(sourceFile, "tildeP");

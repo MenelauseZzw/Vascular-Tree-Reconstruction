@@ -1,13 +1,19 @@
 cmake_minimum_required(VERSION 2.8.11)
 project(LevenbergMarquardtMinimizer)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
-set(HDF5_USE_STATIC_LIBRARIES ON)
+# Find Google gflags library
+set(GFLAGS_NAMESPACE gflags)
+find_package(gflags REQUIRED)
                                        
 find_package(CUDA REQUIRED)
+
+set(HDF5_USE_STATIC_LIBRARIES ON)
 find_package(HDF5 REQUIRED NAMES hdf5 COMPONENTS CXX)
 
 include_directories(
-  "${HDF5_INCLUDE_DIR}"
+  ${GFLAGS_INCLUDE_DIRS} 
+  ${HDF5_INCLUDE_DIR} 
   "$ENV{NVCUDASAMPLES_ROOT}/common/inc"
   )
 
@@ -35,5 +41,6 @@ cuda_add_executable(
 
 target_link_libraries(
   LevenbergMarquardtMinimizer
-  "${HDF5_LIBRARIES}"
+  ${GFLAGS_LIBRARIES}
+  ${HDF5_LIBRARIES}
   )
