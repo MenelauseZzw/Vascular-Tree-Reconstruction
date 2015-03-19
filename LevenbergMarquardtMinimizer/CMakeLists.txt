@@ -36,6 +36,8 @@ cuda_add_executable(
   ProjectionOntoLineAndItsJacobian.cu
   ProjectionOntoLineAndItsJacobian.cuh
   ProjectionOntoLineAndItsJacobian.h
+  TestLevenbergMarquardtMinimizer1.cu
+  TestLevenbergMarquardtMinimizer1.h
   TestLsqr.cu
   TestLsqr.h
   UnaryCostFunction.h

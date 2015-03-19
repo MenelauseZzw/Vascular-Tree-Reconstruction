@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <cusp/array1d.h>
 #include <cusp/array2d.h>
-#include <cusp/blas.h>
+#include <cusp/blas/blas.h>
 #include <cusp/csr_matrix.h>
 #include <cusp/multiply.h>
 #include <cusp/print.h>
@@ -229,7 +229,7 @@ void testLsqr()
       cusp::blas::scal(u, 1 / beta);
     }
     //Anorm = norm([Anorm alfa beta damp]);
-    Anorm = sqrt(Anorm * Anorm + alfa * alfa + beta * beta + damp * damp);
+    Anorm = sqrt(Anorm * Anorm + alfa * alfa + beta * beta + damp * damp);//?
     //if explicitA
     //  v = A'*u   - beta*v;
     //else
