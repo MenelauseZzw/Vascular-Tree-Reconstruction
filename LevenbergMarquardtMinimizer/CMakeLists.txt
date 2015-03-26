@@ -24,6 +24,8 @@ include_directories(
 cuda_add_executable(
   LevenbergMarquardtMinimizer
   main.cpp
+  AdjustLineEndpoints.cu
+  AdjustLineEndpoints.h
   DoubleMultiVariableFunction.cpp
   DoubleMultiVariableFunction.h
   DoubleParameterizedFunctional.cpp

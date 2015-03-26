@@ -1,4 +1,5 @@
 #include "TestLevenbergMarquardtMinimizer1.h"
+#include "AdjustLineEndpoints.h"
 #include "PairwiseCostFunctionAndItsGradientWithRespectToParams.h"
 #include "ProjectionOntoLineAndItsJacobian.h"
 #include "UnaryCostFunctionAndItsGradientWithRespectToParams.h"
@@ -389,6 +390,7 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
         thrust::raw_pointer_cast(&jacTildeP(numPnt0, 0)),
         thrust::raw_pointer_cast(&jacS(numPnt0, 0)),
         thrust::raw_pointer_cast(&jacT(numPnt0, 0)),
+        thrust::raw_pointer_cast(&sigma[numPnt0]),
         thrust::raw_pointer_cast(&e[numPnt0]),
         thrust::raw_pointer_cast(&jacE_.values[jacE_row_offsets[numPnt0]]),
         std::min(numPoints - numPnt0, maxNumPoints)
@@ -875,6 +877,7 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
         thrust::raw_pointer_cast(&jacTildeP(numPnt0, 0)),
         thrust::raw_pointer_cast(&jacS(numPnt0, 0)),
         thrust::raw_pointer_cast(&jacT(numPnt0, 0)),
+        thrust::raw_pointer_cast(&sigma[numPnt0]),
         thrust::raw_pointer_cast(&e[numPnt0]),
         thrust::raw_pointer_cast(&jacE_.values[jacE_row_offsets[numPnt0]]),
         std::min(numPoints - numPnt0, maxNumPoints)
@@ -934,6 +937,13 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
 
   for (int numPnt0 = 0; numPnt0 < numPoints; numPnt0 += maxNumPoints)
   {
+    AdjustLineEndpoints3(
+      thrust::raw_pointer_cast(&tildeP(numPnt0, 0)),
+      thrust::raw_pointer_cast(&s(numPnt0, 0)),
+      thrust::raw_pointer_cast(&t(numPnt0, 0)),
+      std::min(numPoints - numPnt0, maxNumPoints)
+      );
+
     ProjectionOntoLineAndItsJacobian3x6(
       thrust::raw_pointer_cast(&tildeP(numPnt0, 0)),
       thrust::raw_pointer_cast(&s(numPnt0, 0)),
