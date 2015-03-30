@@ -4,7 +4,7 @@
 #include "UnaryCostFunctionAndItsGradientWithRespectToParams.h"
 
 template<int numDims>
-__device__ void UnaryCostFunctionAndItsGradientWithRespectToParamsAt(const float* tildeP, const float* p, const float* jacTildeP, const float* jacP, float sigma, float* pUnaryCostFunction, float* pUnaryCostGradient)
+__device__ void UnaryCostFunctionAndItsGradientWithRespectToParamsAt(const float* tildeP, const float* p, const float* jacTildeP, const float* jacP, float* pUnaryCostFunction, float* pUnaryCostGradient)
 {
   float pMinusTildeP[numDims];
   float pMinusTildePSq = 0;
@@ -23,8 +23,8 @@ __device__ void UnaryCostFunctionAndItsGradientWithRespectToParamsAt(const float
     nablaPMinusTildeP += pMinusTildeP[i] * (jacP[i] - jacTildeP[i]) * invPMinusTildeP;
   }
 
-  *pUnaryCostFunction = sqrtf(pMinusTildePSq) / sigma;
-  *pUnaryCostGradient = nablaPMinusTildeP / sigma;
+  *pUnaryCostFunction = sqrtf(pMinusTildePSq);
+  *pUnaryCostGradient = nablaPMinusTildeP;
 }
 
 template<int numDims>
@@ -49,8 +49,6 @@ __global__ void UnaryCostFunctionAndItsGradientWithRespectToParams(const float* 
     t[i] = pT[indPnt];
   }
 
-  const float sigma = pSigma[numPnt];
-
   float jacTildeP[numDims];
   float jacS[numDims];
   float jacT[numDims];
@@ -71,7 +69,7 @@ __global__ void UnaryCostFunctionAndItsGradientWithRespectToParams(const float* 
 
   float costFunction;
   float costGradient;
-  UnaryCostFunctionAndItsGradientWithRespectToParamsAt<numDims>(tildeP, p, jacTildeP, jacP, sigma, &costFunction, &costGradient);
+  UnaryCostFunctionAndItsGradientWithRespectToParamsAt<numDims>(tildeP, p, jacTildeP, jacP, &costFunction, &costGradient);
 
   if (!isfinite(costGradient))
   {
@@ -156,14 +154,16 @@ __global__ void UnaryCostFunctionAndItsGradientWithRespectToParams(const float* 
 
     float pMinusTwoHMinusTildeP = sqrtf(pMinusTildePSq);
 
-    costGradient = (-pPlusTwoHMinusTildeP + 8 * pPlusHMinusTildeP - 8 * pMinusHMinusTildeP + pMinusTwoHMinusTildeP) / (12 * h * sigma);
+    costGradient = (-pPlusTwoHMinusTildeP + 8 * pPlusHMinusTildeP - 8 * pMinusHMinusTildeP + pMinusTwoHMinusTildeP) / (12 * h);
   }
 
-  pUnaryCostFunction[numPnt] = costFunction;
-  pUnaryCostGradient[indGrad0 + numPar] = costGradient;
+  const float sigma = pSigma[numPnt];
+
+  pUnaryCostFunction[numPnt] = costFunction / sigma;
+  pUnaryCostGradient[indGrad0 + numPar] = costGradient / sigma;
 }
 
 extern "C" void UnaryCostFunctionAndItsGradientWithRespectToParams3x6(const float* pTildeP, const float* pS, const float *pT, const float *pJacTildeP, const float *pJacS, const float *pJacT, const float *pSigma, float* pUnaryCostFunction, float* pUnaryCostGradient, int numPoints)
 {
-  UnaryCostFunctionAndItsGradientWithRespectToParams<3> << <numPoints, 6 >> >(pTildeP, pS, pT, pJacTildeP, pJacS, pJacT, pSigma, pUnaryCostFunction, pUnaryCostGradient);
+  UnaryCostFunctionAndItsGradientWithRespectToParams<3><<<numPoints, 6>>>(pTildeP, pS, pT, pJacTildeP, pJacS, pJacT, pSigma, pUnaryCostFunction, pUnaryCostGradient);
 }
