@@ -8,6 +8,8 @@ find_package(gflags REQUIRED)
               
 # Find Google glog library.
 find_package(glog REQUIRED)
+
+find_package(flann REQUIRED)
                          
 find_package(CUDA REQUIRED)
 
@@ -18,6 +20,7 @@ include_directories(
   ${GFLAGS_INCLUDE_DIRS} 
   ${GLOG_INCLUDE_DIRS}
   ${HDF5_INCLUDE_DIR} 
+  ${FLANN_INCLUDE_DIRS}
   "$ENV{NVCUDASAMPLES_ROOT}/common/inc"
   )
 
@@ -38,6 +41,8 @@ cuda_add_executable(
   ProjectionOntoLineAndItsJacobian.cu
   ProjectionOntoLineAndItsJacobian.cuh
   ProjectionOntoLineAndItsJacobian.h
+  TestKnnSearch.cpp
+  TestKnnSearch.h
   TestLevenbergMarquardtMinimizer1.cu
   TestLevenbergMarquardtMinimizer1.h
   TestLsqr.cu
@@ -52,4 +57,5 @@ target_link_libraries(
   ${GFLAGS_LIBRARIES}
   ${GLOG_LIBRARIES}
   ${HDF5_LIBRARIES}
+  ${FLANN_LIBRARIES}
   )

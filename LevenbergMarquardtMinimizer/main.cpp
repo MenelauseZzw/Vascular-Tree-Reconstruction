@@ -1,4 +1,5 @@
 #include "TestLevenbergMarquardtMinimizer1.h"
+#include "TestKnnSearch.h"
 //#include <gflags/gflags.h>
 //#include <glog/logging.h>
 #include <H5Cpp.h>
@@ -31,19 +32,33 @@ std::vector<T> readVector(H5File sourceFile, const H5std_string& targetName)
 
 int main(int argc, char *argv[])
 {
-  H5File sourceFile("C:\\WesternU\\test.h5", H5F_ACC_RDONLY);
+  H5File sourceFile("C:\\Temp\\ThinnedData\\testFull.h5", H5F_ACC_RDONLY);
 
   std::vector<float> tildeP = readVector<float>(sourceFile, "tildeP");
   std::vector<float> s = readVector<float>(sourceFile, "s");
   std::vector<float> t = readVector<float>(sourceFile, "t");
-  std::vector<int> indPi = readVector<int>(sourceFile, "indPi");
-  std::vector<int> indPj = readVector<int>(sourceFile, "indPj");
+  std::vector<int> indPi;// = readVector<int>(sourceFile, "indPi");
+  std::vector<int> indPj;// = readVector<int>(sourceFile, "indPj");
   std::vector<float> sigma = readVector<float>(sourceFile, "sigma");
-  std::vector<float> p(tildeP.size());
+  std::vector<float> p(tildeP);
 
-  testLevenbergMarquardtMinimizer1(&tildeP[0], &s[0], &t[0], &sigma[0], tildeP.size() / 3, &indPi[0], &indPj[0], indPi.size(), &p[0]);
+  //testLevenbergMarquardtMinimizer1(&tildeP[0], &s[0], &t[0], &sigma[0], tildeP.size() / 3, &indPi[0], &indPj[0], indPi.size(), &p[0]);
 
-  H5File resultFile("C:\\WesternU\\testResult.h5", H5F_ACC_TRUNC);
+
+  //p = readVector<float>(sourceFile, "p");
+
+  int numPairs = 0;
+  testKnnSearch(&p[0], &sigma[0], &s[0], &t[0], indPi, indPj, p.size() / 3);
+
+  std::cout << "numPairs " << indPi.size() << std::endl;
+
+  /* for (int i = 0; i < indPi.size(); i++)
+   {
+   std::cout << p[3 * indPi[i] + 0] << " " << p[3 * indPi[i] + 1] << " " << p[3 * indPi[i] + 2] << std::endl;
+   std::cout << p[3 * indPj[i] + 0] << " " << p[3 * indPj[i] + 1] << " " << p[3 * indPj[i] + 2] << std::endl;
+   }*/
+
+  H5File resultFile("C:\\WesternU\\test7nn2.h5", H5F_ACC_TRUNC);
 
   const int rank = 1;
   {
@@ -58,9 +73,15 @@ int main(int argc, char *argv[])
   {
     const hsize_t dims[rank] = { indPi.size() };
     DataSpace space(rank, dims);
-    
+
     resultFile.createDataSet("indPi", PredType::NATIVE_INT, space).write(&indPi[0], PredType::NATIVE_INT);
     resultFile.createDataSet("indPj", PredType::NATIVE_INT, space).write(&indPj[0], PredType::NATIVE_INT);
+  }
+  {
+    const hsize_t dims[rank] = { sigma.size() };
+    DataSpace space(rank, dims);
+
+    resultFile.createDataSet("sigma", PredType::NATIVE_FLOAT, space).write(&sigma[0], PredType::NATIVE_FLOAT);
   }
   resultFile.close();
 }
