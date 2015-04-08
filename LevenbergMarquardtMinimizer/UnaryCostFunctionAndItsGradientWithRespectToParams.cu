@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "ProjectionOntoLineAndItsJacobian.cuh"
@@ -80,11 +81,11 @@ __global__ void UnaryCostFunctionAndItsGradientWithRespectToParams(const float* 
 
     if (numPar < numDims)
     {
-      s[numPar] = pS[indPnt0 + numPar] + 2 * h;
+      s[numPar % numDims] = pS[indPnt0 + numPar % numDims] + 2 * h;
     }
     else
     {
-      t[numPar] = pT[indPnt0 + numPar] + 2 * h;
+      t[numPar % numDims] = pT[indPnt0 + numPar % numDims] + 2 * h;
     }
 
     ProjectionOntoLineAndItsJacobianAt<numDims>(tildeP, s, t, jacTildeP, jacS, jacT, p, jacP);
@@ -99,11 +100,11 @@ __global__ void UnaryCostFunctionAndItsGradientWithRespectToParams(const float* 
 
     if (numPar < numDims)
     {
-      s[numPar] = pS[indPnt0 + numPar] + h;
+      s[numPar % numDims] = pS[indPnt0 + numPar % numDims] + h;
     }
     else
     {
-      t[numPar] = pT[indPnt0 + numPar] + h;
+      t[numPar % numDims] = pT[indPnt0 + numPar % numDims] + h;
     }
 
     ProjectionOntoLineAndItsJacobianAt<numDims>(tildeP, s, t, jacTildeP, jacS, jacT, p, jacP);
@@ -118,11 +119,11 @@ __global__ void UnaryCostFunctionAndItsGradientWithRespectToParams(const float* 
 
     if (numPar < numDims)
     {
-      s[numPar] = pS[indPnt0 + numPar] - h;
+      s[numPar % numDims] = pS[indPnt0 + numPar % numDims] - h;
     }
     else
     {
-      t[numPar] = pT[indPnt0 + numPar] - h;
+      t[numPar % numDims] = pT[indPnt0 + numPar % numDims] - h;
     }
 
     ProjectionOntoLineAndItsJacobianAt<numDims>(tildeP, s, t, jacTildeP, jacS, jacT, p, jacP);
@@ -137,11 +138,11 @@ __global__ void UnaryCostFunctionAndItsGradientWithRespectToParams(const float* 
 
     if (numPar < numDims)
     {
-      s[numPar] = pS[indPnt0 + numPar] - 2 * h;
+      s[numPar % numDims] = pS[indPnt0 + numPar % numDims] - 2 * h;
     }
     else
     {
-      t[numPar] = pT[indPnt0 + numPar] - 2 * h;
+      t[numPar % numDims] = pT[indPnt0 + numPar % numDims] - 2 * h;
     }
 
     ProjectionOntoLineAndItsJacobianAt<numDims>(tildeP, s, t, jacTildeP, jacS, jacT, p, jacP);
@@ -161,9 +162,12 @@ __global__ void UnaryCostFunctionAndItsGradientWithRespectToParams(const float* 
 
   pUnaryCostFunction[numPnt] = costFunction / sigma;
   pUnaryCostGradient[indGrad0 + numPar] = costGradient / sigma;
+
+  assert(isfinite(costFunction));
+  assert(isfinite(costGradient));
 }
 
 extern "C" void UnaryCostFunctionAndItsGradientWithRespectToParams3x6(const float* pTildeP, const float* pS, const float *pT, const float *pJacTildeP, const float *pJacS, const float *pJacT, const float *pSigma, float* pUnaryCostFunction, float* pUnaryCostGradient, int numPoints)
 {
-  UnaryCostFunctionAndItsGradientWithRespectToParams<3><<<numPoints, 6>>>(pTildeP, pS, pT, pJacTildeP, pJacS, pJacT, pSigma, pUnaryCostFunction, pUnaryCostGradient);
+  UnaryCostFunctionAndItsGradientWithRespectToParams<3> << <numPoints, 6 >> >(pTildeP, pS, pT, pJacTildeP, pJacS, pJacT, pSigma, pUnaryCostFunction, pUnaryCostGradient);
 }
