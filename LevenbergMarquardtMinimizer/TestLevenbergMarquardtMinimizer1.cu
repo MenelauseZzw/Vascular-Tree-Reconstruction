@@ -36,7 +36,7 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
 
   typedef cusp::array2d<float, cusp::host_memory> array2d;
 
-  /*array2d hJacTildeP(numDims * numPoints, numParams, 0);
+  array2d hJacTildeP(numDims * numPoints, numParams, 0);
   array2d hJacS(numDims * numPoints, numParams, 0);
   array2d hJacT(numDims * numPoints, numParams, 0);
 
@@ -79,7 +79,7 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
     hJacTj(i + 0, 9) = 1;
     hJacTj(i + 1, 10) = 1;
     hJacTj(i + 2, 11) = 1;
-  }*/
+  }
 
   cusp::array1d_view<int*> hIndPi(pIndPi, pIndPi + numPairs);
   cusp::array1d_view<int*> hIndPj(pIndPj, pIndPj + numPairs);
@@ -87,25 +87,25 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
   cusp::array2d<float, cusp::device_memory> tildeP(hTildeP);
   cusp::array1d<float, cusp::device_memory> sigma(hSigma);
 
-  //cusp::array2d<float, cusp::device_memory> jacTildeP(hJacTildeP);
-  //cusp::array2d<float, cusp::device_memory> jacS(hJacS);
-  //cusp::array2d<float, cusp::device_memory> jacT(hJacT);
+  cusp::array2d<float, cusp::device_memory> jacTildeP(hJacTildeP);
+  cusp::array2d<float, cusp::device_memory> jacS(hJacS);
+  cusp::array2d<float, cusp::device_memory> jacT(hJacT);
   
-  /*cusp::array2d<float, cusp::device_memory> tildePi(numPairs, numDims);
+  cusp::array2d<float, cusp::device_memory> tildePi(numPairs, numDims);
   cusp::array2d<float, cusp::device_memory> si(numPairs, numDims);
   cusp::array2d<float, cusp::device_memory> ti(numPairs, numDims);
   
   cusp::array2d<float, cusp::device_memory> tildePj(numPairs, numDims);
   cusp::array2d<float, cusp::device_memory> sj(numPairs, numDims);
-  cusp::array2d<float, cusp::device_memory> tj(numPairs, numDims);*/
+  cusp::array2d<float, cusp::device_memory> tj(numPairs, numDims);
 
-  //cusp::array2d<float, cusp::device_memory> jacTildePi(hJacTildePi);
-  //cusp::array2d<float, cusp::device_memory> jacSi(hJacSi);
-  //cusp::array2d<float, cusp::device_memory> jacTi(hJacTi);
+  cusp::array2d<float, cusp::device_memory> jacTildePi(hJacTildePi);
+  cusp::array2d<float, cusp::device_memory> jacSi(hJacSi);
+  cusp::array2d<float, cusp::device_memory> jacTi(hJacTi);
 
-  //cusp::array2d<float, cusp::device_memory> jacTildePj(hJacTildePj);
-  //cusp::array2d<float, cusp::device_memory> jacSj(hJacSj);
-  //cusp::array2d<float, cusp::device_memory> jacTj(hJacTj);
+  cusp::array2d<float, cusp::device_memory> jacTildePj(hJacTildePj);
+  cusp::array2d<float, cusp::device_memory> jacSj(hJacSj);
+  cusp::array2d<float, cusp::device_memory> jacTj(hJacTj);
 
   cusp::array1d<int, cusp::device_memory> indPi(hIndPi);
   cusp::array1d<int, cusp::device_memory> indPj(hIndPj);
@@ -387,9 +387,9 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
         thrust::raw_pointer_cast(&tildeP(numPnt0, 0)),
         thrust::raw_pointer_cast(&s(numPnt0, 0)),
         thrust::raw_pointer_cast(&t(numPnt0, 0)),
-        /*thrust::raw_pointer_cast(&jacTildeP(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacTildeP(numPnt0, 0)),
         thrust::raw_pointer_cast(&jacS(numPnt0, 0)),
-        thrust::raw_pointer_cast(&jacT(numPnt0, 0)),*/
+        thrust::raw_pointer_cast(&jacT(numPnt0, 0)),
         thrust::raw_pointer_cast(&sigma[numPnt0]),
         thrust::raw_pointer_cast(&e[numPnt0]),
         thrust::raw_pointer_cast(&jacE_.values[jacE_row_offsets[numPnt0]]),
@@ -409,12 +409,12 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
         thrust::raw_pointer_cast(&t(0, 0)),
         thrust::raw_pointer_cast(&indPi[numPnt0]),
         thrust::raw_pointer_cast(&indPj[numPnt0]),
-        /*thrust::raw_pointer_cast(&jacTildePi(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacTildePi(numPnt0, 0)),
         thrust::raw_pointer_cast(&jacSi(numPnt0, 0)),
         thrust::raw_pointer_cast(&jacTi(numPnt0, 0)),
         thrust::raw_pointer_cast(&jacTildePj(numPnt0, 0)),
         thrust::raw_pointer_cast(&jacSj(numPnt0, 0)),
-        thrust::raw_pointer_cast(&jacTj(numPnt0, 0)),*/
+        thrust::raw_pointer_cast(&jacTj(numPnt0, 0)),
         thrust::raw_pointer_cast(&ei[numPnt0]),
         thrust::raw_pointer_cast(&ej[numPnt0]),
         thrust::raw_pointer_cast(&jacE_.values[jacEi_row_offsets[numPnt0]]),
@@ -874,9 +874,9 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
         thrust::raw_pointer_cast(&tildeP(numPnt0, 0)),
         thrust::raw_pointer_cast(&sPlusX(numPnt0, 0)),
         thrust::raw_pointer_cast(&tPlusX(numPnt0, 0)),
-        /*thrust::raw_pointer_cast(&jacTildeP(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacTildeP(numPnt0, 0)),
         thrust::raw_pointer_cast(&jacS(numPnt0, 0)),
-        thrust::raw_pointer_cast(&jacT(numPnt0, 0)),*/
+        thrust::raw_pointer_cast(&jacT(numPnt0, 0)),
         thrust::raw_pointer_cast(&sigma[numPnt0]),
         thrust::raw_pointer_cast(&e[numPnt0]),
         thrust::raw_pointer_cast(&jacE_.values[jacE_row_offsets[numPnt0]]),
@@ -892,12 +892,12 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
         thrust::raw_pointer_cast(&tPlusX(0, 0)),
         thrust::raw_pointer_cast(&indPi[numPnt0]),
         thrust::raw_pointer_cast(&indPj[numPnt0]),
-        /*thrust::raw_pointer_cast(&jacTildePi(numPnt0, 0)),
+        thrust::raw_pointer_cast(&jacTildePi(numPnt0, 0)),
         thrust::raw_pointer_cast(&jacSi(numPnt0, 0)),
         thrust::raw_pointer_cast(&jacTi(numPnt0, 0)),
         thrust::raw_pointer_cast(&jacTildePj(numPnt0, 0)),
         thrust::raw_pointer_cast(&jacSj(numPnt0, 0)),
-        thrust::raw_pointer_cast(&jacTj(numPnt0, 0)),*/
+        thrust::raw_pointer_cast(&jacTj(numPnt0, 0)),
         thrust::raw_pointer_cast(&ei[numPnt0]),
         thrust::raw_pointer_cast(&ej[numPnt0]),
         thrust::raw_pointer_cast(&jacE_.values[jacEi_row_offsets[numPnt0]]),
@@ -948,9 +948,9 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
       thrust::raw_pointer_cast(&tildeP(numPnt0, 0)),
       thrust::raw_pointer_cast(&s(numPnt0, 0)),
       thrust::raw_pointer_cast(&t(numPnt0, 0)),
-      /*thrust::raw_pointer_cast(&jacTildeP(numPnt0, 0)),
+      thrust::raw_pointer_cast(&jacTildeP(numPnt0, 0)),
       thrust::raw_pointer_cast(&jacS(numPnt0, 0)),
-      thrust::raw_pointer_cast(&jacT(numPnt0, 0)),*/
+      thrust::raw_pointer_cast(&jacT(numPnt0, 0)),
       thrust::raw_pointer_cast(&p(numPnt0, 0)),
       thrust::raw_pointer_cast(&jacP(numPnt0, 0)),
       std::min(numPoints - numPnt0, maxNumPoints)

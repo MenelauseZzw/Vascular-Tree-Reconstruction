@@ -4,36 +4,6 @@
 #include "ProjectionOntoLineAndItsJacobian.cuh"
 #include "UnaryCostFunctionAndItsGradientWithRespectToParams.h"
 
-__constant__ static float jacTildeP[][3] =
-{
-  0, 0, 0,
-  0, 0, 0,
-  0, 0, 0,
-  0, 0, 0,
-  0, 0, 0,
-  0, 0, 0
-};
-
-__constant__ static float jacS[][3] =
-{
-  1, 0, 0,
-  0, 1, 0,
-  0, 0, 1,
-  0, 0, 0,
-  0, 0, 0,
-  0, 0, 0
-};
-
-__constant__ static float jacT[][3] =
-{
-  0, 0, 0,
-  0, 0, 0,
-  0, 0, 0,
-  1, 0, 0,
-  0, 1, 0,
-  0, 0, 1
-};
-
 template<int numDims>
 __device__ void UnaryCostFunctionAndItsGradientWithRespectToParamsAt(const float* tildeP, const float* p, const float* jacTildeP, const float* jacP, float* pUnaryCostFunction, float* pUnaryCostGradient)
 {
@@ -59,7 +29,7 @@ __device__ void UnaryCostFunctionAndItsGradientWithRespectToParamsAt(const float
 }
 
 template<int numDims>
-__global__ void UnaryCostFunctionAndItsGradientWithRespectToParams(const float* pTildeP, const float* pS, const float *pT,/* const float *pJacTildeP, const float *pJacS, const float *pJacT,*/ const float *pSigma, float* pUnaryCostFunction, float* pUnaryCostGradient)
+__global__ void UnaryCostFunctionAndItsGradientWithRespectToParams(const float* pTildeP, const float* pS, const float *pT, const float *pJacTildeP, const float *pJacS, const float *pJacT, const float *pSigma, float* pUnaryCostFunction, float* pUnaryCostGradient)
 {
   float tildeP[numDims];
   float s[numDims];
@@ -80,36 +50,27 @@ __global__ void UnaryCostFunctionAndItsGradientWithRespectToParams(const float* 
     t[i] = pT[indPnt];
   }
 
-  //float jacTildeP[numDims];
-  //float jacS[numDims];
-  //float jacT[numDims];
+  float jacTildeP[numDims];
+  float jacS[numDims];
+  float jacT[numDims];
   float jacP[numDims];
 
-  //const int indJac0 = numDims * numParams * numPnt;
+  const int indJac0 = numDims * numParams * numPnt;
 
-  //for (int i = 0, indJac = indJac0 + numPar; i < numDims; ++i, indJac += numParams)
-  //{
-  //  jacTildeP[i] = pJacTildeP[indJac];
-  //  jacS[i] = pJacS[indJac];
-  //  jacT[i] = pJacT[indJac];
-  //}
+  for (int i = 0, indJac = indJac0 + numPar; i < numDims; ++i, indJac += numParams)
+  {
+    jacTildeP[i] = pJacTildeP[indJac];
+    jacS[i] = pJacS[indJac];
+    jacT[i] = pJacT[indJac];
+  }
 
-  //const int indJac0 = 0;
-
-  //for (int i = 0, indJac = indJac0 + numPar; i < numDims; ++i, indJac += numParams)
-  //{
-  //  jacTildeP[i] = JacTildeP[indJac];
-  //  jacS[i] = JacS[indJac];
-  //  jacT[i] = JacT[indJac];
-  //}
-
-  ProjectionOntoLineAndItsJacobianAt<numDims>(tildeP, s, t, jacTildeP[numPar], jacS[numPar], jacT[numPar], p, jacP);
+  ProjectionOntoLineAndItsJacobianAt<numDims>(tildeP, s, t, jacTildeP, jacS, jacT, p, jacP);
 
   const int indGrad0 = numParams * numPnt;
 
   float costFunction;
   float costGradient;
-  UnaryCostFunctionAndItsGradientWithRespectToParamsAt<numDims>(tildeP, p, jacTildeP[numPar], jacP, &costFunction, &costGradient);
+  UnaryCostFunctionAndItsGradientWithRespectToParamsAt<numDims>(tildeP, p, jacTildeP, jacP, &costFunction, &costGradient);
 
   if (!isfinite(costGradient))
   {
@@ -127,7 +88,7 @@ __global__ void UnaryCostFunctionAndItsGradientWithRespectToParams(const float* 
       t[numPar % numDims] = pT[indPnt0 + numPar % numDims] + 2 * h;
     }
 
-    ProjectionOntoLineAndItsJacobianAt<numDims>(tildeP, s, t, jacTildeP[numPar], jacS[numPar], jacT[numPar], p, jacP);
+    ProjectionOntoLineAndItsJacobianAt<numDims>(tildeP, s, t, jacTildeP, jacS, jacT, p, jacP);
 
     for (int i = 0; i < numDims; ++i)
     {
@@ -146,7 +107,7 @@ __global__ void UnaryCostFunctionAndItsGradientWithRespectToParams(const float* 
       t[numPar % numDims] = pT[indPnt0 + numPar % numDims] + h;
     }
 
-    ProjectionOntoLineAndItsJacobianAt<numDims>(tildeP, s, t, jacTildeP[numPar], jacS[numPar], jacT[numPar], p, jacP);
+    ProjectionOntoLineAndItsJacobianAt<numDims>(tildeP, s, t, jacTildeP, jacS, jacT, p, jacP);
 
     for (int i = 0; i < numDims; ++i)
     {
@@ -165,7 +126,7 @@ __global__ void UnaryCostFunctionAndItsGradientWithRespectToParams(const float* 
       t[numPar % numDims] = pT[indPnt0 + numPar % numDims] - h;
     }
 
-    ProjectionOntoLineAndItsJacobianAt<numDims>(tildeP, s, t, jacTildeP[numPar], jacS[numPar], jacT[numPar], p, jacP);
+    ProjectionOntoLineAndItsJacobianAt<numDims>(tildeP, s, t, jacTildeP, jacS, jacT, p, jacP);
 
     for (int i = 0; i < numDims; ++i)
     {
@@ -184,7 +145,7 @@ __global__ void UnaryCostFunctionAndItsGradientWithRespectToParams(const float* 
       t[numPar % numDims] = pT[indPnt0 + numPar % numDims] - 2 * h;
     }
 
-    ProjectionOntoLineAndItsJacobianAt<numDims>(tildeP, s, t, jacTildeP[numPar], jacS[numPar], jacT[numPar], p, jacP);
+    ProjectionOntoLineAndItsJacobianAt<numDims>(tildeP, s, t, jacTildeP, jacS, jacT, p, jacP);
 
     for (int i = 0; i < numDims; ++i)
     {
@@ -206,7 +167,7 @@ __global__ void UnaryCostFunctionAndItsGradientWithRespectToParams(const float* 
   assert(isfinite(costGradient));
 }
 
-extern "C" void UnaryCostFunctionAndItsGradientWithRespectToParams3x6(const float* pTildeP, const float* pS, const float *pT, /*const float *pJacTildeP, const float *pJacS, const float *pJacT,*/ const float *pSigma, float* pUnaryCostFunction, float* pUnaryCostGradient, int numPoints)
+extern "C" void UnaryCostFunctionAndItsGradientWithRespectToParams3x6(const float* pTildeP, const float* pS, const float *pT, const float *pJacTildeP, const float *pJacS, const float *pJacT, const float *pSigma, float* pUnaryCostFunction, float* pUnaryCostGradient, int numPoints)
 {
-  UnaryCostFunctionAndItsGradientWithRespectToParams<3> << <numPoints, 6 >> >(pTildeP, pS, pT, /*pJacTildeP, pJacS, pJacT,*/ pSigma, pUnaryCostFunction, pUnaryCostGradient);
+  UnaryCostFunctionAndItsGradientWithRespectToParams<3> << <numPoints, 6 >> >(pTildeP, pS, pT, pJacTildeP, pJacS, pJacT, pSigma, pUnaryCostFunction, pUnaryCostGradient);
 }
