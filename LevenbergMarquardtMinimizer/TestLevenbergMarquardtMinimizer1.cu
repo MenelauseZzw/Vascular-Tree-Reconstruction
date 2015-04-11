@@ -90,11 +90,11 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
   cusp::array2d<float, cusp::device_memory> jacTildeP(hJacTildeP);
   cusp::array2d<float, cusp::device_memory> jacS(hJacS);
   cusp::array2d<float, cusp::device_memory> jacT(hJacT);
-  
+
   cusp::array2d<float, cusp::device_memory> tildePi(numPairs, numDims);
   cusp::array2d<float, cusp::device_memory> si(numPairs, numDims);
   cusp::array2d<float, cusp::device_memory> ti(numPairs, numDims);
-  
+
   cusp::array2d<float, cusp::device_memory> tildePj(numPairs, numDims);
   cusp::array2d<float, cusp::device_memory> sj(numPairs, numDims);
   cusp::array2d<float, cusp::device_memory> tj(numPairs, numDims);
@@ -283,17 +283,17 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
   {
     cusp::array1d<int, cusp::host_memory> column_indices(jacEj_column_indices.size());
 
-  /*  for (int i = 0; i < n3; ++i)
-    {
+    /*  for (int i = 0; i < n3; ++i)
+      {
       if (i % numParamsPlusNumParams < numParams)
       {
-        column_indices[i] = (i % numParams) + numParams * pIndPi[i / numParamsPlusNumParams];
+      column_indices[i] = (i % numParams) + numParams * pIndPi[i / numParamsPlusNumParams];
       }
       else
       {
-        column_indices[i] = (i % numParams) + numParams * pIndPj[i / numParamsPlusNumParams];
+      column_indices[i] = (i % numParams) + numParams * pIndPj[i / numParamsPlusNumParams];
       }
-    }*/
+      }*/
 
     for (int i = 0; i < n3; ++i)
     {
@@ -361,7 +361,7 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
     );
 
   cusp::array2d<float, cusp::device_memory> sAndTPlusX(numPoints, numParams);
-  
+
   cusp::array2d_view<cusp::array1d_view<iterator> > sPlusX(numPoints, numDims, numDims,
     cusp::array1d_view<iterator>(sAndTPlusX.values.begin(), sAndTPlusX.values.begin() + numPoints * numDims)
     );
@@ -432,12 +432,12 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
     csr_matrix const& A = jacE_;
     cusp::array1d<float, cusp::device_memory> const& b = e_;
 
-    float atol = 0;
-    float btol = 0;
+    float atol = 1e-6;
+    float btol = 1e-6;
     float conlim = 0;
 
     float damp = lambda;
-    int itnlim = 500;
+    int itnlim = 5000;
 
 
     //if isa(A, 'numeric')
@@ -909,27 +909,44 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
     std::cout << "Unary cost function " << (unaryCostFunction2 = cusp::blas::dot(e, e)) << std::endl;
     std::cout << "Pairwise cost function " << (pairwiseCostFunction2 = cusp::blas::dot(ei, ei) + cusp::blas::dot(ej, ej)) << std::endl;
 
-    if (unaryCostFunction1 + pairwiseCostFunction1 > unaryCostFunction2 + pairwiseCostFunction2)
+    float numRho = (unaryCostFunction1 - unaryCostFunction2) + (pairwiseCostFunction1 - pairwiseCostFunction2);
+    float denRho = (unaryCostFunction1 + pairwiseCostFunction1) - r1norm * r1norm;
+
+    float rho = numRho / denRho;
+
+    std::cout << "num(rho) " << numRho << std::endl;
+    std::cout << "den(rho) " << denRho << std::endl;
+
+    if ((rho < 0.01) || (numRho + 1 <= 1) || (denRho + 1 <= 1))
     {
-      cusp::copy(sAndTPlusX, sAndT);
+      std::cout << "rho < pi1" << std::endl;
+      lambda *= E;
+      std::cout << "lambda = E lambda" << std::endl;
 
-      lambda *= D;
-
-      std::cout << "lambda = D lambda" << std::endl;
+      if (lambda > 32000)
+      {
+        std::cout << "That is enough (" << iter << ")" << std::endl;
+        break;
+      }
     }
     else
     {
-      lambda *= E;
+      cusp::copy(sAndTPlusX, sAndT);
 
-      std::cout << "lambda = E lambda" << std::endl;
+      if (rho > 0.75)
+      {
+        std::cout << "rho > pi2" << std::endl;
+        lambda *= D;
+        std::cout << "lambda = D lambda" << std::endl;
+      }
+      else
+      {
+        std::cout << "pi1 < rho < pi2" << std::endl;
+      }
     }
+
+    std::cout << "rho " << rho << std::endl;
     std::cout << "lambda " << lambda << std::endl;
-
-    if (lambda > 32000)
-    {
-      std::cout << "That is enough (" << iter << ")" << std::endl;
-      break;
-    }
   }
 
   cusp::array2d<float, cusp::device_memory> p(numPoints, numDims);

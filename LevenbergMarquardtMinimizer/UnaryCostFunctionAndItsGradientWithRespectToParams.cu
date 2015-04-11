@@ -5,6 +5,21 @@
 #include "UnaryCostFunctionAndItsGradientWithRespectToParams.h"
 
 template<int numDims>
+__device__ float UnaryCostFunctionAt(const float(&tildeP)[numDims], const float(&p)[numDims])
+{
+  float pMinusTildeP[numDims];
+  float pMinusTildePSq = 0;
+
+  for (int i = 0; i < numDims; ++i)
+  {
+    pMinusTildeP[i] = p[i] - tildeP[i];
+    pMinusTildePSq += pMinusTildeP[i] * pMinusTildeP[i];
+  }
+
+  return sqrtf(pMinusTildePSq);
+}
+
+template<int numDims>
 __device__ void UnaryCostFunctionAndItsGradientWithRespectToParamsAt(const float* tildeP, const float* p, const float* jacTildeP, const float* jacP, float* pUnaryCostFunction, float* pUnaryCostGradient)
 {
   float pMinusTildeP[numDims];
@@ -72,9 +87,41 @@ __global__ void UnaryCostFunctionAndItsGradientWithRespectToParams(const float* 
   float costGradient;
   UnaryCostFunctionAndItsGradientWithRespectToParamsAt<numDims>(tildeP, p, jacTildeP, jacP, &costFunction, &costGradient);
 
-  if (!isfinite(costGradient))
+  const float sigma = pSigma[numPnt];
+  
+  const float h = 1e-2;
+
+  if (!isfinite(costGradient / sigma))
   {
-    const float h = 1e-6;
+    //int i = numPar % numDims;
+
+    //if (numPar < numDims)
+    //{
+    //  s[i] = pS[indPnt0 + i] + h;
+    //}
+    //else
+    //{
+    //  t[i] = pT[indPnt0 + i] + h;
+    //}
+
+    //ProjectionOntoLineAt<numDims>(tildeP, s, t, p);
+
+    //costGradient = UnaryCostFunctionAt<numDims>(tildeP, p);
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //if (numPar < numDims)
+    //{
+    //  s[i] = pS[indPnt0 + i] - h;
+    //}
+    //else
+    //{
+    //  t[i] = pT[indPnt0 + i] - h;
+    //}
+
+    //ProjectionOntoLineAt<numDims>(tildeP, s, t, p);
+
+    //costGradient -= UnaryCostFunctionAt<numDims>(tildeP, p);
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //costGradient /= 2 * h;
 
     float pMinusTildeP[numDims];
     float pMinusTildePSq = 0;
@@ -106,7 +153,7 @@ __global__ void UnaryCostFunctionAndItsGradientWithRespectToParams(const float* 
     {
       t[numPar % numDims] = pT[indPnt0 + numPar % numDims] + h;
     }
-
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ProjectionOntoLineAndItsJacobianAt<numDims>(tildeP, s, t, jacTildeP, jacS, jacT, p, jacP);
 
     for (int i = 0; i < numDims; ++i)
@@ -157,8 +204,6 @@ __global__ void UnaryCostFunctionAndItsGradientWithRespectToParams(const float* 
 
     costGradient = (-pPlusTwoHMinusTildeP + 8 * pPlusHMinusTildeP - 8 * pMinusHMinusTildeP + pMinusTwoHMinusTildeP) / (12 * h);
   }
-
-  const float sigma = pSigma[numPnt];
 
   pUnaryCostFunction[numPnt] = costFunction / sigma;
   pUnaryCostGradient[indGrad0 + numPar] = costGradient / sigma;

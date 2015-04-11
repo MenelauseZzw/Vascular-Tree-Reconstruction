@@ -1,4 +1,31 @@
 template<int numDims>
+__device__ void ProjectionOntoLineAt(const float(&tildeP)[numDims], const float(&s)[numDims], const float(&t)[numDims], float(&p)[numDims])
+{
+  float sMinusT[numDims];
+  float sMinusTSq = 0;
+  float sMinusTildeP[numDims];
+
+  for (int i = 0; i < numDims; ++i)
+  {
+    sMinusT[i] = s[i] - t[i];
+    sMinusTSq += sMinusT[i] * sMinusT[i];
+    sMinusTildeP[i] = s[i] - tildeP[i];
+  }
+
+  float lambda = 0;
+
+  for (int i = 0; i < numDims; ++i)
+  {
+    lambda += (sMinusTildeP[i] * sMinusT[i]) / sMinusTSq;
+  }
+
+  for (int i = 0; i < numDims; ++i)
+  {
+    p[i] = s[i] - lambda * sMinusT[i];
+  }
+}
+
+template<int numDims>
 __device__ void ProjectionOntoLineAndItsJacobianAt(const float* tildeP, const float* s, const float* t, const float* jacTildeP, const float* jacS, const float* jacT, float* p, float* jacP)
 {
   float sMinusT[numDims];

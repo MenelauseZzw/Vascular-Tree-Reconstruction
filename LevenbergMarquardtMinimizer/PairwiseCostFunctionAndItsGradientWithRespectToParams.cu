@@ -5,6 +5,26 @@
 #include "PairwiseCostFunctionAndItsGradientWithRespectToParams.h"
 
 template<int numDims>
+__device__ float PairwiseCostFunctionAt(const float(&pi)[numDims], const float(&piPrime)[numDims], const float(&pj)[numDims])
+{
+  float piMinusPiPrime[numDims];
+  float piMinusPiPrimeSq = 0;
+  float piMinusPj[numDims];
+  float piMinusPjSq = 0;
+
+  for (int i = 0; i < numDims; ++i)
+  {
+    piMinusPj[i] = pi[i] - pj[i];
+    piMinusPjSq += piMinusPj[i] * piMinusPj[i];
+
+    piMinusPiPrime[i] = pi[i] - piPrime[i];
+    piMinusPiPrimeSq += piMinusPiPrime[i] * piMinusPiPrime[i];
+  }
+
+  return 20 * sqrtf(piMinusPiPrimeSq) * rsqrtf(piMinusPjSq);
+}
+
+template<int numDims>
 __device__ void PairwiseCostFunctionAndItsGradientWithRespectToParamsAt(const float* piMinusPiPrime, float piMinusPiPrimeSq, const float* piMinusPj, float piMinusPjSq, const float* jacPiMinusPiPrime, const float* jacPiMinusPj, float* pPairwiseCostFunction, float* pPairwiseCostGradient)
 {
   float invPiMinusPiPrime = rsqrtf(piMinusPiPrimeSq);
@@ -24,8 +44,8 @@ __device__ void PairwiseCostFunctionAndItsGradientWithRespectToParamsAt(const fl
   float pairwiseCostFunction = normPiMinusPiPrime * invPiMinusPj;
   float pairwiseCostGradient = (normPiMinusPj * nablaPiMinusPiPrime - normPiMinusPiPrime * nablaPiMinusPj) / piMinusPjSq;
 
-  *pPairwiseCostFunction = pairwiseCostFunction;
-  *pPairwiseCostGradient = pairwiseCostGradient;
+  *pPairwiseCostFunction = 20 * pairwiseCostFunction;
+  *pPairwiseCostGradient = 20 * pairwiseCostGradient;
 }
 
 template<int numDims>
@@ -37,6 +57,7 @@ __global__ void PairwiseCostFunctionAndItsGradientWithRespectToParamsWithPermuta
   float pi[numDims];
 
   const int numParams = blockDim.x;
+  const int numParamsPerPoint = numParams / 2;
 
   const int numPnt = blockIdx.x;
   const int numPar = threadIdx.x;
@@ -126,161 +147,149 @@ __global__ void PairwiseCostFunctionAndItsGradientWithRespectToParamsWithPermuta
   float costGradienti;
   PairwiseCostFunctionAndItsGradientWithRespectToParamsAt<numDims>(piMinusPiPrime, piMinusPiPrimeSq, piMinusPj, piMinusPjSq, jacPiMinusPiPrime, jacPiMinusPj, &costFunctioni, &costGradienti);
 
+  const float h = 1e-2;
+
   if (!isfinite(costGradienti))
   {
-    const float h = 1e-6;
 
-    if (numPar < numParams / 2)
-    {
-      indPnt0 = numDims * pIndPi[numPnt];
-
-      if (numPar % (numParams / 2) < numDims)
-      {
-        si[numPar % numDims] = pS[indPnt0 + numPar % numDims] + 2 * h;
-      }
-      else
-      {
-        ti[numPar % numDims] = pT[indPnt0 + numPar % numDims] + 2 * h;
-      }
-
-      ProjectionOntoLineAndItsJacobianAt<numDims>(tildePi, si, ti, jacTildePi, jacSi, jacTi, pi, jacPi);
-    }
-    else
-    {
-      indPnt0 = numDims * pIndPj[numPnt];
-
-      if (numPar % (numParams / 2) < numDims)
-      {
-        sj[numPar % numDims] = pS[indPnt0 + numPar % numDims] + 2 * h;
-      }
-      else
-      {
-        tj[numPar % numDims] = pT[indPnt0 + numPar % numDims] + 2 * h;
-      }
-
-      ProjectionOntoLineAndItsJacobianAt<numDims>(tildePj, sj, tj, jacTildePj, jacSj, jacTj, pj, jacPj);
-    }
-
-    ProjectionOntoLineAndItsJacobianAt<numDims>(pi, sj, tj, jacPi, jacSj, jacTj, piPrime, jacPiPrime);
-
-    float functionValue;
-    float gradientValue;
-
-    PairwiseCostFunctionAndItsGradientWithRespectToParamsAt<numDims>(piMinusPiPrime, piMinusPiPrimeSq, piMinusPj, piMinusPjSq, jacPiMinusPiPrime, jacPiMinusPj, &functionValue, &gradientValue);
-    
-    costGradienti = -functionValue;
-
+    int i = numPar % numDims;
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    if (numPar < numParams / 2)
+    /*if (numPar < numParamsPerPoint)
     {
-      indPnt0 = numDims * pIndPi[numPnt];
+    indPnt0 = numDims * pIndPi[numPnt];
 
-      if (numPar % (numParams / 2) < numDims)
-      {
-        si[numPar % numDims] = pS[indPnt0 + numPar % numDims] + h;
-      }
-      else
-      {
-        ti[numPar % numDims] = pT[indPnt0 + numPar % numDims] + h;
-      }
-
-      ProjectionOntoLineAndItsJacobianAt<numDims>(tildePi, si, ti, jacTildePi, jacSi, jacTi, pi, jacPi);
+    if (numPar % numParamsPerPoint < numDims)
+    {
+    si[i] = pS[indPnt0 + i] + 2 * h;
     }
     else
     {
-      indPnt0 = numDims * pIndPj[numPnt];
+    ti[i] = pT[indPnt0 + i] + 2 * h;
+    }
+    }
+    else
+    {
+    indPnt0 = numDims * pIndPj[numPnt];
 
-      if (numPar % (numParams / 2) < numDims)
-      {
-        sj[numPar % numDims] = pS[indPnt0 + numPar % numDims] + h;
-      }
-      else
-      {
-        tj[numPar % numDims] = pT[indPnt0 + numPar % numDims] + h;
-      }
-
-      ProjectionOntoLineAndItsJacobianAt<numDims>(tildePj, sj, tj, jacTildePj, jacSj, jacTj, pj, jacPj);
+    if (numPar % numParamsPerPoint < numDims)
+    {
+    sj[i] = pS[indPnt0 + i] + 2 * h;
+    }
+    else
+    {
+    tj[i] = pT[indPnt0 + i] + 2 * h;
+    }
     }
 
-    ProjectionOntoLineAndItsJacobianAt<numDims>(pi, sj, tj, jacPi, jacSj, jacTj, piPrime, jacPiPrime);
-    PairwiseCostFunctionAndItsGradientWithRespectToParamsAt<numDims>(piMinusPiPrime, piMinusPiPrimeSq, piMinusPj, piMinusPjSq, jacPiMinusPiPrime, jacPiMinusPj, &functionValue, &gradientValue);
-    
-    costGradienti += 8 * functionValue;
+    ProjectionOntoLineAt<numDims>(tildePi, si, ti, pi);
+    ProjectionOntoLineAt<numDims>(pi, sj, tj, piPrime);
+    ProjectionOntoLineAt<numDims>(tildePj, sj, tj, pj);
 
+    costGradienti = -PairwiseCostFunctionAt<numDims>(pi, piPrime, pj);*/
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    if (numPar < numParams / 2)
+    if (numPar < numParamsPerPoint)
     {
       indPnt0 = numDims * pIndPi[numPnt];
 
-      if (numPar % (numParams / 2) < numDims)
+      if (numPar % numParamsPerPoint < numDims)
       {
-        si[numPar % numDims] = pS[indPnt0 + numPar % numDims] - h;
+        si[i] = pS[indPnt0 + i] + h;
       }
       else
       {
-        ti[numPar % numDims] = pT[indPnt0 + numPar % numDims] - h;
+        ti[i] = pT[indPnt0 + i] + h;
       }
-
-      ProjectionOntoLineAndItsJacobianAt<numDims>(tildePi, si, ti, jacTildePi, jacSi, jacTi, pi, jacPi);
     }
     else
     {
       indPnt0 = numDims * pIndPj[numPnt];
 
-      if (numPar % (numParams / 2) < numDims)
+      if (numPar % numParamsPerPoint < numDims)
       {
-        sj[numPar % numDims] = pS[indPnt0 + numPar % numDims] - h;
+        sj[i] = pS[indPnt0 + i] + h;
       }
       else
       {
-        tj[numPar % numDims] = pT[indPnt0 + numPar % numDims] - h;
+        tj[i] = pT[indPnt0 + i] + h;
       }
-
-      ProjectionOntoLineAndItsJacobianAt<numDims>(tildePj, sj, tj, jacTildePj, jacSj, jacTj, pj, jacPj);
     }
 
-    ProjectionOntoLineAndItsJacobianAt<numDims>(pi, sj, tj, jacPi, jacSj, jacTj, piPrime, jacPiPrime);
-    PairwiseCostFunctionAndItsGradientWithRespectToParamsAt<numDims>(piMinusPiPrime, piMinusPiPrimeSq, piMinusPj, piMinusPjSq, jacPiMinusPiPrime, jacPiMinusPj, &functionValue, &gradientValue);
-    
-    costGradienti -= 8 * functionValue;
+    ProjectionOntoLineAt<numDims>(tildePi, si, ti, pi);
+    ProjectionOntoLineAt<numDims>(pi, sj, tj, piPrime);
+    ProjectionOntoLineAt<numDims>(tildePj, sj, tj, pj);
 
+    //costGradienti += 8 * PairwiseCostFunctionAt<numDims>(pi, piPrime, pj);
+    costGradienti = PairwiseCostFunctionAt<numDims>(pi, piPrime, pj);
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    if (numPar < numParams / 2)
+    if (numPar < numParamsPerPoint)
     {
       indPnt0 = numDims * pIndPi[numPnt];
 
-      if (numPar % (numParams / 2) < numDims)
+      if (numPar % numParamsPerPoint < numDims)
       {
-        si[numPar % numDims] = pS[indPnt0 + numPar % numDims] - 2* h;
+        si[i] = pS[indPnt0 + i] - h;
       }
       else
       {
-        ti[numPar % numDims] = pT[indPnt0 + numPar % numDims] - 2 * h;
+        ti[i] = pT[indPnt0 + i] - h;
       }
-
-      ProjectionOntoLineAndItsJacobianAt<numDims>(tildePi, si, ti, jacTildePi, jacSi, jacTi, pi, jacPi);
     }
     else
     {
       indPnt0 = numDims * pIndPj[numPnt];
 
-      if (numPar % (numParams / 2) < numDims)
+      if (numPar % numParamsPerPoint < numDims)
       {
-        sj[numPar % numDims] = pS[indPnt0 + numPar % numDims] - 2 * h;
+        sj[i] = pS[indPnt0 + i] - h;
       }
       else
       {
-        tj[numPar % numDims] = pT[indPnt0 + numPar % numDims] - 2 * h;
+        tj[i] = pT[indPnt0 + i] - h;
       }
-
-      ProjectionOntoLineAndItsJacobianAt<numDims>(tildePj, sj, tj, jacTildePj, jacSj, jacTj, pj, jacPj);
     }
 
-    ProjectionOntoLineAndItsJacobianAt<numDims>(pi, sj, tj, jacPi, jacSj, jacTj, piPrime, jacPiPrime);
-    PairwiseCostFunctionAndItsGradientWithRespectToParamsAt<numDims>(piMinusPiPrime, piMinusPiPrimeSq, piMinusPj, piMinusPjSq, jacPiMinusPiPrime, jacPiMinusPj, &functionValue, &gradientValue);
-    
-    costGradienti += functionValue;
-    costGradienti /= 12 * h;
+    ProjectionOntoLineAt<numDims>(tildePi, si, ti, pi);
+    ProjectionOntoLineAt<numDims>(pi, sj, tj, piPrime);
+    ProjectionOntoLineAt<numDims>(tildePj, sj, tj, pj);
+
+    //costGradienti -= 8 * PairwiseCostFunctionAt<numDims>(pi, piPrime, pj);
+    costGradienti -= PairwiseCostFunctionAt<numDims>(pi, piPrime, pj);
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /* if (numPar < numParamsPerPoint)
+     {
+     indPnt0 = numDims * pIndPi[numPnt];
+
+     if (numPar % numParamsPerPoint < numDims)
+     {
+     si[i] = pS[indPnt0 + i] - 2 * h;
+     }
+     else
+     {
+     ti[i] = pT[indPnt0 + i] - 2 * h;
+     }
+     }
+     else
+     {
+     indPnt0 = numDims * pIndPj[numPnt];
+
+     if (numPar % numParamsPerPoint < numDims)
+     {
+     sj[i] = pS[indPnt0 + i] - 2 * h;
+     }
+     else
+     {
+     tj[i] = pT[indPnt0 + i] - 2 * h;
+     }
+     }
+
+     ProjectionOntoLineAt<numDims>(tildePi, si, ti, pi);
+     ProjectionOntoLineAt<numDims>(pi, sj, tj, piPrime);
+     ProjectionOntoLineAt<numDims>(tildePj, sj, tj, pj);
+
+     costGradienti += PairwiseCostFunctionAt<numDims>(pi, piPrime, pj);*/
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //costGradienti /= 12 * h;
+    costGradienti /= 2 * h;
   }
 
   pPairwiseCostFunctioni[numPnt] = costFunctioni;
@@ -310,159 +319,144 @@ __global__ void PairwiseCostFunctionAndItsGradientWithRespectToParamsWithPermuta
 
   if (!isfinite(costGradientj))
   {
-    const float h = 1e-6;
-
-    if (numPar < numParams / 2)
-    {
-      indPnt0 = numDims * pIndPi[numPnt];
-
-      if (numPar % (numParams / 2) < numDims)
-      {
-        si[numPar % numDims] = pS[indPnt0 + numPar % numDims] + 2 * h;
-      }
-      else
-      {
-        ti[numPar % numDims] = pT[indPnt0 + numPar % numDims] + 2 * h;
-      }
-
-      ProjectionOntoLineAndItsJacobianAt<numDims>(tildePi, si, ti, jacTildePi, jacSi, jacTi, pi, jacPi);
-    }
-    else
-    {
-      indPnt0 = numDims * pIndPj[numPnt];
-
-      if (numPar % (numParams / 2) < numDims)
-      {
-        sj[numPar % numDims] = pS[indPnt0 + numPar % numDims] + 2 * h;
-      }
-      else
-      {
-        tj[numPar % numDims] = pT[indPnt0 + numPar % numDims] + 2 * h;
-      }
-
-      ProjectionOntoLineAndItsJacobianAt<numDims>(tildePj, sj, tj, jacTildePj, jacSj, jacTj, pj, jacPj);
-    }
-
-    ProjectionOntoLineAndItsJacobianAt<numDims>(pj, si, ti, jacPj, jacSi, jacTi, pjPrime, jacPjPrime);
-
-    float functionValue;
-    float gradientValue;
-
-    PairwiseCostFunctionAndItsGradientWithRespectToParamsAt<numDims>(pjMinusPjPrime, pjMinusPjPrimeSq, piMinusPj, piMinusPjSq, jacPjMinusPjPrime, jacPiMinusPj, &functionValue, &gradientValue);
-
-    costGradientj = -functionValue;
-
+    int i = numPar % numDims;
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    if (numPar < numParams / 2)
+    /*if (numPar < numParamsPerPoint)
     {
-      indPnt0 = numDims * pIndPi[numPnt];
+    indPnt0 = numDims * pIndPi[numPnt];
 
-      if (numPar % (numParams / 2) < numDims)
-      {
-        si[numPar % numDims] = pS[indPnt0 + numPar % numDims] + h;
-      }
-      else
-      {
-        ti[numPar % numDims] = pT[indPnt0 + numPar % numDims] + h;
-      }
-
-      ProjectionOntoLineAndItsJacobianAt<numDims>(tildePi, si, ti, jacTildePi, jacSi, jacTi, pi, jacPi);
+    if (numPar % numParamsPerPoint < numDims)
+    {
+    si[i] = pS[indPnt0 + i] + 2 * h;
     }
     else
     {
-      indPnt0 = numDims * pIndPj[numPnt];
+    ti[i] = pT[indPnt0 + i] + 2 * h;
+    }
+    }
+    else
+    {
+    indPnt0 = numDims * pIndPj[numPnt];
 
-      if (numPar % (numParams / 2) < numDims)
-      {
-        sj[numPar % numDims] = pS[indPnt0 + numPar % numDims] + h;
-      }
-      else
-      {
-        tj[numPar % numDims] = pT[indPnt0 + numPar % numDims] + h;
-      }
-
-      ProjectionOntoLineAndItsJacobianAt<numDims>(tildePj, sj, tj, jacTildePj, jacSj, jacTj, pj, jacPj);
+    if (numPar % numParamsPerPoint < numDims)
+    {
+    sj[i] = pS[indPnt0 + i] + 2 * h;
+    }
+    else
+    {
+    tj[i] = pT[indPnt0 + i] + 2 * h;
+    }
     }
 
-    ProjectionOntoLineAndItsJacobianAt<numDims>(pj, si, ti, jacPj, jacSi, jacTi, pjPrime, jacPjPrime);
-    PairwiseCostFunctionAndItsGradientWithRespectToParamsAt<numDims>(pjMinusPjPrime, pjMinusPjPrimeSq, piMinusPj, piMinusPjSq, jacPjMinusPjPrime, jacPiMinusPj, &functionValue, &gradientValue);
+    ProjectionOntoLineAt<numDims>(tildePj, sj, tj, pj);
+    ProjectionOntoLineAt<numDims>(pj, si, ti, pjPrime);
+    ProjectionOntoLineAt<numDims>(tildePi, si, ti, pi);
 
-    costGradientj += 8 * functionValue;
-
+    costGradientj = -PairwiseCostFunctionAt<numDims>(pj, pjPrime, pi);*/
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    if (numPar < numParams / 2)
+    if (numPar < numParamsPerPoint)
     {
       indPnt0 = numDims * pIndPi[numPnt];
 
-      if (numPar % (numParams / 2) < numDims)
+      if (numPar % numParamsPerPoint < numDims)
       {
-        si[numPar % numDims] = pS[indPnt0 + numPar % numDims] - h;
+        si[i] = pS[indPnt0 + i] + h;
       }
       else
       {
-        ti[numPar % numDims] = pT[indPnt0 + numPar % numDims] - h;
+        ti[i] = pT[indPnt0 + i] + h;
       }
-
-      ProjectionOntoLineAndItsJacobianAt<numDims>(tildePi, si, ti, jacTildePi, jacSi, jacTi, pi, jacPi);
     }
     else
     {
       indPnt0 = numDims * pIndPj[numPnt];
 
-      if (numPar % (numParams / 2) < numDims)
+      if (numPar % numParamsPerPoint < numDims)
       {
-        sj[numPar % numDims] = pS[indPnt0 + numPar % numDims] - h;
+        sj[i] = pS[indPnt0 + i] + h;
       }
       else
       {
-        tj[numPar % numDims] = pT[indPnt0 + numPar % numDims] - h;
+        tj[i] = pT[indPnt0 + i] + h;
       }
-
-      ProjectionOntoLineAndItsJacobianAt<numDims>(tildePj, sj, tj, jacTildePj, jacSj, jacTj, pj, jacPj);
     }
 
-    ProjectionOntoLineAndItsJacobianAt<numDims>(pj, si, ti, jacPj, jacSi, jacTi, pjPrime, jacPjPrime);
-    PairwiseCostFunctionAndItsGradientWithRespectToParamsAt<numDims>(pjMinusPjPrime, pjMinusPjPrimeSq, piMinusPj, piMinusPjSq, jacPjMinusPjPrime, jacPiMinusPj, &functionValue, &gradientValue);
+    ProjectionOntoLineAt<numDims>(tildePj, sj, tj, pj);
+    ProjectionOntoLineAt<numDims>(pj, si, ti, pjPrime);
+    ProjectionOntoLineAt<numDims>(tildePi, si, ti, pi);
 
-    costGradientj -= 8 * functionValue;
-
+    //costGradientj += 8 * PairwiseCostFunctionAt<numDims>(pj, pjPrime, pi);
+    costGradientj = PairwiseCostFunctionAt<numDims>(pj, pjPrime, pi);
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    if (numPar < numParams / 2)
+    if (numPar < numParamsPerPoint)
     {
       indPnt0 = numDims * pIndPi[numPnt];
 
-      if (numPar % (numParams / 2) < numDims)
+      if (numPar % numParamsPerPoint < numDims)
       {
-        si[numPar % numDims] = pS[indPnt0 + numPar % numDims] - 2 * h;
+        si[i] = pS[indPnt0 + i] - h;
       }
       else
       {
-        ti[numPar % numDims] = pT[indPnt0 + numPar % numDims] - 2 * h;
+        ti[i] = pT[indPnt0 + i] - h;
       }
-
-      ProjectionOntoLineAndItsJacobianAt<numDims>(tildePi, si, ti, jacTildePi, jacSi, jacTi, pi, jacPi);
     }
     else
     {
       indPnt0 = numDims * pIndPj[numPnt];
 
-      if (numPar % (numParams / 2) < numDims)
+      if (numPar % numParamsPerPoint < numDims)
       {
-        sj[numPar % numDims] = pS[indPnt0 + numPar % numDims] - 2 * h;
+        sj[i] = pS[indPnt0 + i] - h;
       }
       else
       {
-        tj[numPar % numDims] = pT[indPnt0 + numPar % numDims] - 2 * h;
+        tj[i] = pT[indPnt0 + i] - h;
       }
-
-      ProjectionOntoLineAndItsJacobianAt<numDims>(tildePj, sj, tj, jacTildePj, jacSj, jacTj, pj, jacPj);
     }
 
-    ProjectionOntoLineAndItsJacobianAt<numDims>(pj, si, ti, jacPj, jacSi, jacTi, pjPrime, jacPjPrime);
-    PairwiseCostFunctionAndItsGradientWithRespectToParamsAt<numDims>(pjMinusPjPrime, pjMinusPjPrimeSq, piMinusPj, piMinusPjSq, jacPjMinusPjPrime, jacPiMinusPj, &functionValue, &gradientValue);
+    ProjectionOntoLineAt<numDims>(tildePj, sj, tj, pj);
+    ProjectionOntoLineAt<numDims>(pj, si, ti, pjPrime);
+    ProjectionOntoLineAt<numDims>(tildePi, si, ti, pi);
 
-    costGradientj += functionValue;
-    costGradientj /= 12 * h;
+    //costGradientj -= 8 * PairwiseCostFunctionAt<numDims>(pj, pjPrime, pi);
+    costGradientj -= PairwiseCostFunctionAt<numDims>(pj, pjPrime, pi);
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /*if (numPar < numParamsPerPoint)
+    {
+    indPnt0 = numDims * pIndPi[numPnt];
+
+    if (numPar % numParamsPerPoint < numDims)
+    {
+    si[i] = pS[indPnt0 + i] - 2 * h;
+    }
+    else
+    {
+    ti[i] = pT[indPnt0 + i] - 2 * h;
+    }
+    }
+    else
+    {
+    indPnt0 = numDims * pIndPj[numPnt];
+
+    if (numPar % numParamsPerPoint < numDims)
+    {
+    sj[i] = pS[indPnt0 + i] - 2 * h;
+    }
+    else
+    {
+    tj[i] = pT[indPnt0 + i] - 2 * h;
+    }
+    }
+
+    ProjectionOntoLineAt<numDims>(tildePj, sj, tj, pj);
+    ProjectionOntoLineAt<numDims>(pj, si, ti, pjPrime);
+    ProjectionOntoLineAt<numDims>(tildePi, si, ti, pi);
+
+    costGradientj += PairwiseCostFunctionAt<numDims>(pj, pjPrime, pi);*/
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //costGradientj /= 12 * h;
+    costGradientj /= 2 * h;
   }
 
   pPairwiseCostFunctionj[numPnt] = costFunctionj;
