@@ -147,14 +147,36 @@ __global__ void PairwiseCostFunctionAndItsGradientWithRespectToParamsWithPermuta
   float costGradienti;
   PairwiseCostFunctionAndItsGradientWithRespectToParamsAt<numDims>(piMinusPiPrime, piMinusPiPrimeSq, piMinusPj, piMinusPjSq, jacPiMinusPiPrime, jacPiMinusPj, &costFunctioni, &costGradienti);
 
-  const float h = 1e-2;
+  float pjPrime[numDims];
+  float jacPjPrime[numDims];
 
-  if (!isfinite(costGradienti))
+  ProjectionOntoLineAndItsJacobianAt<numDims>(pj, si, ti, jacPj, jacSi, jacTi, pjPrime, jacPjPrime);
+
+  float pjMinusPjPrime[numDims];
+  float pjMinusPjPrimeSq = 0;
+
+  float jacPjMinusPjPrime[numDims];
+
+  for (int i = 0; i < numDims; ++i)
+  {
+    pjMinusPjPrime[i] = pj[i] - pjPrime[i];
+    pjMinusPjPrimeSq += pjMinusPjPrime[i] * pjMinusPjPrime[i];
+
+    jacPjMinusPjPrime[i] = jacPj[i] - jacPjPrime[i];
+  }
+
+  float costFunctionj;
+  float costGradientj;
+  PairwiseCostFunctionAndItsGradientWithRespectToParamsAt<numDims>(pjMinusPjPrime, pjMinusPjPrimeSq, piMinusPj, piMinusPjSq, jacPjMinusPjPrime, jacPiMinusPj, &costFunctionj, &costGradientj);
+
+  const float h = 1e-1;
+
+  //if (!isfinite(costGradienti))
   {
 
     int i = numPar % numDims;
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    /*if (numPar < numParamsPerPoint)
+    if (numPar < numParamsPerPoint)
     {
     indPnt0 = numDims * pIndPi[numPnt];
 
@@ -185,7 +207,7 @@ __global__ void PairwiseCostFunctionAndItsGradientWithRespectToParamsWithPermuta
     ProjectionOntoLineAt<numDims>(pi, sj, tj, piPrime);
     ProjectionOntoLineAt<numDims>(tildePj, sj, tj, pj);
 
-    costGradienti = -PairwiseCostFunctionAt<numDims>(pi, piPrime, pj);*/
+    costGradienti = -PairwiseCostFunctionAt<numDims>(pi, piPrime, pj);
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     if (numPar < numParamsPerPoint)
     {
@@ -218,8 +240,8 @@ __global__ void PairwiseCostFunctionAndItsGradientWithRespectToParamsWithPermuta
     ProjectionOntoLineAt<numDims>(pi, sj, tj, piPrime);
     ProjectionOntoLineAt<numDims>(tildePj, sj, tj, pj);
 
-    //costGradienti += 8 * PairwiseCostFunctionAt<numDims>(pi, piPrime, pj);
-    costGradienti = PairwiseCostFunctionAt<numDims>(pi, piPrime, pj);
+    costGradienti += 8 * PairwiseCostFunctionAt<numDims>(pi, piPrime, pj);
+    //costGradienti = PairwiseCostFunctionAt<numDims>(pi, piPrime, pj);
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     if (numPar < numParamsPerPoint)
     {
@@ -252,10 +274,10 @@ __global__ void PairwiseCostFunctionAndItsGradientWithRespectToParamsWithPermuta
     ProjectionOntoLineAt<numDims>(pi, sj, tj, piPrime);
     ProjectionOntoLineAt<numDims>(tildePj, sj, tj, pj);
 
-    //costGradienti -= 8 * PairwiseCostFunctionAt<numDims>(pi, piPrime, pj);
-    costGradienti -= PairwiseCostFunctionAt<numDims>(pi, piPrime, pj);
+    costGradienti -= 8 * PairwiseCostFunctionAt<numDims>(pi, piPrime, pj);
+    //costGradienti -= PairwiseCostFunctionAt<numDims>(pi, piPrime, pj);
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    /* if (numPar < numParamsPerPoint)
+    if (numPar < numParamsPerPoint)
      {
      indPnt0 = numDims * pIndPi[numPnt];
 
@@ -286,42 +308,20 @@ __global__ void PairwiseCostFunctionAndItsGradientWithRespectToParamsWithPermuta
      ProjectionOntoLineAt<numDims>(pi, sj, tj, piPrime);
      ProjectionOntoLineAt<numDims>(tildePj, sj, tj, pj);
 
-     costGradienti += PairwiseCostFunctionAt<numDims>(pi, piPrime, pj);*/
+     costGradienti += PairwiseCostFunctionAt<numDims>(pi, piPrime, pj);
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //costGradienti /= 12 * h;
-    costGradienti /= 2 * h;
+    costGradienti /= 12 * h;
+    //costGradienti /= 2 * h;
   }
 
   pPairwiseCostFunctioni[numPnt] = costFunctioni;
   pPairwiseCostGradienti[indGrad0 + numPar] = costGradienti;
 
-  float pjPrime[numDims];
-  float jacPjPrime[numDims];
-
-  ProjectionOntoLineAndItsJacobianAt<numDims>(pj, si, ti, jacPj, jacSi, jacTi, pjPrime, jacPjPrime);
-
-  float pjMinusPjPrime[numDims];
-  float pjMinusPjPrimeSq = 0;
-
-  float jacPjMinusPjPrime[numDims];
-
-  for (int i = 0; i < numDims; ++i)
-  {
-    pjMinusPjPrime[i] = pj[i] - pjPrime[i];
-    pjMinusPjPrimeSq += pjMinusPjPrime[i] * pjMinusPjPrime[i];
-
-    jacPjMinusPjPrime[i] = jacPj[i] - jacPjPrime[i];
-  }
-
-  float costFunctionj;
-  float costGradientj;
-  PairwiseCostFunctionAndItsGradientWithRespectToParamsAt<numDims>(pjMinusPjPrime, pjMinusPjPrimeSq, piMinusPj, piMinusPjSq, jacPjMinusPjPrime, jacPiMinusPj, &costFunctionj, &costGradientj);
-
-  if (!isfinite(costGradientj))
+  //if (!isfinite(costGradientj))
   {
     int i = numPar % numDims;
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    /*if (numPar < numParamsPerPoint)
+    if (numPar < numParamsPerPoint)
     {
     indPnt0 = numDims * pIndPi[numPnt];
 
@@ -352,7 +352,7 @@ __global__ void PairwiseCostFunctionAndItsGradientWithRespectToParamsWithPermuta
     ProjectionOntoLineAt<numDims>(pj, si, ti, pjPrime);
     ProjectionOntoLineAt<numDims>(tildePi, si, ti, pi);
 
-    costGradientj = -PairwiseCostFunctionAt<numDims>(pj, pjPrime, pi);*/
+    costGradientj = -PairwiseCostFunctionAt<numDims>(pj, pjPrime, pi);
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     if (numPar < numParamsPerPoint)
     {
@@ -385,8 +385,8 @@ __global__ void PairwiseCostFunctionAndItsGradientWithRespectToParamsWithPermuta
     ProjectionOntoLineAt<numDims>(pj, si, ti, pjPrime);
     ProjectionOntoLineAt<numDims>(tildePi, si, ti, pi);
 
-    //costGradientj += 8 * PairwiseCostFunctionAt<numDims>(pj, pjPrime, pi);
-    costGradientj = PairwiseCostFunctionAt<numDims>(pj, pjPrime, pi);
+    costGradientj += 8 * PairwiseCostFunctionAt<numDims>(pj, pjPrime, pi);
+    //costGradientj = PairwiseCostFunctionAt<numDims>(pj, pjPrime, pi);
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     if (numPar < numParamsPerPoint)
     {
@@ -419,10 +419,10 @@ __global__ void PairwiseCostFunctionAndItsGradientWithRespectToParamsWithPermuta
     ProjectionOntoLineAt<numDims>(pj, si, ti, pjPrime);
     ProjectionOntoLineAt<numDims>(tildePi, si, ti, pi);
 
-    //costGradientj -= 8 * PairwiseCostFunctionAt<numDims>(pj, pjPrime, pi);
-    costGradientj -= PairwiseCostFunctionAt<numDims>(pj, pjPrime, pi);
+    costGradientj -= 8 * PairwiseCostFunctionAt<numDims>(pj, pjPrime, pi);
+    //costGradientj -= PairwiseCostFunctionAt<numDims>(pj, pjPrime, pi);
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    /*if (numPar < numParamsPerPoint)
+    if (numPar < numParamsPerPoint)
     {
     indPnt0 = numDims * pIndPi[numPnt];
 
@@ -453,10 +453,10 @@ __global__ void PairwiseCostFunctionAndItsGradientWithRespectToParamsWithPermuta
     ProjectionOntoLineAt<numDims>(pj, si, ti, pjPrime);
     ProjectionOntoLineAt<numDims>(tildePi, si, ti, pi);
 
-    costGradientj += PairwiseCostFunctionAt<numDims>(pj, pjPrime, pi);*/
+    costGradientj += PairwiseCostFunctionAt<numDims>(pj, pjPrime, pi);
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //costGradientj /= 12 * h;
-    costGradientj /= 2 * h;
+    costGradientj /= 12 * h;
+    //costGradientj /= 2 * h;
   }
 
   pPairwiseCostFunctionj[numPnt] = costFunctionj;
