@@ -24,13 +24,13 @@ include_directories(
   ${FLANN_INCLUDE_DIRS}
   )
 
-set(CUDA_NVCC_FLAGS "-arch sm_20")
-
 cuda_add_executable(
   LevenbergMarquardtMinimizer
   main.cpp
   AdjustLineEndpoints.cu
   AdjustLineEndpoints.h
+  CommandLineArgs.cpp
+  CommandLineArgs.h
   DoubleMultiVariableFunction.cpp
   DoubleMultiVariableFunction.h
   DoubleParameterizedFunctional.cpp

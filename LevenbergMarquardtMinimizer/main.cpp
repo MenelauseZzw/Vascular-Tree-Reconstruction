@@ -1,12 +1,10 @@
+#include "CommandLineArgs.h"
 #include "TestLevenbergMarquardtMinimizer1.h"
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <H5Cpp.h>
 #include <iostream>
 #include <vector>
-
-DEFINE_string(i, "", "");
-DEFINE_string(o, "", "");
 
 #ifndef H5_NO_NAMESPACE
 using namespace H5;
@@ -36,8 +34,10 @@ int main(int argc, char *argv[])
 {
   google::InitGoogleLogging(argv[0]);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
+  
+  CommandLineArgs::Notify();
 
-  H5File sourceFile(FLAGS_i, H5F_ACC_RDONLY);
+  H5File sourceFile(CommandLineArgs::SourceFileName(), H5F_ACC_RDONLY);
 
   std::vector<float> tildeP = readVector<float>(sourceFile, "tildeP");
   std::vector<float> s = readVector<float>(sourceFile, "s");
@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 
   testLevenbergMarquardtMinimizer1(&tildeP[0], &s[0], &t[0], &sigma[0], tildeP.size() / 3, &indPi[0], &indPj[0], indPi.size(), &p[0]);
 
-  H5File resultFile(FLAGS_o, H5F_ACC_TRUNC);
+  H5File resultFile(CommandLineArgs::ResultFileName(), H5F_ACC_TRUNC);
 
   const int rank = 1;
   {
