@@ -4,12 +4,13 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
 # Find Google gflags library.
 set(GFLAGS_NAMESPACE gflags)
-find_package(gflags REQUIRED)
+find_package(Gflags REQUIRED)
               
 # Find Google glog library.
-find_package(glog REQUIRED)
+find_package(Glog REQUIRED)
 
-find_package(flann REQUIRED)
+# Find FLANN library.
+find_package(Flann REQUIRED)
                          
 find_package(CUDA REQUIRED)
 
@@ -21,8 +22,9 @@ include_directories(
   ${GLOG_INCLUDE_DIRS}
   ${HDF5_INCLUDE_DIR} 
   ${FLANN_INCLUDE_DIRS}
-  "$ENV{NVCUDASAMPLES_ROOT}/common/inc"
   )
+
+set(CUDA_NVCC_FLAGS "-arch sm_20")
 
 cuda_add_executable(
   LevenbergMarquardtMinimizer
@@ -45,8 +47,6 @@ cuda_add_executable(
   TestKnnSearch.h
   TestLevenbergMarquardtMinimizer1.cu
   TestLevenbergMarquardtMinimizer1.h
-  TestLsqr.cu
-  TestLsqr.h
   UnaryCostFunction.h
   UnaryCostFunctionAndItsGradientWithRespectToParams.cu
   UnaryCostFunctionAndItsGradientWithRespectToParams.h
