@@ -2,6 +2,7 @@
 #include "AdjustLineEndpoints.h"
 #include "PairwiseCostFunctionAndItsGradientWithRespectToParams.h"
 #include "ProjectionOntoLineAndItsJacobian.h"
+#include "SparseLeastSquares.h"
 #include "UnaryCostFunctionAndItsGradientWithRespectToParams.h"
 #include <algorithm>
 #include <cusp/array1d.h>
@@ -19,7 +20,7 @@
 #include <iostream>
 #include <thrust/device_ptr.h>
 
-void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, float* pSigma, int numPoints, int* pIndPi, int* pIndPj, int numPairs, float* pP)
+void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, float* pSigma, int numPoints, int* pIndPi, int* pIndPj, int numPairs, float* pP, int maxIterations)
 {
   int numDims = 3;
 
@@ -347,7 +348,6 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
   const float E = 2;
   const float D = 1 / E;
 
-  float lambda = 100;
   const int maxNumPoints = 65535;
 
   typedef cusp::array2d<float, cusp::device_memory>::values_array_type::iterator iterator;
@@ -370,61 +370,61 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
     cusp::array1d_view<iterator>(sAndTPlusX.values.begin() + numPoints * numDims, sAndTPlusX.values.end())
     );
 
-  //cusp::array2d<float, cusp::device_memory> s(hS);
-  //cusp::array2d<float, cusp::device_memory> t(hT);
-
-
   cusp::copy(hS, s);
   cusp::copy(hT, t);
 
-  for (int iter = 0; iter < 200; ++iter)
+  int iter = 0;
+  float damp = 0;
+  const float minDamp = 1e-5;
+
+  std::cout << "(4)" << std::endl;
+
+  for (int numPnt0 = 0; numPnt0 < numPoints; numPnt0 += maxNumPoints)
   {
-    std::cout << "(4)" << std::endl;
+    UnaryCostFunctionAndItsGradientWithRespectToParams3x6(
+      thrust::raw_pointer_cast(&tildeP(numPnt0, 0)),
+      thrust::raw_pointer_cast(&s(numPnt0, 0)),
+      thrust::raw_pointer_cast(&t(numPnt0, 0)),
+      thrust::raw_pointer_cast(&jacTildeP(numPnt0, 0)),
+      thrust::raw_pointer_cast(&jacS(numPnt0, 0)),
+      thrust::raw_pointer_cast(&jacT(numPnt0, 0)),
+      thrust::raw_pointer_cast(&sigma[numPnt0]),
+      thrust::raw_pointer_cast(&e[numPnt0]),
+      thrust::raw_pointer_cast(&jacE_.values[jacE_row_offsets[numPnt0]]),
+      std::min(numPoints - numPnt0, maxNumPoints)
+      );
 
-    for (int numPnt0 = 0; numPnt0 < numPoints; numPnt0 += maxNumPoints)
-    {
-      UnaryCostFunctionAndItsGradientWithRespectToParams3x6(
-        thrust::raw_pointer_cast(&tildeP(numPnt0, 0)),
-        thrust::raw_pointer_cast(&s(numPnt0, 0)),
-        thrust::raw_pointer_cast(&t(numPnt0, 0)),
-        thrust::raw_pointer_cast(&jacTildeP(numPnt0, 0)),
-        thrust::raw_pointer_cast(&jacS(numPnt0, 0)),
-        thrust::raw_pointer_cast(&jacT(numPnt0, 0)),
-        thrust::raw_pointer_cast(&sigma[numPnt0]),
-        thrust::raw_pointer_cast(&e[numPnt0]),
-        thrust::raw_pointer_cast(&jacE_.values[jacE_row_offsets[numPnt0]]),
-        std::min(numPoints - numPnt0, maxNumPoints)
-        );
+    std::cout << "(5)" << std::endl;
+  }
 
-      std::cout << "(5)" << std::endl;
-    }
+  std::cout << "(6)" << std::endl;
 
-    std::cout << "(6)" << std::endl;
+  for (int numPnt0 = 0; numPnt0 < numPairs; numPnt0 += maxNumPoints)
+  {
+    PairwiseCostFunctionAndItsGradientWithRespectToParamsWithPermutations3x12(
+      thrust::raw_pointer_cast(&tildeP(0, 0)),
+      thrust::raw_pointer_cast(&s(0, 0)),
+      thrust::raw_pointer_cast(&t(0, 0)),
+      thrust::raw_pointer_cast(&indPi[numPnt0]),
+      thrust::raw_pointer_cast(&indPj[numPnt0]),
+      thrust::raw_pointer_cast(&jacTildePi(numPnt0, 0)),
+      thrust::raw_pointer_cast(&jacSi(numPnt0, 0)),
+      thrust::raw_pointer_cast(&jacTi(numPnt0, 0)),
+      thrust::raw_pointer_cast(&jacTildePj(numPnt0, 0)),
+      thrust::raw_pointer_cast(&jacSj(numPnt0, 0)),
+      thrust::raw_pointer_cast(&jacTj(numPnt0, 0)),
+      thrust::raw_pointer_cast(&ei[numPnt0]),
+      thrust::raw_pointer_cast(&ej[numPnt0]),
+      thrust::raw_pointer_cast(&jacE_.values[jacEi_row_offsets[numPnt0]]),
+      thrust::raw_pointer_cast(&jacE_.values[jacEj_row_offsets[numPnt0]]),
+      std::min(numPairs - numPnt0, maxNumPoints)
+      );
 
-    for (int numPnt0 = 0; numPnt0 < numPairs; numPnt0 += maxNumPoints)
-    {
-      PairwiseCostFunctionAndItsGradientWithRespectToParamsWithPermutations3x12(
-        thrust::raw_pointer_cast(&tildeP(0, 0)),
-        thrust::raw_pointer_cast(&s(0, 0)),
-        thrust::raw_pointer_cast(&t(0, 0)),
-        thrust::raw_pointer_cast(&indPi[numPnt0]),
-        thrust::raw_pointer_cast(&indPj[numPnt0]),
-        thrust::raw_pointer_cast(&jacTildePi(numPnt0, 0)),
-        thrust::raw_pointer_cast(&jacSi(numPnt0, 0)),
-        thrust::raw_pointer_cast(&jacTi(numPnt0, 0)),
-        thrust::raw_pointer_cast(&jacTildePj(numPnt0, 0)),
-        thrust::raw_pointer_cast(&jacSj(numPnt0, 0)),
-        thrust::raw_pointer_cast(&jacTj(numPnt0, 0)),
-        thrust::raw_pointer_cast(&ei[numPnt0]),
-        thrust::raw_pointer_cast(&ej[numPnt0]),
-        thrust::raw_pointer_cast(&jacE_.values[jacEi_row_offsets[numPnt0]]),
-        thrust::raw_pointer_cast(&jacE_.values[jacEj_row_offsets[numPnt0]]),
-        std::min(numPairs - numPnt0, maxNumPoints)
-        );
+    std::cout << "(7)" << std::endl;
+  }
 
-      std::cout << "(7)" << std::endl;
-    }
-
+  while (iter < maxIterations)
+  {
     std::cout << "Unary cost function " << (unaryCostFunction1 = cusp::blas::dot(e, e)) << std::endl;
     std::cout << "Pairwise cost function " << (pairwiseCostFunction1 = cusp::blas::dot(ei, ei) + cusp::blas::dot(ej, ej)) << std::endl;
 
@@ -436,434 +436,18 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
     float btol = 1e-6;
     float conlim = 0;
 
-    float damp = lambda;
-    int itnlim = 5000;
-
-
-    //if isa(A, 'numeric')
-    //  explicitA = true;
-    //elseif isa(A, 'function_handle')
-    //  explicitA = false;
-    //else
-    //  error('SOL:lsqrSOL:Atype', '%s', 'A must be numeric or a function handle');
-    //end
-
-    //wantvar = nargout >= 10;
-    //if wantvar, var = zeros(n, 1); end
-
-    //msg = ['The exact solution is  x = 0                              '
-    //'Ax - b is small enough, given atol, btol                  '
-    //'The least-squares solution is good enough, given atol     '
-    //'The estimate of cond(Abar) has exceeded conlim            '
-    //'Ax - b is small enough for this machine                   '
-    //'The least-squares solution is good enough for this machine'
-    //'Cond(Abar) seems to be too large for this machine         '
-    //'The iteration limit has been reached                      '];
-
-    //if show
-    //  disp(' ')
-    //  disp('LSQR            Least-squares solution of  Ax = b')
-    //  str1 = sprintf('The matrix A has %8g rows  and %8g cols', m, n);
-    //  str2 = sprintf('damp = %20.14e    wantvar = %8g', damp, wantvar);
-    //  str3 = sprintf('atol = %8.2e                 conlim = %8.2e', atol, conlim);
-    //  str4 = sprintf('btol = %8.2e                 itnlim = %8g', btol, itnlim);
-    //  disp(str1);   disp(str2);   disp(str3);   disp(str4);
-    //end
-
-    //itn = 0;             istop = 0;
-    int itn = 0;
-    int istop = 0;
-    //ctol = 0;             if conlim > 0, ctol = 1 / conlim; end;
-    float ctol = 0;
-    if (conlim > 0)
-    {
-      ctol = 1 / conlim;
-    }
-    //Anorm = 0;             Acond = 0;
-    float Anorm = 0;
-    float Acond = 0;
-    //dampsq = damp ^ 2;        ddnorm = 0;             res2 = 0;
-    float dampsq = damp * damp;
-    float ddnorm = 0;
-    float res2 = 0;
-
-    //xnorm = 0;             xxnorm = 0;             z = 0;
-    float xnorm = 0;
-    float xxnorm = 0;
-    float z = 0;
-
-    //cs2 = -1;            sn2 = 0;
-    float cs2 = -1;
-    float sn2 = 0;
+    int itnlim = 50;
 
     csr_matrix At;
     cusp::transpose(A, At);
 
-    // Initialize.
+    cusp::array1d<float, cusp::device_memory> g(A.num_cols);
+    cusp::multiply(At, b, g);
 
-    // Set up the first vectors u and v for the bidiagonalization.
-    // These satisfy  beta*u = b, alfa*v = A'u.
+    cusp::array1d<float, cusp::device_memory> x(A.num_cols);
 
-    cusp::array1d<float, cusp::device_memory> u(A.num_rows);
-    cusp::array1d<float, cusp::device_memory> v(A.num_cols);
-
-    cusp::array1d<float, cusp::device_memory> Atu(A.num_cols);
-    cusp::array1d<float, cusp::device_memory> Av(A.num_rows);
-
-    cusp::array1d<float, cusp::device_memory> w(A.num_cols);
-    cusp::array1d<float, cusp::device_memory> dk(A.num_cols);
-
-    // u = b(1:m);        x = zeros(n, 1);
-    cusp::copy(b, u);
-    cusp::array1d<float, cusp::device_memory> x(A.num_cols, 0);
-
-    //alfa = 0;             beta = norm(u);
-    float alfa = 0;
-    float beta = cusp::blas::nrm2(u);
-
-    //if beta > 0
-    if (beta > 0)
-    {
-      //u = (1 / beta)*u;
-      cusp::blas::scal(u, 1 / beta);
-      //if explicitA
-      //  v = A'*u;
-      //else
-      //v = A(u, 2);
-      //end
-      cusp::multiply(At, u, v);
-      //alfa = norm(v);
-      alfa = cusp::blas::nrm2(v);
-      //end  
-    }
-
-    //  if alfa > 0
-    if (alfa > 0)
-    {
-      //    v = (1 / alfa)*v;      w = v;
-      cusp::blas::scal(v, 1 / alfa);
-      cusp::copy(v, w);
-      //end
-    }
-
-    //  Arnorm = alfa*beta;     if Arnorm == 0, disp(msg(1, :)); return, end
-    float Arnorm = alfa * beta;
-    if (Arnorm == 0)
-    {
-      return;
-    }
-
-    //  rhobar = alfa;          phibar = beta;          bnorm = beta;
-    float rhobar = alfa;
-    float phibar = beta;
-    float bnorm = beta;
-    //rnorm = beta;
-    float rnorm = beta;
-    //r1norm = rnorm;
-    float r1norm = rnorm;
-    //r2norm = rnorm;
-    float r2norm = rnorm;
-    //head1 = '   Itn      x(1)       r1norm     r2norm ';
-    //head2 = ' Compatible   LS      Norm A   Cond A';
-
-    //if show
-    //  disp(' ')
-    //  disp([head1 head2])
-    //  test1 = 1;          test2 = alfa / beta;
-    //str1 = sprintf('%6g %12.5e', itn, x(1));
-    //str2 = sprintf(' %10.3e %10.3e', r1norm, r2norm);
-    //str3 = sprintf('  %8.1e %8.1e', test1, test2);
-    //disp([str1 str2 str3])
-    //  end
-
-    //------------------------------------------------------------------
-    //     Main iteration loop.
-    //------------------------------------------------------------------
-    //  while itn < itnlim
-    //    itn = itn + 1;
-
-    while (itn < itnlim)
-    {
-      itn = itn + 1;
-      //% Perform the next step of the bidiagonalization to obtain the
-      //  % next beta, u, alfa, v.These satisfy the relations
-      //  %      beta*u = A*v - alfa*u,
-      //  %      alfa*v = A'*u - beta*v.
-
-      //  if explicitA
-      //    u = A*v - alfa*u;
-      //  else
-      //    u = A(v, 1) - alfa*u;
-      //end
-      cusp::multiply(A, v, Av);
-      cusp::blas::axpby(Av, u, u, 1, -alfa);
-
-      //  beta = norm(u);
-      beta = cusp::blas::nrm2(u);
-      //if beta > 0
-      if (beta > 0)
-      {
-        //  u = (1 / beta)*u;
-        cusp::blas::scal(u, 1 / beta);
-      }
-      //Anorm = norm([Anorm alfa beta damp]);
-      Anorm = sqrt(Anorm * Anorm + alfa * alfa + beta * beta + damp * damp);//?
-      //if explicitA
-      //  v = A'*u   - beta*v;
-      //else
-      //v = A(u, 2) - beta*v;
-      //end
-      cusp::multiply(At, u, Atu);
-      cusp::blas::axpby(Atu, v, v, 1, -beta);
-
-      //  alfa = norm(v);
-      alfa = cusp::blas::nrm2(v);
-      //if alfa > 0, v = (1 / alfa)*v; end
-      //  end
-      if (alfa > 0)
-      {
-        cusp::blas::scal(v, 1 / alfa);
-      }
-
-      //  % Use a plane rotation to eliminate the damping parameter.
-      //  % This alters the diagonal(rhobar) of the lower - bidiagonal matrix.
-
-      //rhobar1 = norm([rhobar damp]);
-      //cs1 = rhobar / rhobar1;
-      //sn1 = damp / rhobar1;
-      //psi = sn1*phibar;
-      //phibar = cs1*phibar;
-      float rhobar1 = sqrt(rhobar * rhobar + damp * damp);
-      float cs1 = rhobar / rhobar1;
-      float sn1 = damp / rhobar1;
-      float psi = sn1*phibar;
-      phibar = cs1*phibar;
-
-      //% Use a plane rotation to eliminate the subdiagonal element(beta)
-      //  % of the lower - bidiagonal matrix, giving an upper - bidiagonal matrix.
-
-      //  rho = norm([rhobar1 beta]);
-      //cs = rhobar1 / rho;
-      //sn = beta / rho;
-      //theta = sn*alfa;
-      //rhobar = -cs*alfa;
-      //phi = cs*phibar;
-      //phibar = sn*phibar;
-      //tau = sn*phi;
-      float rho = sqrt(rhobar1 * rhobar1 + beta * beta);
-      float cs = rhobar1 / rho;
-      float sn = beta / rho;
-      float theta = sn*alfa;
-      rhobar = -cs*alfa;
-      float phi = cs*phibar;
-      phibar = sn*phibar;
-      float tau = sn*phi;
-
-      //% Update x and w.
-
-      //  t1 = phi / rho;
-      //t2 = -theta / rho;
-      //dk = (1 / rho)*w;
-      float t1 = phi / rho;
-      float t2 = -theta / rho;
-
-      cusp::blas::copy(w, dk);
-      cusp::blas::scal(dk, 1 / rho);
-
-      //x = x + t1*w;
-      //w = v + t2*w;
-      //ddnorm = ddnorm + norm(dk) ^ 2;
-      cusp::blas::axpy(w, x, t1);
-      cusp::blas::axpby(v, w, w, 1, t2);
-      ddnorm += cusp::blas::dot(dk, dk);
-      //if wantvar, var = var + dk.*dk; end
-
-      //  % Use a plane rotation on the right to eliminate the
-      //  % super - diagonal element(theta) of the upper - bidiagonal matrix.
-      //  % Then use the result to estimate  norm(x).
-
-      //  delta = sn2*rho;
-      //gambar = -cs2*rho;
-      //rhs = phi - delta*z;
-      //zbar = rhs / gambar;
-      //xnorm = sqrt(xxnorm + zbar ^ 2);
-      //gamma = norm([gambar theta]);
-      float delta = sn2 * rho;
-      float gambar = -cs2 * rho;
-      float rhs = phi - delta * z;
-      float zbar = rhs / gambar;
-      xnorm = sqrt(xxnorm + zbar * zbar);
-      float gamma = sqrt(gambar * gambar + theta * theta);
-      //cs2 = gambar / gamma;
-      //sn2 = theta / gamma;
-      //z = rhs / gamma;
-      //xxnorm = xxnorm + z ^ 2;
-      cs2 = gambar / gamma;
-      sn2 = theta / gamma;
-      z = rhs / gamma;
-      xxnorm = xxnorm + z * z;
-
-      //% Test for convergence.
-      //  % First, estimate the condition of the matrix  Abar,
-      //  % and the norms of  rbar  and  Abar'rbar.
-
-      //  Acond = Anorm*sqrt(ddnorm);
-      //res1 = phibar ^ 2;
-      //res2 = res2 + psi ^ 2;
-      //rnorm = sqrt(res1 + res2);
-      //Arnorm = alfa*abs(tau);
-      Acond = Anorm * sqrt(ddnorm);
-      float res1 = phibar * phibar;
-      res2 = res2 + psi * psi;
-      float rnorm = sqrt(res1 + res2);
-      Arnorm = alfa * abs(tau);
-
-      //% 07 Aug 2002:
-      //% Distinguish between
-      //  %    r1norm = || b - Ax || and
-      //  %    r2norm = rnorm in current code
-      //  % = sqrt(r1norm ^ 2 + damp ^ 2 * || x || ^ 2).
-      //  %    Estimate r1norm from
-      //  %    r1norm = sqrt(r2norm ^ 2 - damp ^ 2 * || x || ^ 2).
-      //  % Although there is cancellation, it might be accurate enough.
-
-      //  r1sq = rnorm ^ 2 - dampsq*xxnorm;
-      //r1norm = sqrt(abs(r1sq));   if r1sq < 0, r1norm = -r1norm; end
-      //  r2norm = rnorm;
-      float r1sq = rnorm * rnorm - dampsq * xxnorm;
-      r1norm = sqrt(abs(r1sq));
-      if (r1sq < 0)
-      {
-        r1norm = -r1norm;
-      }
-      r2norm = rnorm;
-
-      //% Now use these norms to estimate certain other quantities,
-      //  % some of which will be small near a solution.
-
-      //  test1 = rnorm / bnorm;
-      //test2 = Arnorm / (Anorm*rnorm);
-      //test3 = 1 / Acond;
-      //t1 = test1 / (1 + Anorm*xnorm / bnorm);
-      //rtol = btol + atol*Anorm*xnorm / bnorm;
-      float test1 = rnorm / bnorm;
-      float test2 = Arnorm / (Anorm * rnorm);
-      float test3 = 1 / Acond;
-      t1 = test1 / (1 + Anorm * xnorm / bnorm);
-      float rtol = btol + atol * Anorm * xnorm / bnorm;
-
-      //% The following tests guard against extremely small values of
-      //  % atol, btol  or  ctol.  (The user may have set any or all of
-      //  % the parameters  atol, btol, conlim  to 0.)
-      //  % The effect is equivalent to the normal tests using
-      //  % atol = eps, btol = eps, conlim = 1 / eps.
-
-      //  if itn >= itnlim, istop = 7; end
-      //    if 1 + test3 <= 1, istop = 6; end
-      //      if 1 + test2 <= 1, istop = 5; end
-      //        if 1 + t1 <= 1, istop = 4; end
-
-      if (itn >= itnlim)
-      {
-        istop = 7;
-      }
-      if (1 + test3 <= 1)
-      {
-        istop = 6;
-      }
-      if (1 + test2 <= 1)
-      {
-        istop = 5;
-      }
-      if (1 + t1 <= 1)
-      {
-        istop = 4;
-      }
-
-      //          % Allow for tolerances set by the user.
-
-      //          if  test3 <= ctol, istop = 3; end
-      //            if  test2 <= atol, istop = 2; end
-      //              if  test1 <= rtol, istop = 1; end
-
-      //                % See if it is time to print something.
-      if (test3 <= ctol)
-      {
-        istop = 3;
-      }
-      if (test2 <= atol)
-      {
-        istop = 2;
-      }
-      if (test1 <= rtol)
-      {
-        istop = 1;
-      }
-
-      //                prnt = 0;
-      //if n <= 40, prnt = 1; end
-      //  if itn <= 10, prnt = 1; end
-      //    if itn >= itnlim - 10, prnt = 1; end
-      //      if rem(itn, 10) == 0, prnt = 1; end
-      //        if test3 <= 2 * ctol, prnt = 1; end
-      //          if test2 <= 10 * atol, prnt = 1; end
-      //            if test1 <= 10 * rtol, prnt = 1; end
-      //              if istop ~= 0, prnt = 1; end
-      /*bool prnt = false;
-      if (n <= 40)
-      {
-      prnt = true;
-      }
-      if (itn <= 10)
-      {
-      prnt = true;
-      }
-      if ((itn % 10) == 0)
-      {
-      prnt = true;
-      }
-      if (test3 <= 2 * ctol)
-      {
-      prnt = true;
-      }
-      if (test2 <= 10 * atol)
-      {
-      prnt = true;
-      }
-      if (test1 <= 10 * rtol)
-      {
-      prnt = true;
-      }
-      if (istop != 0)
-      {
-      prnt = true;
-      }*/
-
-      //                if prnt
-      //                  if show
-      //                    str1 = sprintf('%6g %12.5e', itn, x(1));
-      //str2 = sprintf(' %10.3e %10.3e', r1norm, r2norm);
-      //str3 = sprintf('  %8.1e %8.1e', test1, test2);
-      //str4 = sprintf(' %8.1e %8.1e', Anorm, Acond);
-      //disp([str1 str2 str3 str4])
-      //  end
-      //  end
-      //  if istop > 0, break, end
-      //    end
-
-      /*if (prnt)
-      {
-
-      }*/
-      if (istop > 0)
-      {
-        break;
-      }
-      //    % End of iteration loop.
-    }
-
-    std::cout << "istop " << istop << std::endl;
-
+    SparseLeastSquares<csr_matrix> leastsq(A, At, b);
+    leastsq.Solve(x, atol, btol, conlim, damp, itnlim, true);
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     cusp::blas::axpby(sAndT.values, x, sAndTPlusX.values, 1, -1);
@@ -909,44 +493,152 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
     std::cout << "Unary cost function " << (unaryCostFunction2 = cusp::blas::dot(e, e)) << std::endl;
     std::cout << "Pairwise cost function " << (pairwiseCostFunction2 = cusp::blas::dot(ei, ei) + cusp::blas::dot(ej, ej)) << std::endl;
 
-    float numRho = (unaryCostFunction1 - unaryCostFunction2) + (pairwiseCostFunction1 - pairwiseCostFunction2);
-    float denRho = (unaryCostFunction1 + pairwiseCostFunction1) - r1norm * r1norm;
+    float FAtX = unaryCostFunction1 + pairwiseCostFunction1;
+    float FAtXPlusY = unaryCostFunction2 + pairwiseCostFunction2;
+
+    float numRho = FAtX - FAtXPlusY;
+    float denRho = FAtX - leastsq.r1norm * leastsq.r1norm;
 
     float rho = numRho / denRho;
 
     std::cout << "num(rho) " << numRho << std::endl;
     std::cout << "den(rho) " << denRho << std::endl;
 
-    if ((rho < 0.01) || (numRho + 1 <= 1) || (denRho + 1 <= 1))
+    if (rho != rho)
+    {
+      std::cout << "rho is nan" << std::endl;
+      break;
+    }
+    else if (rho < 0.01)
     {
       std::cout << "rho < pi1" << std::endl;
-      lambda *= E;
-      std::cout << "lambda = E lambda" << std::endl;
-
-      if (lambda > 32000)
+      if (damp == 0)
       {
-        std::cout << "That is enough (" << iter << ")" << std::endl;
-        break;
+        damp = minDamp;
+        std::cout << "damp = minDamp" << std::endl;
+      }
+      else
+      {
+        damp = E * damp;
+        std::cout << "damp = E * damp" << std::endl;
+      }
+
+      std::cout << "(4)" << std::endl;
+
+      for (int numPnt0 = 0; numPnt0 < numPoints; numPnt0 += maxNumPoints)
+      {
+        UnaryCostFunctionAndItsGradientWithRespectToParams3x6(
+          thrust::raw_pointer_cast(&tildeP(numPnt0, 0)),
+          thrust::raw_pointer_cast(&s(numPnt0, 0)),
+          thrust::raw_pointer_cast(&t(numPnt0, 0)),
+          thrust::raw_pointer_cast(&jacTildeP(numPnt0, 0)),
+          thrust::raw_pointer_cast(&jacS(numPnt0, 0)),
+          thrust::raw_pointer_cast(&jacT(numPnt0, 0)),
+          thrust::raw_pointer_cast(&sigma[numPnt0]),
+          thrust::raw_pointer_cast(&e[numPnt0]),
+          thrust::raw_pointer_cast(&jacE_.values[jacE_row_offsets[numPnt0]]),
+          std::min(numPoints - numPnt0, maxNumPoints)
+          );
+
+        std::cout << "(5)" << std::endl;
+      }
+
+      std::cout << "(6)" << std::endl;
+
+      for (int numPnt0 = 0; numPnt0 < numPairs; numPnt0 += maxNumPoints)
+      {
+        PairwiseCostFunctionAndItsGradientWithRespectToParamsWithPermutations3x12(
+          thrust::raw_pointer_cast(&tildeP(0, 0)),
+          thrust::raw_pointer_cast(&s(0, 0)),
+          thrust::raw_pointer_cast(&t(0, 0)),
+          thrust::raw_pointer_cast(&indPi[numPnt0]),
+          thrust::raw_pointer_cast(&indPj[numPnt0]),
+          thrust::raw_pointer_cast(&jacTildePi(numPnt0, 0)),
+          thrust::raw_pointer_cast(&jacSi(numPnt0, 0)),
+          thrust::raw_pointer_cast(&jacTi(numPnt0, 0)),
+          thrust::raw_pointer_cast(&jacTildePj(numPnt0, 0)),
+          thrust::raw_pointer_cast(&jacSj(numPnt0, 0)),
+          thrust::raw_pointer_cast(&jacTj(numPnt0, 0)),
+          thrust::raw_pointer_cast(&ei[numPnt0]),
+          thrust::raw_pointer_cast(&ej[numPnt0]),
+          thrust::raw_pointer_cast(&jacE_.values[jacEi_row_offsets[numPnt0]]),
+          thrust::raw_pointer_cast(&jacE_.values[jacEj_row_offsets[numPnt0]]),
+          std::min(numPairs - numPnt0, maxNumPoints)
+          );
+
+        std::cout << "(7)" << std::endl;
       }
     }
     else
     {
+      bool convergence = false;
+
+      const float tolx = 1e-6;
+      const float tolf = 1e-6;
+      const float tolg = 1e-5;
+
+      float ynorm = cusp::blas::nrmmax(x);
+      float xnorm = cusp::blas::nrmmax(sAndT.values);
+      float xPlusYnorm = cusp::blas::nrmmax(sAndTPlusX.values);
+
+      std::cout << "ynorm " << ynorm << std::endl;
+      std::cout << "xPlusYnorm " << xPlusYnorm << std::endl;
+      std::cout << "xnorm " << xnorm << std::endl;
+
+      //if (ynorm / (xPlusYnorm + xnorm) <= tolx)
+      if (ynorm <= tolx)
+      {
+        convergence = true;
+        std::cout << "x-convergence criterion is signalled" << std::endl;
+      }
+
+      if ((FAtX - FAtXPlusY) / FAtXPlusY <= tolf)
+      {
+        convergence = true;
+        std::cout << "Function convergence criterion is signalled" << std::endl;
+      }
+
+      float gnorm = cusp::blas::nrm2(g);
+      std::cout << "gnorm " << gnorm << std::endl;
+
+      if (gnorm <= tolg)
+      {
+        convergence = true;
+        std::cout << "Gradient convergence criterion is signalled" << std::endl;
+      }
+
+      if (convergence) break;
+
       cusp::copy(sAndTPlusX, sAndT);
+      iter = iter + 1;
 
       if (rho > 0.75)
       {
         std::cout << "rho > pi2" << std::endl;
-        lambda *= D;
-        std::cout << "lambda = D lambda" << std::endl;
+        damp = D * damp;
+        std::cout << "damp = D damp" << std::endl;
       }
       else
       {
         std::cout << "pi1 < rho < pi2" << std::endl;
       }
+
+      if (damp < minDamp)
+      {
+        damp = 0;
+        std::cout << "damp <- 0" << std::endl;
+      }
+    }
+
+    if (damp > 32000)
+    {
+      std::cout << "damp > maxDamp " << std::endl;
+      break;
     }
 
     std::cout << "rho " << rho << std::endl;
-    std::cout << "lambda " << lambda << std::endl;
+    std::cout << "damp " << damp << std::endl;
+    std::cout << "iter " << iter << std::endl;
   }
 
   cusp::array2d<float, cusp::device_memory> p(numPoints, numDims);
