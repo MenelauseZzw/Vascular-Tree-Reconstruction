@@ -1,6 +1,7 @@
 #ifndef SparseLeastSquares_h
 #define SparseLeastSquares_h
 
+#include <algorithm>
 #include <cusp/array1d.h>
 #include <cusp/array2d.h>
 #include <cusp/blas/blas.h>
@@ -25,7 +26,9 @@ public:
   {
   }
 
-  void Solve(ValueType atol, ValueType btol, ValueType conlim, ValueType damp, int itnlim)
+  ValueType r1norm;
+
+  void Solve(Array1d& x, ValueType atol, ValueType btol, ValueType conlim, ValueType damp, int itnlim, bool show)
   {
     // Initialize.
 
@@ -78,8 +81,8 @@ public:
     // These satisfy  beta*u = b,  alfa*v = A'u.
 
     // u      = b(1:m);        x    = zeros(n,1);
-    Array1d u(A.num_rows);
-    Array1d x(A.num_cols, 0);
+    Array1d u(b);
+    cusp::blas::fill(x, 0);
 
     // alfa   = 0;             beta = norm(u);
     ValueType alfa = 0;
@@ -112,7 +115,7 @@ public:
     ValueType Arnorm = alfa * beta;
     if (Arnorm == 0)
     {
-      VLOG(0) << msg[1 - 1];
+      LOG(INFO) << msg[1 - 1];
       return;
     }
 
@@ -125,48 +128,63 @@ public:
     ValueType rnorm = beta;
 
     // r1norm = rnorm;
-    ValueType r1norm = rnorm;
+    r1norm = rnorm;
 
     // r2norm = rnorm;
     ValueType r2norm = rnorm;
 
     // head1 = '   Itn      x(1)       r1norm     r2norm ';
     // head2 = ' Compatible   LS      Norm A   Cond A';
+    const char* head1 = "   Itn      x(1)       r1norm     r2norm ";
+    const char* head2 = " Compatible   LS      Norm A   Cond A";
+
     // if show
-    //   disp(' ')
-    //   disp([head1 head2])
-    //   test1 = 1;          test2 = alfa / beta;
-    //   str1 = sprintf('%6g %12.5e', itn, x(1));
-    //   str2 = sprintf(' %10.3e %10.3e', r1norm, r2norm);
-    //   str3 = sprintf('  %8.1e %8.1e', test1, test2);
-    //   disp([str1 str2 str3])
-    // end
-
-    ValueType test1;
-    ValueType test2;
-    if (VLOG_IS_ON(1))
+    if (show)
     {
+      // disp(' ')
+      // disp([head1 head2])
       LOG(INFO) << " ";
-      LOG(INFO)
-        << "   Itn      x(1)       r1norm     r2norm "
-        << " Compatible   LS      Norm A   Cond A";
+      LOG(INFO) << head1 << head2;
 
-      test1 = 1;
-      test2 = alfa / beta;
+      // test1 = 1;          test2 = alfa / beta;
+      ValueType test1 = 1;
+      ValueType test2 = alfa / beta;
 
-      //LOG(INFO)
-      //  << std::setw(6) << itn << " " << std::setw(12) << set::precision(5) << std::scientific << x[1 - 1]
-      //  << " " << std::setw(10) << set::precision(3) << std::scientific << r1norm
-      //  << " " << std::setw(10) << set::precision(3) << std::scientific << r2norm
-      //  << "  " << std::setw(8) << set::precision(1) << std::scientific << test1
-      //  << " " << std::setw(8) << set::precision(1) << std::scientific << test2;
+      // str1 = sprintf('%6g %12.5e', itn, x(1));
+      std::string str1;
+      {
+        std::ostringstream sstream;
+        sstream << std::scientific << std::setw(6) << itn << " " << std::setw(12) << std::setprecision(5) << x[1 - 1];
+        str1 = sstream.str();
+      }
+
+      // str2 = sprintf(' %10.3e %10.3e', r1norm, r2norm);
+      std::string str2;
+      {
+        std::ostringstream sstream;
+        sstream << std::scientific << " " << std::setw(10) << std::setprecision(3) << r1norm << " " << std::setw(10) << std::setprecision(3) << r2norm;
+        str2 = sstream.str();
+      }
+
+      // str3 = sprintf('  %8.1e %8.1e', test1, test2);
+      std::string str3;
+      {
+        std::ostringstream sstream;
+        sstream << std::scientific << "  " << std::setw(8) << std::setprecision(1) << test1 << " " << std::setw(8) << std::setprecision(1) << test2;
+        str3 = sstream.str();
+      }
+
+      // disp([str1 str2 str3])
+      LOG(INFO) << str1 << str2 << str3;
     }
+    // end
 
     //------------------------------------------------------------------
     //     Main iteration loop.
     //------------------------------------------------------------------
     Array1d tmpU(u.size());
     Array1d tmpV(v.size());
+    Array1d dk(w.size());
 
     // while itn < itnlim
     while (itn < itnlim)
@@ -260,10 +278,6 @@ public:
 
       // ddnorm = ddnorm + norm(dk) ^ 2;
       ddnorm = ddnorm + cusp::blas::dot(dk, dk);
-
-      // if wantvar, var = var + dk.*dk; end
-
-      // TBD
 
       // Use a plane rotation on the right to eliminate the
       // super - diagonal element(theta) of the upper - bidiagonal matrix.
@@ -371,7 +385,7 @@ public:
       // if test1 <= 10 * rtol, prnt = 1; end
       // if istop ~= 0, prnt = 1; end
       bool prnt = false;
-      if (n <= 40) prnt = true;
+      if (A.num_cols <= 40) prnt = true;
       if (itn <= 10) prnt = true;
       if (itn >= itnlim - 10) prnt = true;
       if (itn % 10 == 0) prnt = true;
@@ -380,41 +394,110 @@ public:
       if (test1 <= 10 * rtol) prnt = true;
       if (istop != 0) prnt = true;
 
-      //  if prnt
-      //    if show
-      //      str1 = sprintf('%6g %12.5e', itn, x(1));
-      //      str2 = sprintf(' %10.3e %10.3e', r1norm, r2norm);
-      //      str3 = sprintf('  %8.1e %8.1e', test1, test2);
-      //      str4 = sprintf(' %8.1e %8.1e', Anorm, Acond);
-      //      disp([str1 str2 str3 str4])
-      //    end
-      //  end
-      VLOG_IF(1, prnt)
+      // if prnt
+      if (prnt)
       {
-        // TBD
+        // if show
+        if (show)
+        {
+          // str1 = sprintf('%6g %12.5e', itn, x(1));
+          std::string str1;
+          {
+            std::ostringstream sstream;
+            sstream << std::scientific << std::setw(6) << itn << " " << std::setw(12) << std::setprecision(5) << x[1 - 1];
+            str1 = sstream.str();
+          }
+
+          // str2 = sprintf(' %10.3e %10.3e', r1norm, r2norm);
+          std::string str2;
+          {
+            std::ostringstream sstream;
+            sstream << std::scientific << " " << std::setw(10) << std::setprecision(3) << r1norm << " " << std::setw(10) << std::setprecision(3) << r2norm;
+            str2 = sstream.str();
+          }
+
+          // str3 = sprintf('  %8.1e %8.1e', test1, test2);
+          std::string str3;
+          {
+            std::ostringstream sstream;
+            sstream << std::scientific << "  " << std::setw(8) << std::setprecision(1) << test1 << " " << std::setw(8) << std::setprecision(1) << test2;
+            str3 = sstream.str();
+          }
+
+          // str4 = sprintf(' %8.1e %8.1e', Anorm, Acond);
+          std::string str4;
+          {
+            std::ostringstream sstream;
+            sstream << std::scientific << " " << std::setw(8) << std::setprecision(1) << Anorm << " " << std::setw(8) << std::setprecision(1) << Acond;
+            str4 = sstream.str();
+          }
+
+          // disp([str1 str2 str3 str4])
+          LOG(INFO) << str1 << str2 << str3 << str4;
+        }
+        // end
       }
+      // end
 
       // if istop > 0, break, end
       if (istop > 0) break;
     }
     // end
     // End of iteration loop.
+
     // Print the stopping condition.
 
     // if show
-    //   fprintf('\nlsqrSOL finished\n')
-    //   disp(msg(istop + 1, :))
-    //   disp(' ')
-    //   str1 = sprintf('istop =%8g   r1norm =%8.1e', istop, r1norm);
-    //   str2 = sprintf('Anorm =%8.1e   Arnorm =%8.1e', Anorm, Arnorm);
-    //   str3 = sprintf('itn   =%8g   r2norm =%8.1e', itn, r2norm);
-    //   str4 = sprintf('Acond =%8.1e   xnorm  =%8.1e', Acond, xnorm);
-    //   disp([str1 '   ' str2])
-    //   disp([str3 '   ' str4])
-    //   disp(' ')
-    // end
+    if (show)
+    {
+      // disp(msg(istop + 1, :))
+      LOG(INFO) << msg[istop];
 
-    // TBD
+      // disp(' ')
+      LOG(INFO) << " ";
+
+      // str1 = sprintf('istop =%8g   r1norm =%8.1e', istop, r1norm);
+      std::string str1;
+      {
+        std::ostringstream sstream;
+        sstream << std::scientific << "istop =" << std::setw(8) << istop << "   r1norm =" << std::setw(8) << std::setprecision(1) << r1norm;
+        str1 = sstream.str();
+      }
+
+      // str2 = sprintf('Anorm =%8.1e   Arnorm =%8.1e', Anorm, Arnorm);
+      std::string str2;
+      {
+        std::ostringstream sstream;
+        sstream << std::scientific << "Anorm =" << std::setw(8) << std::setprecision(1) << Anorm << "   Arnorm =" << std::setw(8) << std::setprecision(1) << Arnorm;
+        str2 = sstream.str();
+      }
+
+      // str3 = sprintf('itn   =%8g   r2norm =%8.1e', itn, r2norm);
+      std::string str3;
+      {
+        std::ostringstream sstream;
+        sstream << std::scientific << "itn   =" << std::setw(8) << itn << "   r2norm =" << std::setw(8) << std::setprecision(1) << r2norm;
+        str3 = sstream.str();
+      }
+
+      // str4 = sprintf('Acond =%8.1e   xnorm  =%8.1e', Acond, xnorm);
+      std::string str4;
+      {
+        std::ostringstream sstream;
+        sstream << std::scientific << "Acond =" << std::setw(8) << std::setprecision(1) << Acond << "   xnorm  =" << std::setw(8) << std::setprecision(1) << xnorm;
+        str4 = sstream.str();
+      }
+
+      // disp([str1 '   ' str2])
+      LOG(INFO) << str1 << "   " << str2;
+
+      // disp([str3 '   ' str4])
+      LOG(INFO) << str3 << "   " << str4;
+
+      // disp(' ')
+      LOG(INFO) << " ";
+    }
+    // end
   }
 
 private:
