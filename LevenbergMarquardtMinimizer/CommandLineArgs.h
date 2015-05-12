@@ -9,6 +9,7 @@ public:
   static const std::string& SourceFileName();
   static const std::string& ResultFileName();
   static int NearestNeighbors();
+  static int MaxIterations();
   static void Notify();
 };
 

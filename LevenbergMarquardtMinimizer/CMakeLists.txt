@@ -27,29 +27,22 @@ include_directories(
 cuda_add_executable(
   LevenbergMarquardtMinimizer
   main.cpp
-  AdjustLineEndpoints.cu
-  AdjustLineEndpoints.h
   CommandLineArgs.cpp
   CommandLineArgs.h
-  DoubleMultiVariableFunction.cpp
-  DoubleMultiVariableFunction.h
-  DoubleParameterizedFunctional.cpp
-  DoubleParameterizedFunctional.h
+  DeviceFunctions.hpp
+  DualNumber.hpp
   LevenbergMarquardtMinimizer.cpp
   LevenbergMarquardtMinimizer.h
-  PairwiseCostFunction.h
-  PairwiseCostFunctionAndItsGradientWithRespectToParams.cu
-  PairwiseCostFunctionAndItsGradientWithRespectToParams.h
-  ProjectionOntoLineAndItsJacobian.cu
-  ProjectionOntoLineAndItsJacobian.cuh
-  ProjectionOntoLineAndItsJacobian.h
-  TestKnnSearch.cpp
-  TestKnnSearch.h
+  PairwiseCostFunction.hpp
+  PairwiseCostGradientWithRespectToParams.hpp
+  ProjectionOntoLine.hpp
+  SparseLeastSquares.h
+  TestKnnSearch1.cpp
+  TestKnnSearch1.h
   TestLevenbergMarquardtMinimizer1.cu
   TestLevenbergMarquardtMinimizer1.h
-  UnaryCostFunction.h
-  UnaryCostFunctionAndItsGradientWithRespectToParams.cu
-  UnaryCostFunctionAndItsGradientWithRespectToParams.h
+  UnaryCostFunction.hpp
+  UnaryCostGradientWithRespectToParams.hpp
   )
 
 target_link_libraries(

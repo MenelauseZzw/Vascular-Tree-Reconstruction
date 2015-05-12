@@ -1,5 +1,7 @@
 #include "CommandLineArgs.h"
+#include "TestKnnSearch1.h"
 #include "TestLevenbergMarquardtMinimizer1.h"
+#include <cuda_runtime.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <H5Cpp.h>
@@ -34,20 +36,40 @@ int main(int argc, char *argv[])
 {
   google::InitGoogleLogging(argv[0]);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
-  
+
   CommandLineArgs::Notify();
+
+  int device;
+  cudaGetDevice(&device);
+
+  cudaDeviceProp prop;
+  cudaGetDeviceProperties(&prop, device);
+
+  LOG(INFO) << "Device " << prop.name << "(" << device << ")";
+  LOG(INFO) << "Maximum size of each dimension of a block (" << prop.maxThreadsDim[0] << " " << prop.maxThreadsDim[1] << " " << prop.maxThreadsDim[2] << ") ";
+  LOG(INFO) << "Maximum number of threads per block " << prop.maxThreadsPerBlock;
+  LOG(INFO) << "Maximum resident threads per multiprocessor " << prop.maxThreadsPerMultiProcessor;
 
   H5File sourceFile(CommandLineArgs::SourceFileName(), H5F_ACC_RDONLY);
 
   std::vector<float> tildeP = readVector<float>(sourceFile, "tildeP");
   std::vector<float> s = readVector<float>(sourceFile, "s");
   std::vector<float> t = readVector<float>(sourceFile, "t");
-  std::vector<int> indPi = readVector<int>(sourceFile, "indPi");
-  std::vector<int> indPj = readVector<int>(sourceFile, "indPj");
   std::vector<float> sigma = readVector<float>(sourceFile, "sigma");
   std::vector<float> p(tildeP.size());
 
-  testLevenbergMarquardtMinimizer1(&tildeP[0], &s[0], &t[0], &sigma[0], tildeP.size() / 3, &indPi[0], &indPj[0], indPi.size(), &p[0]);
+  std::vector<int> indPi(CommandLineArgs::NearestNeighbors() * sigma.size());
+  std::vector<int> indPj(indPi.size());
+
+  int numPairs;
+
+  testKnnSearch(&tildeP[0], &sigma[0], &s[0], &t[0], &indPi[0], &indPj[0], sigma.size(), CommandLineArgs::NearestNeighbors(), numPairs);
+  LOG(INFO) << "Number of pairwise terms: " << numPairs;
+
+  indPi.resize(numPairs);
+  indPj.resize(numPairs);
+
+  testLevenbergMarquardtMinimizer1(&tildeP[0], &s[0], &t[0], &sigma[0], sigma.size(), &indPi[0], &indPj[0], indPi.size(), &p[0], CommandLineArgs::MaxIterations());
 
   H5File resultFile(CommandLineArgs::ResultFileName(), H5F_ACC_TRUNC);
 
@@ -64,7 +86,7 @@ int main(int argc, char *argv[])
   {
     const hsize_t dims[rank] = { indPi.size() };
     DataSpace space(rank, dims);
-    
+
     resultFile.createDataSet("indPi", PredType::NATIVE_INT, space).write(&indPi[0], PredType::NATIVE_INT);
     resultFile.createDataSet("indPj", PredType::NATIVE_INT, space).write(&indPj[0], PredType::NATIVE_INT);
   }
