@@ -59,8 +59,7 @@ __global__ void PairwiseCostFunctionCuda(const ValueType* pTildeP, const ValueTy
       tj[i] = pT[i + indPj * numDimensions];
     }
 
-    ValueType costFunction;
-    PairwiseCostFunctionAt(tildePi, si, ti, tildePj, sj, tj, costFunction);
+    auto costFunction = PairwiseCostFunctionAt(tildePi, si, ti, tildePj, sj, tj);
 
     const ValueType beta = pBeta[numFunction];
 

@@ -53,7 +53,7 @@ __global__ void UnaryCostGradientWithRespectToParamsCuda(const ValueType* pTilde
     {
       sBar[i].sPrime = 1;
 
-      UnaryCostFunctionAt(tildeP, sBar, t, costFunctionBar);
+      costFunctionBar = UnaryCostFunctionAt(tildeP, sBar, t);
       costGradient[i] = costFunctionBar.sPrime;
 
       sBar[i].sPrime = 0;
@@ -70,7 +70,7 @@ __global__ void UnaryCostGradientWithRespectToParamsCuda(const ValueType* pTilde
     {
       tBar[i].sPrime = 1;
 
-      UnaryCostFunctionAt(tildeP, s, tBar, costFunctionBar);
+      costFunctionBar = UnaryCostFunctionAt(tildeP, s, tBar);
       costGradient[i + numDimensions] = costFunctionBar.sPrime;
 
       tBar[i].sPrime = 0;

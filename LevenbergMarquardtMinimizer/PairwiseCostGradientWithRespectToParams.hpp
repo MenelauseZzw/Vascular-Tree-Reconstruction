@@ -78,7 +78,7 @@ __global__ void PairwiseCostGradientWithRespectToParamsCuda(const ValueType* pTi
     {
       siBar[i].sPrime = 1;
 
-      PairwiseCostFunctionAt(tildePi, siBar, ti, tildePj, sj, tj, costFunctionBar);
+      costFunctionBar = PairwiseCostFunctionAt(tildePi, siBar, ti, tildePj, sj, tj);
       costGradient[i] = costFunctionBar.sPrime;
 
       siBar[i].sPrime = 0;
@@ -95,7 +95,7 @@ __global__ void PairwiseCostGradientWithRespectToParamsCuda(const ValueType* pTi
     {
       tiBar[i].sPrime = 1;
 
-      PairwiseCostFunctionAt(tildePi, si, tiBar, tildePj, sj, tj, costFunctionBar);
+      costFunctionBar = PairwiseCostFunctionAt(tildePi, si, tiBar, tildePj, sj, tj);
       costGradient[i + numDimensions] = costFunctionBar.sPrime;
 
       tiBar[i].sPrime = 0;
@@ -112,7 +112,7 @@ __global__ void PairwiseCostGradientWithRespectToParamsCuda(const ValueType* pTi
     {
       sjBar[i].sPrime = 1;
 
-      PairwiseCostFunctionAt(tildePi, si, ti, tildePj, sjBar, tj, costFunctionBar);
+      costFunctionBar = PairwiseCostFunctionAt(tildePi, si, ti, tildePj, sjBar, tj);
       costGradient[i + numDimensions + numDimensions] = costFunctionBar.sPrime;
 
       sjBar[i].sPrime = 0;
@@ -129,7 +129,7 @@ __global__ void PairwiseCostGradientWithRespectToParamsCuda(const ValueType* pTi
     {
       tjBar[i].sPrime = 1;
 
-      PairwiseCostFunctionAt(tildePi, si, ti, tildePj, sj, tjBar, costFunctionBar);
+      costFunctionBar = PairwiseCostFunctionAt(tildePi, si, ti, tildePj, sj, tjBar);
       costGradient[i + numDimensions + numDimensions + numDimensions] = costFunctionBar.sPrime;
 
       tjBar[i].sPrime = 0;

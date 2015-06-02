@@ -2,23 +2,34 @@
 #define DeviceFunctions_hpp
 
 #include <cuda_runtime.h>
+#include <type_traits>
 
-template<typename Arg1ValueType, typename Arg2ValueType, typename ReturnValue, int numDimensions>
-__forceinline__ __host__ __device__ void DotProduct(const Arg1ValueType(&a)[numDimensions], const Arg2ValueType(&b)[numDimensions], ReturnValue& val)
+template<typename Arg1ValueType, typename Arg2ValueType, int numDimensions>
+__forceinline__ __host__ __device__ auto DotProduct(const Arg1ValueType(&s)[numDimensions], const Arg2ValueType(&t)[numDimensions]) -> std::common_type<Arg1ValueType, Arg2ValueType>::type
 {
-  val = ReturnValue();
+  typename std::common_type<Arg1ValueType, Arg2ValueType>::type val{};
 
   for (int i = 0; i < numDimensions; ++i)
   {
-    val += a[i] * b[i];
+    val += s[i] * t[i];
   }
+
+  return val;
 }
 
-template<typename Arg1ValueType, typename Arg2ValueType, typename Arg3ValueType, typename ReturnValue, int numDimensions>
-__host__ __device__ void ProjectionOntoLineAt(const Arg1ValueType(&tildeP)[numDimensions], const Arg2ValueType(&s)[numDimensions], const Arg3ValueType(&t)[numDimensions], ReturnValue(&p)[numDimensions])
+template<typename ValueType>
+__forceinline__ __host__ __device__ ValueType Sqrt(const ValueType& arg)
 {
-  ReturnValue sMinusTildeP[numDimensions];
-  ReturnValue sMinusT[numDimensions];
+  const ValueType eps{ 1e-24 };
+
+  return sqrt(arg + eps);
+}
+
+template<typename Arg1ValueType, typename Arg2ValueType, typename Arg3ValueType, typename ResultValueType, int numDimensions>
+__host__ __device__ void ProjectionOntoLineAt(const Arg1ValueType(&tildeP)[numDimensions], const Arg2ValueType(&s)[numDimensions], const Arg3ValueType(&t)[numDimensions], ResultValueType(&p)[numDimensions])
+{
+  typename std::common_type<Arg1ValueType, Arg2ValueType>::type sMinusTildeP[numDimensions];
+  typename std::common_type<Arg2ValueType, Arg3ValueType>::type sMinusT[numDimensions];
 
   for (int i = 0; i < numDimensions; ++i)
   {
@@ -26,13 +37,10 @@ __host__ __device__ void ProjectionOntoLineAt(const Arg1ValueType(&tildeP)[numDi
     sMinusT[i] = s[i] - t[i];
   }
 
-  ReturnValue numLambda;
-  DotProduct(sMinusTildeP, sMinusT, numLambda);
+  auto numLambda = DotProduct(sMinusTildeP, sMinusT);
+  auto denLambda = DotProduct(sMinusT, sMinusT);
 
-  ReturnValue denLambda;
-  DotProduct(sMinusT, sMinusT, denLambda);
-
-  ReturnValue lambda = numLambda / denLambda;
+  auto lambda = numLambda / denLambda;
 
   for (int i = 0; i < numDimensions; ++i)
   {
@@ -40,41 +48,42 @@ __host__ __device__ void ProjectionOntoLineAt(const Arg1ValueType(&tildeP)[numDi
   }
 }
 
-template<typename Arg1ValueType, typename Arg2ValueType, typename Arg3ValueType, typename ReturnValue, int numDimensions>
-__host__ __device__ void UnaryCostFunctionAt(const Arg1ValueType(&tildeP)[numDimensions], const Arg2ValueType(&s)[numDimensions], const Arg3ValueType(&t)[numDimensions], ReturnValue& costFunction)
+template<typename Arg1ValueType, typename Arg2ValueType, typename Arg3ValueType, int numDimensions>
+__host__ __device__ auto UnaryCostFunctionAt(const Arg1ValueType(&tildeP)[numDimensions], const Arg2ValueType(&s)[numDimensions], const Arg3ValueType(&t)[numDimensions]) -> std::common_type<Arg1ValueType, Arg2ValueType, Arg3ValueType>::type
 {
-  ReturnValue p[numDimensions];
+  typedef typename std::common_type<Arg1ValueType, Arg2ValueType, Arg3ValueType>::type ReturnValueType;
+
+  ReturnValueType p[numDimensions];
   ProjectionOntoLineAt(tildeP, s, t, p);
 
-  ReturnValue pMinusTildeP[numDimensions];
+  ReturnValueType pMinusTildeP[numDimensions];
 
   for (int i = 0; i < numDimensions; ++i)
   {
     pMinusTildeP[i] = p[i] - tildeP[i];
   }
 
-  ReturnValue costFunctionSq;
-  DotProduct(pMinusTildeP, pMinusTildeP, costFunctionSq);
+  auto costFunctionSq = DotProduct(pMinusTildeP, pMinusTildeP);
 
-  const ReturnValue eps = 1e-24;
-
-  costFunction = sqrt(costFunctionSq + eps);
+  return Sqrt(costFunctionSq);
 }
 
-template<typename Arg1ValueType, typename Arg2ValueType, typename Arg3ValueType, typename Arg4ValueType, typename Arg5ValueType, typename Arg6ValueType, typename ReturnValue, int numDimensions>
-__host__ __device__ void PairwiseCostFunctionAt(const Arg1ValueType(&tildePi)[numDimensions], const Arg2ValueType(&si)[numDimensions], const Arg3ValueType(&ti)[numDimensions], const Arg4ValueType(&tildePj)[numDimensions], const Arg5ValueType(&sj)[numDimensions], const Arg6ValueType(&tj)[numDimensions], ReturnValue& costFunction)
+template<typename Arg1ValueType, typename Arg2ValueType, typename Arg3ValueType, typename Arg4ValueType, typename Arg5ValueType, typename Arg6ValueType, int numDimensions>
+__host__ __device__ auto PairwiseCostFunctionAt(const Arg1ValueType(&tildePi)[numDimensions], const Arg2ValueType(&si)[numDimensions], const Arg3ValueType(&ti)[numDimensions], const Arg4ValueType(&tildePj)[numDimensions], const Arg5ValueType(&sj)[numDimensions], const Arg6ValueType(&tj)[numDimensions]) -> std::common_type<Arg1ValueType, Arg2ValueType, Arg3ValueType, Arg4ValueType, Arg5ValueType, Arg6ValueType>::type
 {
-  ReturnValue pi[numDimensions];
+  typename std::common_type<Arg1ValueType, Arg2ValueType, Arg3ValueType>::type pi[numDimensions];
   ProjectionOntoLineAt(tildePi, si, ti, pi);
 
-  ReturnValue pj[numDimensions];
+  typename std::common_type<Arg4ValueType, Arg5ValueType, Arg6ValueType>::type pj[numDimensions];
   ProjectionOntoLineAt(tildePj, sj, tj, pj);
 
-  ReturnValue pjPrime[numDimensions];
+  typedef typename std::common_type<Arg1ValueType, Arg2ValueType, Arg3ValueType, Arg4ValueType, Arg5ValueType, Arg6ValueType>::type ReturnValueType;
+
+  ReturnValueType pjPrime[numDimensions];
   ProjectionOntoLineAt(pj, si, ti, pjPrime);
 
-  ReturnValue pjMinusPjPrime[numDimensions];
-  ReturnValue piMinusPj[numDimensions];
+  ReturnValueType pjMinusPjPrime[numDimensions];
+  ReturnValueType piMinusPj[numDimensions];
 
   for (int i = 0; i < numDimensions; ++i)
   {
@@ -82,18 +91,13 @@ __host__ __device__ void PairwiseCostFunctionAt(const Arg1ValueType(&tildePi)[nu
     piMinusPj[i] = pi[i] - pj[i];
   }
 
-  const ReturnValue eps = 1e-24;
+  auto numCostFunctionSq = DotProduct(pjMinusPjPrime, pjMinusPjPrime);
+  auto denCostFunctionSq = DotProduct(piMinusPj, piMinusPj);
 
-  ReturnValue numCostFunctionSq;
-  DotProduct(pjMinusPjPrime, pjMinusPjPrime, numCostFunctionSq);
+  auto numCostFunction = Sqrt(numCostFunctionSq);
+  auto denCostFunction = Sqrt(denCostFunctionSq);
 
-  ReturnValue denCostFunctionSq;
-  DotProduct(piMinusPj, piMinusPj, denCostFunctionSq);
-
-  ReturnValue numCostFunction = sqrt(numCostFunctionSq + eps);
-  ReturnValue denCostFunction = sqrt(denCostFunctionSq + eps);
-
-  costFunction = numCostFunction / denCostFunction;
+  return numCostFunction / denCostFunction;
 }
 
 #endif//DeviceFunctions_hpp

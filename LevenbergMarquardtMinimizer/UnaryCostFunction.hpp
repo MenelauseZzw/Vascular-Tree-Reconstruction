@@ -34,8 +34,7 @@ __global__ void UnaryCostFunctionCuda(const ValueType* pTildeP, const ValueType*
       t[i] = pT[i + numFunction * numDimensions];
     }
 
-    ValueType costFunction;
-    UnaryCostFunctionAt(tildeP, s, t, costFunction);
+    auto costFunction = UnaryCostFunctionAt(tildeP, s, t);
 
     const ValueType beta = pBeta[numFunction];
 
