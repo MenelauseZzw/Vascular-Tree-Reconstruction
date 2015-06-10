@@ -31,6 +31,11 @@ cuda_add_executable(
   CommandLineArgs.h
   DeviceFunctions.hpp
   DualNumber.hpp
+  GraphData.hpp
+  GraphDataReader.cpp
+  GraphDataReader.hpp
+  GraphDataWriter.cpp
+  GraphDataWriter.hpp
   LevenbergMarquardtMinimizer.cpp
   LevenbergMarquardtMinimizer.h
   PairwiseCostFunction.hpp
