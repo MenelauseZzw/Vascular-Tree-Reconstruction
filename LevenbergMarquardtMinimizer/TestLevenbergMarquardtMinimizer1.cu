@@ -263,7 +263,7 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
     );
 
   int iter = 0;
-  float damp = 1;
+  float damp = 1000;
   const float minDamp = 1e-5;
 
   std::cout << "(7)" << std::endl;
