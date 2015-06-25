@@ -13,8 +13,6 @@
 #include <cusp/multiply.h>
 #include <iomanip>
 #include <glog/logging.h>
-#include <string>
-#include <type_traits>
 
 template<typename ValueType>
 static ValueType d2norm(ValueType a, ValueType b)
@@ -37,8 +35,8 @@ static ValueType d2norm(ValueType a, ValueType b)
   }
 }
 
-template<typename LinearOperator, typename Vector, typename ValueType = typename Vector::value_type>
-void LSQR(const LinearOperator& A, const LinearOperator& At, const Vector& b, ValueType damp, Vector& x,
+template<typename LinearOperator1, typename LinearOperator2, typename Vector1, typename Vector2, typename ValueType = typename LinearOperator1::value_type>
+void LSQR(const LinearOperator1& A, const LinearOperator2& At, const Vector1& b, ValueType damp, Vector2& x,
   ValueType atol, ValueType btol, ValueType conlim, int itnlim,
   int& istop, int& itn, ValueType& Anorm, ValueType& Acond, ValueType& rnorm, ValueType& Arnorm, ValueType& xnorm)
 {
@@ -290,9 +288,12 @@ void LSQR(const LinearOperator& A, const LinearOperator& At, const Vector& b, Va
   //-------------------------------------------------------------------
 
   // Local arrays and variables
-  typedef typename Vector::container Container;
-  Container u(A.num_rows), v(A.num_cols), w(A.num_cols);
-  Container tmpU(u.size()), tmpV(v.size());
+  typedef typename LinearOperator1::memory_space MemorySpace;
+  typedef cusp::array1d<ValueType, MemorySpace> ArrayType;
+  
+  ArrayType u(A.num_rows), v(A.num_cols), w(A.num_cols);
+  ArrayType tmpU(u.size()), tmpV(v.size());
+  
   bool damped, prnt;
   int maxdx, nconv, nstop;
   ValueType alfopt,
@@ -338,11 +339,11 @@ void LSQR(const LinearOperator& A, const LinearOperator& At, const Vector& b, Va
   LOG(INFO) << "";
   LOG(INFO) << "";
   LOG(INFO) << " LSQR      --      Least-squares solution of  Ax = b";
-  
+
   LOG(INFO) << "";
   LOG(INFO) << std::setfill(' ') << " The matrix A has" << std::setw(9) << A.num_rows << " rows and" << std::setw(9) << A.num_cols << " columns";
   LOG_IF(INFO, damped) << std::setfill(' ') << std::scientific << " The damping parameter is         damp   =" << std::setw(10) << std::setprecision(2) << damp;
-  
+
   LOG(INFO) << "";
   LOG(INFO) << std::setfill(' ') << std::scientific << " atol   =" << std::setw(10) << std::setprecision(2) << atol << std::setw(15) << "" << "conlim =" << std::setw(10) << std::setprecision(2) << conlim;
   LOG(INFO) << std::setfill(' ') << std::scientific << " btol   =" << std::setw(10) << std::setprecision(2) << btol << std::setw(15) << "" << "itnlim =" << std::setw(10) << itnlim;

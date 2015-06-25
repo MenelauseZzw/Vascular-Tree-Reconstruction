@@ -1,6 +1,12 @@
-cmake_minimum_required(VERSION 2.8.11)
+#==========================================================================
+#
+#
+#==========================================================================
+cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
+
+
 project(LevenbergMarquardtMinimizer)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMake/")
 
 # Find Google gflags library.
 set(GFLAGS_NAMESPACE gflags)
@@ -24,11 +30,15 @@ include_directories(
   ${FLANN_INCLUDE_DIRS}
   )
 
+#------------------------------------------------------------------------------
+
 cuda_add_executable(
   LevenbergMarquardtMinimizer
   main.cpp
   CommandLineArgs.cpp
   CommandLineArgs.h
+  CostFunction.cu
+  CostFunction.hpp
   DeviceFunctions.hpp
   DualNumber.hpp
   GraphData.hpp
@@ -36,8 +46,8 @@ cuda_add_executable(
   GraphDataReader.hpp
   GraphDataWriter.cpp
   GraphDataWriter.hpp
-  LevenbergMarquardtMinimizer.cpp
-  LevenbergMarquardtMinimizer.h
+  LevenbergMarquardtMinimizer.hpp
+  LSQR.hpp
   PairwiseCostFunction.hpp
   PairwiseCostGradientWithRespectToParams.hpp
   ProjectionOntoLine.hpp
