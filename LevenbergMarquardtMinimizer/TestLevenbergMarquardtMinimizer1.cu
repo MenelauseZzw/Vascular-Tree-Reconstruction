@@ -6,11 +6,12 @@
 #include <cusp/copy.h>
 #include <iostream>
 #include <thrust/device_ptr.h>
-#include "CostFunction.hpp"
+#include "CostFunctionImpl1.hpp"
 #include "LevenbergMarquardtMinimizer.hpp"
 
 void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, float* pSigma, int numPoints, int* pIndPi, int* pIndPj, int numPairs, float* pP, int maxIterations)
 {
+  typedef int IndexType;
   typedef float ValueType;
   typedef cusp::device_memory MemorySpace;
 
@@ -19,11 +20,11 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
   const float dampmin = 1e-5;
 
   // Local constants
-  const int numDimensions = 3;
+  const int NumDimensions = 3;
 
-  auto hTildeP = cusp::make_array1d_view(pTildeP, pTildeP + numDimensions * numPoints);
-  auto hS = cusp::make_array1d_view(pS, pS + numDimensions * numPoints);
-  auto hT = cusp::make_array1d_view(pT, pT + numDimensions * numPoints);
+  auto hTildeP = cusp::make_array1d_view(pTildeP, pTildeP + NumDimensions * numPoints);
+  auto hS = cusp::make_array1d_view(pS, pS + NumDimensions * numPoints);
+  auto hT = cusp::make_array1d_view(pT, pT + NumDimensions * numPoints);
   auto hSigma = cusp::make_array1d_view(pSigma, pSigma + numPoints);
 
   auto hIndPi = cusp::make_array1d_view(pIndPi, pIndPi + numPairs);
@@ -36,42 +37,27 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
     hBeta[i] = 1 / hSigma[i];
   }
 
-  cusp::array1d<float, cusp::device_memory> sAndT(numPoints * (numDimensions + numDimensions));
+  cusp::array1d<float, cusp::device_memory> sAndT(numPoints * (NumDimensions + NumDimensions));
 
-  auto s = sAndT.subarray(0, numPoints * numDimensions);
-  auto t = sAndT.subarray(numPoints * numDimensions, numPoints * numDimensions);
+  auto s = sAndT.subarray(0, numPoints * NumDimensions);
+  auto t = sAndT.subarray(numPoints * NumDimensions, numPoints * NumDimensions);
 
   cusp::copy(hS, s);
   cusp::copy(hT, t);
 
   const cusp::array1d<float, cusp::device_memory> gamma(numPairs, 20);
 
-  typedef CostFunction<3, int, ValueType, cusp::device_memory> CostFunctionType;
+  typedef CostFunctionImpl1<NumDimensions, IndexType, ValueType, cusp::device_memory> CostFunctionType;
 
   CostFunctionType costFunction(hTildeP, hBeta, gamma, hIndPi, hIndPj);
 
-  auto allocateJacobian = [&costFunction]()
-  {
-    return costFunction.AllocateJacobian();
-  };
-
-  auto computeJacobian = [&costFunction](const cusp::array1d<float, cusp::device_memory>& st, cusp::array1d<float, cusp::device_memory>& jacobian)
-  {
-    return costFunction.ComputeJacobian(st, jacobian);
-  };
-
-  auto computeResidual = [&](const cusp::array1d<float, cusp::device_memory>& st, cusp::array1d<ValueType, MemorySpace>& residual)
-  {
-    return costFunction.ComputeResidual(st, residual);
-  };
-
-  LevenbergMarquardtMinimizer(allocateJacobian, computeJacobian, computeResidual, sAndT, damp, dampmin);
+  LevenbergMarquardtMinimizer(costFunction, sAndT, damp, dampmin);
 
   cusp::copy(s, hS);
   cusp::copy(t, hT);
 
   const cusp::array1d<float, cusp::device_memory> tildeP(hTildeP);
-  cusp::array1d<float, cusp::device_memory> p(numPoints * numDimensions);
+  cusp::array1d<float, cusp::device_memory> p(numPoints * NumDimensions);
 
   ProjectionOntoLine<float, 3>(
     thrust::raw_pointer_cast(&tildeP[0]),
@@ -81,7 +67,7 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
     numPoints
     );
 
-  auto hP = cusp::make_array1d_view(pP, pP + numDimensions * numPoints);
+  auto hP = cusp::make_array1d_view(pP, pP + NumDimensions * numPoints);
 
   cusp::copy(p, hP);
 }

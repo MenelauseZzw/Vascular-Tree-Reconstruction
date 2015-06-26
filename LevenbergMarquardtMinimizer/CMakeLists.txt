@@ -37,8 +37,9 @@ cuda_add_executable(
   main.cpp
   CommandLineArgs.cpp
   CommandLineArgs.h
-  CostFunction.cu
   CostFunction.hpp
+  CostFunctionImpl1.cu
+  CostFunctionImpl1.hpp
   DeviceFunctions.hpp
   DualNumber.hpp
   GraphData.hpp
@@ -51,7 +52,6 @@ cuda_add_executable(
   PairwiseCostFunction.hpp
   PairwiseCostGradientWithRespectToParams.hpp
   ProjectionOntoLine.hpp
-  SparseLeastSquares.h
   TestKnnSearch1.cpp
   TestKnnSearch1.h
   TestLevenbergMarquardtMinimizer1.cu

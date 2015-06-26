@@ -1,4 +1,4 @@
-#include "CostFunction.hpp"
+#include "CostFunctionImpl1.hpp"
 #include "PairwiseCostFunction.hpp"
 #include "PairwiseCostGradientWithRespectToParams.hpp"
 #include "UnaryCostFunction.hpp"
@@ -9,7 +9,7 @@
 #include <iomanip>
 
 template<int NumDimensions, typename IndexType, typename ValueType, typename MemorySpace>
-cusp::csr_matrix<IndexType, ValueType, MemorySpace> CostFunction<NumDimensions, IndexType, ValueType, MemorySpace>::AllocateJacobian() const
+cusp::csr_matrix<IndexType, ValueType, MemorySpace> CostFunctionImpl1<NumDimensions, IndexType, ValueType, MemorySpace>::AllocateJacobian() const
 {
   cusp::array1d<IndexType, cusp::host_memory> column_indices1(tildeP.size() + tildeP.size());
 
@@ -101,10 +101,17 @@ cusp::csr_matrix<IndexType, ValueType, MemorySpace> CostFunction<NumDimensions, 
 }
 
 template<int NumDimensions, typename IndexType, typename ValueType, typename MemorySpace>
-void CostFunction<NumDimensions, IndexType, ValueType, MemorySpace>::ComputeJacobian(const cusp::array1d<ValueType, MemorySpace>& st, cusp::array1d<ValueType, MemorySpace>& jacobian) const
+void CostFunctionImpl1<NumDimensions, IndexType, ValueType, MemorySpace>::ComputeJacobian(const cusp::array1d<ValueType, MemorySpace>& x, cusp::csr_matrix<IndexType, ValueType, MemorySpace>& jacobian) const
 {
-  auto s = st.subarray(0, tildeP.size());
-  auto t = st.subarray(s.size(), tildeP.size());
+  jacobian = AllocateJacobian();
+  ComputeJacobian(x, jacobian.values);
+}
+
+template<int NumDimensions, typename IndexType, typename ValueType, typename MemorySpace>
+void CostFunctionImpl1<NumDimensions, IndexType, ValueType, MemorySpace>::ComputeJacobian(const cusp::array1d<ValueType, MemorySpace>& x, cusp::array1d<ValueType, MemorySpace>& jacobian) const
+{
+  auto s = x.subarray(0, tildeP.size());
+  auto t = x.subarray(s.size(), tildeP.size());
 
   auto jacobian1 = jacobian.subarray(0, s.size() + t.size());
   auto jacobian2 = jacobian.subarray(jacobian1.size(), s.size() + t.size() + s.size() + t.size());
@@ -135,10 +142,10 @@ void CostFunction<NumDimensions, IndexType, ValueType, MemorySpace>::ComputeJaco
 }
 
 template<int NumDimensions, typename IndexType, typename ValueType, typename MemorySpace>
-void CostFunction<NumDimensions, IndexType, ValueType, MemorySpace>::ComputeResidual(const cusp::array1d<ValueType, MemorySpace>& st, cusp::array1d<ValueType, MemorySpace>& residual) const
+void CostFunctionImpl1<NumDimensions, IndexType, ValueType, MemorySpace>::ComputeResidual(const cusp::array1d<ValueType, MemorySpace>& x, cusp::array1d<ValueType, MemorySpace>& residual) const
 {
-  auto s = st.subarray(0, tildeP.size());
-  auto t = st.subarray(s.size(), tildeP.size());
+  auto s = x.subarray(0, tildeP.size());
+  auto t = x.subarray(s.size(), tildeP.size());
 
   auto residual1 = residual.subarray(0, tildeP.size() / NumDimensions);
   auto residual2 = residual.subarray(residual1.size(), indices1.size());
@@ -166,4 +173,4 @@ void CostFunction<NumDimensions, IndexType, ValueType, MemorySpace>::ComputeResi
 }
 
 //Explicit Instantiation
-template class CostFunction<3, int, float, cusp::device_memory>;
+template class CostFunctionImpl1<3, int, float, cusp::device_memory>;

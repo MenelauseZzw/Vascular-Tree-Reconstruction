@@ -1,6 +1,7 @@
 #ifndef LevenbergMarquardtMinimizer_hpp
 #define LevenbergMarquardtMinimizer_hpp
 
+#include "CostFunction.hpp"
 #include "LSQR.hpp"
 #include <cusp/array1d.h>
 #include <cusp/blas/blas.h>
@@ -8,11 +9,9 @@
 #include <cusp/multiply.h>
 #include <cusp/transpose.h>
 
-template<typename JacobianAllocator, typename JacobianProvider, typename ResidualProvider, typename Vector, typename ValueType = typename Vector::value_type, typename IndexType = int>
-void LevenbergMarquardtMinimizer(JacobianAllocator allocateJacobian, JacobianProvider computeJacobian, ResidualProvider computeResidual, Vector& x, float damp, float dampmin)
+template<typename IndexType, typename ValueType, typename MemorySpace>
+void LevenbergMarquardtMinimizer(const CostFunction<IndexType, ValueType, MemorySpace>& func, cusp::array1d<ValueType, MemorySpace>& x, float damp, float dampmin)
 {
-  typedef typename Vector::memory_space MemorySpace;
-
   typedef cusp::array1d<ValueType, MemorySpace> ArrayType;
   typedef cusp::csr_matrix<IndexType, ValueType, MemorySpace> CsrMatrix;
  
@@ -30,7 +29,9 @@ void LevenbergMarquardtMinimizer(JacobianAllocator allocateJacobian, JacobianPro
   // Local variables
   int itn = 0;
 
-  CsrMatrix jacobian = allocateJacobian();
+  CsrMatrix jacobian;
+  func.ComputeJacobian(x, jacobian);
+  
   CsrMatrix jacobiant(jacobian.num_cols, jacobian.num_rows, jacobian.num_entries);
 
   ArrayType gradient(jacobian.num_cols);
@@ -41,10 +42,9 @@ void LevenbergMarquardtMinimizer(JacobianAllocator allocateJacobian, JacobianPro
   ArrayType y(jacobian.num_cols);
   ArrayType xpy(jacobian.num_cols);
 
-  computeJacobian(x, jacobian.values);
   cusp::transpose(jacobian, jacobiant);
 
-  computeResidual(x, residualx);
+  func.ComputeResidual(x, residualx);
   ValueType normSqResidualx = cusp::blas::dot(residualx, residualx);
 
   while (true)
@@ -66,7 +66,7 @@ void LevenbergMarquardtMinimizer(JacobianAllocator allocateJacobian, JacobianPro
       LSQR(jacobian, jacobiant, residualx, damp, y, atol, btol, conlim, itnlim, istop, itn, Anorm, Acond, rnorm, Arnorm, xnorm);
     
       cusp::blas::axpby(x, y, xpy, 1, -1);
-      computeResidual(xpy, residualxpy);
+      func.ComputeResidual(xpy, residualxpy);
 
       normSqResidualxpy = cusp::blas::dot(residualxpy, residualxpy);
       rho = (normSqResidualx - normSqResidualxpy) / (normSqResidualx - rnorm * rnorm);
@@ -107,7 +107,7 @@ void LevenbergMarquardtMinimizer(JacobianAllocator allocateJacobian, JacobianPro
       std::swap(residualxpy, residualx);
       normSqResidualx = normSqResidualx;
 
-      computeJacobian(x, jacobian.values);
+      func.ComputeJacobian(x, jacobian.values);
       cusp::transpose(jacobian, jacobiant);
 
       itn = itn + 1;
