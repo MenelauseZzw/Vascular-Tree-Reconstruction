@@ -1,7 +1,7 @@
 #ifndef DualNumber_cuh
 #define DualNumber_cuh
 
-#include <cuda_runtime.h>
+#include <host_defines.h>
 
 template<typename ValueType>
 struct __align__(8) DualNumber

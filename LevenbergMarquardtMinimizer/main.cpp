@@ -3,7 +3,7 @@
 #include "GraphDataReader.hpp"
 #include "GraphDataWriter.hpp"
 #include "TestKnnSearch1.h"
-#include "TestLevenbergMarquardtMinimizer1.h"
+#include "Minimize.h"
 #include <cuda_runtime.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
@@ -61,7 +61,8 @@ int main(int argc, char *argv[])
   graphData.targets.resize(numPairs);
   
   graphData.positions.resize(graphData.measurements.size());
-  testLevenbergMarquardtMinimizer1(&graphData.measurements[0], &graphData.tangentsLinesPoints1[0], &graphData.tangentsLinesPoints2[0], &graphData.radiuses[0], graphData.radiuses.size(), &graphData.sources[0], &graphData.targets[0], graphData.targets.size(), &graphData.positions[0], CommandLineArgs::Instance().MaxIterations());
+  
+  Minimize(&graphData.measurements[0], &graphData.tangentsLinesPoints1[0], &graphData.tangentsLinesPoints2[0], &graphData.radiuses[0], graphData.radiuses.size(), &graphData.sources[0], &graphData.targets[0], graphData.targets.size(), &graphData.positions[0], CommandLineArgs::Instance().MaxIterations());
 
   GraphDataWriterType::Options writerOptions;
 

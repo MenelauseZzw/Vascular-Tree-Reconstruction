@@ -30,6 +30,9 @@ include_directories(
   ${FLANN_INCLUDE_DIRS}
   )
 
+source_group("CUDA Source Files" REGULAR_EXPRESSION "cu$")
+source_group("CUDA Header Files" REGULAR_EXPRESSION "cuh$")
+
 #------------------------------------------------------------------------------
 
 cuda_add_executable(
@@ -38,26 +41,31 @@ cuda_add_executable(
   CommandLineArgs.cpp
   CommandLineArgs.h
   CostFunction.hpp
-  DeviceFunctions.hpp
-  DualNumber.hpp
+  CurvatureCostFunction.cuh
+  CurvatureCostFunction.hpp
+  CurvatureCostFunction.inl
+  DistanceCostFunction.cuh
+  DistanceCostFunction.hpp
+  DistanceCostFunction.inl
+  DotProduct.cuh
+  DualNumber.cuh
   GraphData.hpp
   GraphDataReader.cpp
   GraphDataReader.hpp
   GraphDataWriter.cpp
   GraphDataWriter.hpp
   LevenbergMarquardtMinimizer.hpp
-  LinearCombination.cu
+  LevenbergMarquardtMinimizer.inl
   LinearCombination.hpp
+  LinearCombination.inl
   LSQR.hpp
-  PairwiseCostFunction.hpp
-  PairwiseCostGradientWithRespectToParams.hpp
+  Minimize.cu
+  Minimize.h
+  ProjectionOntoLine.cuh
   ProjectionOntoLine.hpp
+  ProjectionOntoLine.inl
   TestKnnSearch1.cpp
   TestKnnSearch1.h
-  TestLevenbergMarquardtMinimizer1.cu
-  TestLevenbergMarquardtMinimizer1.h
-  UnaryCostFunction.hpp
-  UnaryCostGradientWithRespectToParams.hpp
   )
 
 target_link_libraries(

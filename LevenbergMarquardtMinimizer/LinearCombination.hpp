@@ -5,7 +5,8 @@
 #include <type_traits>
 
 template<int NumDimensions, typename ValueType, typename IndexType, typename MemorySpace>
-class LinearCombination : public CostFunction < IndexType, ValueType, MemorySpace >
+class LinearCombination : public CostFunction <
+  cusp::csr_matrix<IndexType, ValueType, MemorySpace>, cusp::array1d<ValueType, MemorySpace>, cusp::array1d<ValueType, MemorySpace> >
 {
 public:
   typedef cusp::csr_matrix<IndexType, ValueType, MemorySpace> JacobianMatrixType;
@@ -26,23 +27,23 @@ protected:
     tildeP(std::forward<Vector1>(tildeP)),
     indices1(std::forward<Vector2>(indices1)), indices2(std::forward<Vector3>(indices2)),
     weights1(std::forward<Vector4>(weights1)), weights2(std::forward<Vector5>(weights2)),
-    residualVectorLength1(tildeP.size() / NumDimensions), residualVectorLength2(indices1.size()), 
-    jacobianVectorLength1(2 * tildeP.size()), jacobianVectorLength2(4 * NumDimensions * indices1.size()), 
+    residualVectorLength1(tildeP.size() / NumDimensions), residualVectorLength2(indices1.size()),
+    jacobianVectorLength1(2 * tildeP.size()), jacobianVectorLength2(4 * NumDimensions * indices1.size()),
     variableVectorLength(2 * tildeP.size())
   {
   }
 
   virtual void ComputeResidual1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pResidual, int residualVectorLength) const = 0;
   virtual void ComputeJacobian1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pJacobian, int residualVectorLength) const = 0;
-  
+
   virtual void ComputeResidual2(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, const IndexType* pIndices1, const IndexType* pIndices2, ValueType* pResidual, int residualVectorLength) const = 0;
   virtual void ComputeJacobian2(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, const IndexType* pIndices1, const IndexType* pIndices2, ValueType* pJacobian, int residualVectorLength) const = 0;
 
 private:
   typedef cusp::array1d<ValueType, MemorySpace> JacobianVectorType;
-  
+
   void ComputeJacobian(const VariableVectorType& x, JacobianVectorType& jacobian) const;
-  
+
   void SetUpColumnIndices(cusp::array1d<IndexType, MemorySpace>& columnIndices) const;
   void SetUpRowPointers(cusp::array1d<IndexType, MemorySpace>& rowPointers) const;
 
@@ -106,5 +107,7 @@ protected:
   void ComputeResidual2(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, const IndexType* pIndices1, const IndexType* pIndices2, ValueType* pResidual, int residualVectorLength) const;
   void ComputeJacobian2(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, const IndexType* pIndices1, const IndexType* pIndices2, ValueType* pJacobian, int residualVectorLength) const;
 };
+
+#include "LinearCombination.inl"
 
 #endif//LinearCombination_hpp

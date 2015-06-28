@@ -1,4 +1,4 @@
-#include "TestLevenbergMarquardtMinimizer1.h"
+#include "Minimize.h"
 #include "ProjectionOntoLine.hpp"
 #include <algorithm>
 #include <cusp/array1d.h>
@@ -9,15 +9,9 @@
 #include "LinearCombination.hpp"
 #include "LevenbergMarquardtMinimizer.hpp"
 
-void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, float* pSigma, int numPoints, int* pIndPi, int* pIndPj, int numPairs, float* pP, int maxIterations)
+void Minimize(float* pTildeP, float* pS, float* pT, float* pSigma, int numPoints, int* pIndPi, int* pIndPj, int numPairs, float* pP, int maxIterations)
 {
-  typedef int IndexType;
-  typedef float ValueType;
   typedef cusp::device_memory MemorySpace;
-
-  // Local variables
-  float damp = 1000;
-  const float dampmin = 1e-5;
 
   // Local constants
   const int NumDimensions = 3;
@@ -37,7 +31,10 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
     hBeta[i] = 1 / hSigma[i];
   }
 
-  cusp::array1d<float, cusp::device_memory> sAndT(numPoints * (NumDimensions + NumDimensions));
+  typedef int IndexType;
+  typedef float ValueType;
+
+  cusp::array1d<ValueType, cusp::device_memory> sAndT(numPoints * (NumDimensions + NumDimensions));
 
   auto s = sAndT.subarray(0, numPoints * NumDimensions);
   auto t = sAndT.subarray(numPoints * NumDimensions, numPoints * NumDimensions);
@@ -45,21 +42,30 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
   cusp::copy(hS, s);
   cusp::copy(hT, t);
 
-  const cusp::array1d<float, cusp::device_memory> gamma(numPairs, 20);
+  const cusp::array1d<ValueType, cusp::device_memory> gamma(numPairs, 20);
 
-  typedef gpuLinearCombination<3, float> CostFunctionType;
+  typedef gpuLinearCombination<3, ValueType, IndexType> CostFunctionType;
 
   CostFunctionType func(hTildeP, hIndPi, hIndPj, hBeta, gamma);
 
-  LevenbergMarquardtMinimizer(func, sAndT, damp, dampmin);
+  // Local variables
+  ValueType damp = 1000;
+
+  const ValueType dampmin = 1e-5;
+  const ValueType tolx = 1e-6;
+  const ValueType tolf = 1e-6;
+  const ValueType tolg = 1e-5;
+  
+  int itn = 0;
+  LevenbergMarquardtMinimizer(func, sAndT, damp, dampmin, tolx, tolf, tolg, itn, maxIterations);
 
   cusp::copy(s, hS);
   cusp::copy(t, hT);
 
-  const cusp::array1d<float, cusp::device_memory> tildeP(hTildeP);
-  cusp::array1d<float, cusp::device_memory> p(numPoints * NumDimensions);
+  const cusp::array1d<ValueType, cusp::device_memory> tildeP(hTildeP);
+  cusp::array1d<ValueType, cusp::device_memory> p(numPoints * NumDimensions);
 
-  ProjectionOntoLine<float, 3>(
+  gpuProjectionOntoLine<ValueType, NumDimensions>(
     thrust::raw_pointer_cast(&tildeP[0]),
     thrust::raw_pointer_cast(&s[0]),
     thrust::raw_pointer_cast(&t[0]),
@@ -70,3 +76,4 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
 
   cusp::copy(p, hP);
 }
+
