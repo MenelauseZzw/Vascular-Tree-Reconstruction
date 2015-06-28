@@ -38,8 +38,6 @@ cuda_add_executable(
   CommandLineArgs.cpp
   CommandLineArgs.h
   CostFunction.hpp
-  CostFunctionImpl1.cu
-  CostFunctionImpl1.hpp
   DeviceFunctions.hpp
   DualNumber.hpp
   GraphData.hpp
@@ -48,6 +46,8 @@ cuda_add_executable(
   GraphDataWriter.cpp
   GraphDataWriter.hpp
   LevenbergMarquardtMinimizer.hpp
+  LinearCombination.cu
+  LinearCombination.hpp
   LSQR.hpp
   PairwiseCostFunction.hpp
   PairwiseCostGradientWithRespectToParams.hpp

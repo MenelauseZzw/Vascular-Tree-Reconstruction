@@ -6,7 +6,7 @@
 #include <cusp/copy.h>
 #include <iostream>
 #include <thrust/device_ptr.h>
-#include "CostFunctionImpl1.hpp"
+#include "LinearCombination.hpp"
 #include "LevenbergMarquardtMinimizer.hpp"
 
 void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, float* pSigma, int numPoints, int* pIndPi, int* pIndPj, int numPairs, float* pP, int maxIterations)
@@ -47,11 +47,11 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
 
   const cusp::array1d<float, cusp::device_memory> gamma(numPairs, 20);
 
-  typedef CostFunctionImpl1<NumDimensions, IndexType, ValueType, cusp::device_memory> CostFunctionType;
+  typedef gpuLinearCombination<3, float> CostFunctionType;
 
-  CostFunctionType costFunction(hTildeP, hBeta, gamma, hIndPi, hIndPj);
+  CostFunctionType func(hTildeP, hIndPi, hIndPj, hBeta, gamma);
 
-  LevenbergMarquardtMinimizer(costFunction, sAndT, damp, dampmin);
+  LevenbergMarquardtMinimizer(func, sAndT, damp, dampmin);
 
   cusp::copy(s, hS);
   cusp::copy(t, hT);
@@ -64,8 +64,7 @@ void testLevenbergMarquardtMinimizer1(float* pTildeP, float* pS, float* pT, floa
     thrust::raw_pointer_cast(&s[0]),
     thrust::raw_pointer_cast(&t[0]),
     thrust::raw_pointer_cast(&p[0]),
-    numPoints
-    );
+    numPoints);
 
   auto hP = cusp::make_array1d_view(pP, pP + NumDimensions * numPoints);
 

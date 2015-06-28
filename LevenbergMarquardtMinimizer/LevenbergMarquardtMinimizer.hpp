@@ -3,18 +3,20 @@
 
 #include "CostFunction.hpp"
 #include "LSQR.hpp"
-#include <cusp/array1d.h>
 #include <cusp/blas/blas.h>
-#include <cusp/csr_matrix.h>
 #include <cusp/multiply.h>
 #include <cusp/transpose.h>
 
 template<typename IndexType, typename ValueType, typename MemorySpace>
-void LevenbergMarquardtMinimizer(const CostFunction<IndexType, ValueType, MemorySpace>& func, cusp::array1d<ValueType, MemorySpace>& x, float damp, float dampmin)
+void LevenbergMarquardtMinimizer(
+  const CostFunction<IndexType, ValueType, MemorySpace>& func, cusp::array1d<ValueType, MemorySpace>& x, ValueType damp, ValueType dampmin)
 {
-  typedef cusp::array1d<ValueType, MemorySpace> ArrayType;
-  typedef cusp::csr_matrix<IndexType, ValueType, MemorySpace> CsrMatrix;
- 
+  typedef cusp::csr_matrix<IndexType, ValueType, MemorySpace> JacobianMatrixType;
+  typedef cusp::array1d<ValueType, MemorySpace> VariableVectorType;
+  typedef cusp::array1d<ValueType, MemorySpace> GradientVectorType;
+  typedef cusp::array1d<ValueType, MemorySpace> ResidualVectorType;
+  typedef cusp::array1d<ValueType, MemorySpace> JacobianVectorType;
+
   // Local constants
   const ValueType tolx = 1e-6;
   const ValueType tolf = 1e-6;
@@ -29,18 +31,18 @@ void LevenbergMarquardtMinimizer(const CostFunction<IndexType, ValueType, Memory
   // Local variables
   int itn = 0;
 
-  CsrMatrix jacobian;
+  JacobianMatrixType jacobian;
   func.ComputeJacobian(x, jacobian);
   
-  CsrMatrix jacobiant(jacobian.num_cols, jacobian.num_rows, jacobian.num_entries);
+  JacobianMatrixType jacobiant;
 
-  ArrayType gradient(jacobian.num_cols);
+  GradientVectorType gradient(jacobian.num_cols);
 
-  ArrayType residualx(jacobian.num_rows);
-  ArrayType residualxpy(jacobian.num_rows);
+  ResidualVectorType residualx(jacobian.num_rows);
+  ResidualVectorType residualxpy(jacobian.num_rows);
 
-  ArrayType y(jacobian.num_cols);
-  ArrayType xpy(jacobian.num_cols);
+  VariableVectorType y(jacobian.num_cols);
+  VariableVectorType xpy(jacobian.num_cols);
 
   cusp::transpose(jacobian, jacobiant);
 
@@ -66,6 +68,7 @@ void LevenbergMarquardtMinimizer(const CostFunction<IndexType, ValueType, Memory
       LSQR(jacobian, jacobiant, residualx, damp, y, atol, btol, conlim, itnlim, istop, itn, Anorm, Acond, rnorm, Arnorm, xnorm);
     
       cusp::blas::axpby(x, y, xpy, 1, -1);
+
       func.ComputeResidual(xpy, residualxpy);
 
       normSqResidualxpy = cusp::blas::dot(residualxpy, residualxpy);
@@ -105,9 +108,9 @@ void LevenbergMarquardtMinimizer(const CostFunction<IndexType, ValueType, Memory
       if (convergence) break;
 
       std::swap(residualxpy, residualx);
-      normSqResidualx = normSqResidualx;
+      normSqResidualx = normSqResidualxpy;
 
-      func.ComputeJacobian(x, jacobian.values);
+      func.ComputeJacobian(x, jacobian);
       cusp::transpose(jacobian, jacobiant);
 
       itn = itn + 1;

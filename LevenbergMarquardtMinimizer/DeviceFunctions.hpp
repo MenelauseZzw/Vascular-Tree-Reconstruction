@@ -4,7 +4,7 @@
 #include <cuda_runtime.h>
 #include <type_traits>
 
-template<typename Arg1ValueType, typename Arg2ValueType, int numDimensions, typename ResultType = std::common_type<Arg1ValueType, Arg2ValueType>::type>
+template<typename Arg1ValueType, typename Arg2ValueType, int numDimensions, typename ResultType = typename std::common_type<Arg1ValueType, Arg2ValueType>::type>
 __forceinline__ __host__ __device__ ResultType DotProduct(const Arg1ValueType(&s)[numDimensions], const Arg2ValueType(&t)[numDimensions])
 {
   ResultType val{};
@@ -48,7 +48,7 @@ __host__ __device__ void ProjectionOntoLineAt(const Arg1ValueType(&tildeP)[numDi
   }
 }
 
-template<typename Arg1ValueType, typename Arg2ValueType, typename Arg3ValueType, int numDimensions, typename ResultType = std::common_type<Arg1ValueType, Arg2ValueType, Arg3ValueType>::type>
+template<typename Arg1ValueType, typename Arg2ValueType, typename Arg3ValueType, int numDimensions, typename ResultType = typename std::common_type<Arg1ValueType, Arg2ValueType, Arg3ValueType>::type>
 __host__ __device__ ResultType UnaryCostFunctionAt(const Arg1ValueType(&tildeP)[numDimensions], const Arg2ValueType(&s)[numDimensions], const Arg3ValueType(&t)[numDimensions])
 {
   ResultType p[numDimensions];
@@ -66,7 +66,7 @@ __host__ __device__ ResultType UnaryCostFunctionAt(const Arg1ValueType(&tildeP)[
   return Sqrt(costFunctionSq);
 }
 
-template<typename Arg1ValueType, typename Arg2ValueType, typename Arg3ValueType, typename Arg4ValueType, typename Arg5ValueType, typename Arg6ValueType, int numDimensions, typename ResultType = std::common_type<Arg1ValueType, Arg2ValueType, Arg3ValueType, Arg4ValueType, Arg5ValueType, Arg6ValueType>::type>
+template<typename Arg1ValueType, typename Arg2ValueType, typename Arg3ValueType, typename Arg4ValueType, typename Arg5ValueType, typename Arg6ValueType, int numDimensions, typename ResultType = typename std::common_type<Arg1ValueType, Arg2ValueType, Arg3ValueType, Arg4ValueType, Arg5ValueType, Arg6ValueType>::type>
 __host__ __device__ ResultType PairwiseCostFunctionAt(const Arg1ValueType(&tildePi)[numDimensions], const Arg2ValueType(&si)[numDimensions], const Arg3ValueType(&ti)[numDimensions], const Arg4ValueType(&tildePj)[numDimensions], const Arg5ValueType(&sj)[numDimensions], const Arg6ValueType(&tj)[numDimensions])
 {
   typename std::common_type<Arg1ValueType, Arg2ValueType, Arg3ValueType>::type pi[numDimensions];
