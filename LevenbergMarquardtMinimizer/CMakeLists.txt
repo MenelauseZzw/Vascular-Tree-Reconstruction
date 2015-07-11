@@ -14,9 +14,6 @@ find_package(Gflags REQUIRED)
               
 # Find Google glog library.
 find_package(Glog REQUIRED)
-
-# Find FLANN library.
-find_package(Flann REQUIRED)
                          
 find_package(CUDA REQUIRED)
 
@@ -26,9 +23,7 @@ find_package(HDF5 REQUIRED NAMES hdf5 COMPONENTS CXX)
 include_directories(
   ${GFLAGS_INCLUDE_DIRS} 
   ${GLOG_INCLUDE_DIRS}
-  ${HDF5_INCLUDE_DIR} 
-  ${FLANN_INCLUDE_DIRS}
-  )
+  ${HDF5_INCLUDE_DIR})
 
 source_group("CUDA Source Files" REGULAR_EXPRESSION "cu$")
 source_group("CUDA Header Files" REGULAR_EXPRESSION "cuh$")
@@ -38,8 +33,6 @@ source_group("CUDA Header Files" REGULAR_EXPRESSION "cuh$")
 cuda_add_executable(
   LevenbergMarquardtMinimizer
   main.cpp
-  CommandLineArgs.cpp
-  CommandLineArgs.h
   CostFunction.hpp
   CurvatureCostFunction.cuh
   CurvatureCostFunction.hpp
@@ -49,29 +42,19 @@ cuda_add_executable(
   DistanceCostFunction.inl
   DotProduct.cuh
   DualNumber.cuh
-  GraphData.hpp
-  GraphDataReader.cpp
-  GraphDataReader.hpp
-  GraphDataWriter.cpp
-  GraphDataWriter.hpp
   LevenbergMarquardtMinimizer.hpp
   LevenbergMarquardtMinimizer.inl
   LinearCombination.hpp
   LinearCombination.inl
   LSQR.hpp
   Minimize.cu
-  Minimize.h
+  Minimize.hpp
   ProjectionOntoLine.cuh
   ProjectionOntoLine.hpp
-  ProjectionOntoLine.inl
-  TestKnnSearch1.cpp
-  TestKnnSearch1.h
-  )
+  ProjectionOntoLine.inl)
 
 target_link_libraries(
   LevenbergMarquardtMinimizer
   ${GFLAGS_LIBRARIES}
   ${GLOG_LIBRARIES}
-  ${HDF5_LIBRARIES}
-  ${FLANN_LIBRARIES}
-  )
+  ${HDF5_LIBRARIES})

@@ -26,7 +26,7 @@ void LevenbergMarquardtMinimizer(
 
   JacobianMatrixType jacobian;
   func.ComputeJacobian(x, jacobian);
-  
+
   JacobianMatrixType jacobiant;
 
   GradientVectorType gradient(jacobian.num_cols);
@@ -49,17 +49,17 @@ void LevenbergMarquardtMinimizer(
 
     {
       // Local constants
-      const ValueType atol = 0;
-      const ValueType btol = 0;
+      const ValueType atol = 1e-5;
+      const ValueType btol = 1e-5;
       const ValueType conlim = 0;
-      const int itnlim = 5000;
+      const int itnlim = 4 * jacobian.num_cols;
 
       // Local variables
       ValueType Anorm, Acond, rnorm, Arnorm, xnorm;
       int istop, itn;
 
       LSQR(jacobian, jacobiant, residualx, damp, y, atol, btol, conlim, itnlim, istop, itn, Anorm, Acond, rnorm, Arnorm, xnorm);
-    
+
       cusp::blas::axpby(x, y, xpy, 1, -1);
 
       func.ComputeResidual(xpy, residualxpy);
@@ -77,7 +77,7 @@ void LevenbergMarquardtMinimizer(
       std::swap(xpy, x);
 
       bool convergence = false;
-      
+
       if (false)
       {
         convergence = true;

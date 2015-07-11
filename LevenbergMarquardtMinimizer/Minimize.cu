@@ -1,4 +1,4 @@
-#include "Minimize.h"
+#include "Minimize.hpp"
 #include "ProjectionOntoLine.hpp"
 #include <algorithm>
 #include <cusp/array1d.h>
@@ -9,40 +9,38 @@
 #include "LinearCombination.hpp"
 #include "LevenbergMarquardtMinimizer.hpp"
 
-void Minimize(float* pTildeP, float* pS, float* pT, float* pSigma, int numPoints, int* pIndPi, int* pIndPj, int numPairs, float* pP, int maxIterations)
+template<typename ValueType, typename IndexType>
+void Minimize(const ValueType* pMeasurements, ValueType* pTangentLinesPoints1, ValueType* pTangentLinesPoints2, const ValueType* pRadiuses, int numMeasurements, const IndexType* pIndices1, const IndexType* pIndices2, int indicesLength, ValueType* pPositions, int itnlim, ValueType* pDistances, ValueType* pCurvatures)
 {
   typedef cusp::device_memory MemorySpace;
 
   // Local constants
   const int NumDimensions = 3;
 
-  auto hTildeP = cusp::make_array1d_view(pTildeP, pTildeP + NumDimensions * numPoints);
-  auto hS = cusp::make_array1d_view(pS, pS + NumDimensions * numPoints);
-  auto hT = cusp::make_array1d_view(pT, pT + NumDimensions * numPoints);
-  auto hSigma = cusp::make_array1d_view(pSigma, pSigma + numPoints);
+  auto hTildeP = cusp::make_array1d_view(pMeasurements, pMeasurements + NumDimensions * numMeasurements);
+  auto hS = cusp::make_array1d_view(pTangentLinesPoints1, pTangentLinesPoints1 + NumDimensions * numMeasurements);
+  auto hT = cusp::make_array1d_view(pTangentLinesPoints2, pTangentLinesPoints2 + NumDimensions * numMeasurements);
+  auto hSigma = cusp::make_array1d_view(pRadiuses, pRadiuses + numMeasurements);
 
-  auto hIndPi = cusp::make_array1d_view(pIndPi, pIndPi + numPairs);
-  auto hIndPj = cusp::make_array1d_view(pIndPj, pIndPj + numPairs);
+  auto hIndPi = cusp::make_array1d_view(pIndices1, pIndices1 + indicesLength);
+  auto hIndPj = cusp::make_array1d_view(pIndices2, pIndices2 + indicesLength);
 
-  cusp::array1d<float, cusp::host_memory> hBeta(numPoints);
+  cusp::array1d<ValueType, cusp::host_memory> hBeta(numMeasurements);
 
   for (int i = 0; i < hBeta.size(); ++i)
   {
     hBeta[i] = 1 / hSigma[i];
   }
 
-  typedef int IndexType;
-  typedef float ValueType;
+  cusp::array1d<ValueType, cusp::device_memory> sAndT(numMeasurements * (NumDimensions + NumDimensions));
 
-  cusp::array1d<ValueType, cusp::device_memory> sAndT(numPoints * (NumDimensions + NumDimensions));
-
-  auto s = sAndT.subarray(0, numPoints * NumDimensions);
-  auto t = sAndT.subarray(numPoints * NumDimensions, numPoints * NumDimensions);
+  auto s = sAndT.subarray(0, numMeasurements * NumDimensions);
+  auto t = sAndT.subarray(numMeasurements * NumDimensions, numMeasurements * NumDimensions);
 
   cusp::copy(hS, s);
   cusp::copy(hT, t);
 
-  const cusp::array1d<ValueType, cusp::device_memory> gamma(numPairs, 20);
+  const cusp::array1d<ValueType, cusp::device_memory> gamma(indicesLength, 20);
 
   typedef gpuLinearCombination<3, ValueType, IndexType> CostFunctionType;
 
@@ -57,23 +55,34 @@ void Minimize(float* pTildeP, float* pS, float* pT, float* pSigma, int numPoints
   const ValueType tolg = 1e-5;
   
   int itn = 0;
-  LevenbergMarquardtMinimizer(func, sAndT, damp, dampmin, tolx, tolf, tolg, itn, maxIterations);
+  LevenbergMarquardtMinimizer(func, sAndT, damp, dampmin, tolx, tolf, tolg, itn, itnlim);
 
   cusp::copy(s, hS);
   cusp::copy(t, hT);
 
   const cusp::array1d<ValueType, cusp::device_memory> tildeP(hTildeP);
-  cusp::array1d<ValueType, cusp::device_memory> p(numPoints * NumDimensions);
+  cusp::array1d<ValueType, cusp::device_memory> p(numMeasurements * NumDimensions);
 
   gpuProjectionOntoLine<ValueType, NumDimensions>(
     thrust::raw_pointer_cast(&tildeP[0]),
     thrust::raw_pointer_cast(&s[0]),
     thrust::raw_pointer_cast(&t[0]),
     thrust::raw_pointer_cast(&p[0]),
-    numPoints);
+    numMeasurements);
+  
+  const cusp::array1d<ValueType, cusp::host_memory> hWeights1(numMeasurements / NumDimensions, 1);
+  const cusp::array1d<ValueType, cusp::host_memory> hWeights2(indicesLength, 1);
 
-  auto hP = cusp::make_array1d_view(pP, pP + NumDimensions * numPoints);
+  cpuDistanceCostResidual<ValueType, 3>(&hTildeP[0], &hS[0], &hT[0], &hWeights1[0], pDistances, numMeasurements / NumDimensions);
+  cpuCurvatureCostResidual<ValueType, IndexType, 3>(&hTildeP[0], &hS[0], &hT[0], &hWeights2[0], &hIndPi[0], &hIndPj[0], pCurvatures, indicesLength);
 
+  auto hP = cusp::make_array1d_view(pPositions, pPositions + NumDimensions * numMeasurements);
   cusp::copy(p, hP);
 }
 
+//Explicit instantiation
+#define InstantiateMinimize(ValueType, IndexType) \
+template void Minimize(const ValueType*, ValueType*, ValueType*, const ValueType*, int, const IndexType*, const IndexType*, int, ValueType*, int, ValueType*, ValueType*)
+
+InstantiateMinimize(float, int);
+InstantiateMinimize(double, int);

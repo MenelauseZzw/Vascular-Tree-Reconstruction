@@ -1,43 +1,75 @@
-#include "CommandLineArgs.h"
-#include "GraphData.hpp"
-#include "GraphDataReader.hpp"
-#include "GraphDataWriter.hpp"
-#include "TestKnnSearch1.h"
-#include "Minimize.h"
+#include "Minimize.hpp"
+#include <H5Cpp.h>
 #include <cuda_runtime.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
-#include <iostream>
-#include <thrust/host_vector.h>
 #include <vector>
+
+DEFINE_string(source, "", "source filename");
+DEFINE_string(result, "", "result filename");
+DEFINE_int32(itnlim, 1000, "an upper limit on the number of iterations");
+
+using namespace std;
+
+#ifndef H5_NO_NAMESPACE
+using namespace H5;
+#endif
+
+template<typename ValueType>
+PredType GetDataType();
+
+template<>
+PredType GetDataType<float>() { return PredType::NATIVE_FLOAT; }
+
+template<>
+PredType GetDataType<double>() { return PredType::NATIVE_DOUBLE; }
+
+template<>
+PredType GetDataType<int>() { return PredType::NATIVE_INT; }
+
+template<typename ValueType>
+std::vector<ValueType> Read(const H5File& sourceFile, const string& sourceDataSetName)
+{
+  auto sourceDataSet = sourceFile.openDataSet(sourceDataSetName);
+  vector<ValueType> resultDataSet(sourceDataSet.getSpace().getSimpleExtentNpoints());
+  sourceDataSet.read(&resultDataSet[0], GetDataType<ValueType>());
+  return resultDataSet;
+}
+
+template<typename ValueType>
+void Write(H5File& resultFile, const string& resultDataSetName, const std::vector<ValueType>& sourceDataSet)
+{
+  const int rank = 1;
+  const hsize_t dims = sourceDataSet.size();
+
+  auto resultDataSet = resultFile.createDataSet(resultDataSetName, GetDataType<ValueType>(), DataSpace(rank, &dims));
+  resultDataSet.write(&sourceDataSet[0], GetDataType<ValueType>());
+}
 
 int main(int argc, char *argv[])
 {
+  const int numDimensions{ 3 };
   typedef float ValueType;
   typedef int IndexType;
-
-  typedef GraphData<ValueType, IndexType> GraphDataType;
-  typedef GraphDataReader<ValueType, IndexType> GraphDataReaderType;
-  typedef GraphDataWriter<ValueType, IndexType> GraphDataWriterType;
 
   google::InitGoogleLogging(argv[0]);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  const CommandLineArgs& commandLineArgs = CommandLineArgs::Instance();
-  commandLineArgs.BriefReport();
+  const string sourceFileName{ FLAGS_source };
+  const string resultFileName{ FLAGS_result };
+  const int itnlim{ FLAGS_itnlim };
+
+  const string measurementsDataSetName{ "measurements" };
+  const string tangentLinesPoints1DataSetName{ "tangentLinesPoints1" };
+  const string tangentLinesPoints2DataSetName{ "tangentLinesPoints2" };
+  const string radiusesDataSetName{ "radiuses" };
+  const string positionsDataSetName{ "positions" };
+  const string indices1DataSetName{ "indices1" };
+  const string indices2DataSetName{ "indices2" };
+
+  const string distancesDataSetName{ "distances" };
+  const string curvaturesDataSetName{ "curvatures" };
   
-  GraphDataType graphData;
-  GraphDataReaderType::Options readerOptions;
-
-  readerOptions.sourceFileName = commandLineArgs.SourceFileName();
-  readerOptions.measurementsDataSetName = commandLineArgs.MeasurementsDataSetName();
-  readerOptions.tangentsLinesPoints1DataSetName = commandLineArgs.TangentsLinesPoints1DataSetName();
-  readerOptions.tangentsLinesPoints2DataSetName = commandLineArgs.TangentsLinesPoints2DataSetName();
-  readerOptions.radiusesDataSetName = commandLineArgs.RadiusesDataSetName();
-
-  GraphDataReaderType reader;
-  reader.Read(readerOptions, graphData);
-
   int device;
   cudaGetDevice(&device);
 
@@ -49,32 +81,30 @@ int main(int argc, char *argv[])
   LOG(INFO) << "Maximum number of threads per block " << prop.maxThreadsPerBlock;
   LOG(INFO) << "Maximum resident threads per multiprocessor " << prop.maxThreadsPerMultiProcessor;
 
-  graphData.sources.resize(commandLineArgs.NearestNeighbors() * graphData.radiuses.size() + 1);
-  graphData.targets.resize(graphData.sources.size());
+  H5File sourceFile(sourceFileName, H5F_ACC_RDONLY);
 
-  int numPairs;
+  auto measurements = Read<ValueType>(sourceFile, measurementsDataSetName);
+  auto tangentLinesPoints1 = Read<ValueType>(sourceFile, tangentLinesPoints1DataSetName);
+  auto tangentLinesPoints2 = Read<ValueType>(sourceFile, tangentLinesPoints2DataSetName);
+  auto radiuses = Read<ValueType>(sourceFile, radiusesDataSetName);
+  auto indices1 = Read<IndexType>(sourceFile, indices1DataSetName);
+  auto indices2 = Read<IndexType>(sourceFile, indices2DataSetName);
 
-  testKnnSearch(&graphData.measurements[0], &graphData.radiuses[0], &graphData.tangentsLinesPoints1[0], &graphData.tangentsLinesPoints2[0], &graphData.sources[0], &graphData.targets[0], graphData.radiuses.size(), commandLineArgs.NearestNeighbors(), numPairs);
-  LOG(INFO) << "Number of pairwise terms: " << numPairs;
-
-  graphData.sources.resize(numPairs);
-  graphData.targets.resize(numPairs);
+  vector<ValueType> positions(measurements.size());
   
-  graphData.positions.resize(graphData.measurements.size());
-  
-  Minimize(&graphData.measurements[0], &graphData.tangentsLinesPoints1[0], &graphData.tangentsLinesPoints2[0], &graphData.radiuses[0], graphData.radiuses.size(), &graphData.sources[0], &graphData.targets[0], graphData.targets.size(), &graphData.positions[0], CommandLineArgs::Instance().MaxIterations());
+  vector<ValueType> distances(measurements.size() / numDimensions);
+  vector<ValueType> curvatures(indices1.size());
+  Minimize(&measurements[0], &tangentLinesPoints1[0], &tangentLinesPoints2[0], &radiuses[0], measurements.size() / numDimensions, &indices1[0], &indices2[0], indices1.size(), &positions[0], itnlim, &distances[0], &curvatures[0]);
 
-  GraphDataWriterType::Options writerOptions;
+  H5File resultFile(resultFileName, H5F_ACC_TRUNC);
 
-  writerOptions.targetFileName = commandLineArgs.ResultFileName();
-  writerOptions.measurementsDataSetName = commandLineArgs.MeasurementsDataSetName();
-  writerOptions.tangentsLines1PointsDataSetName = commandLineArgs.TangentsLinesPoints1DataSetName();
-  writerOptions.tangentsLines2PointsDataSetName = commandLineArgs.TangentsLinesPoints2DataSetName();
-  writerOptions.radiusesDataSetName = commandLineArgs.RadiusesDataSetName();
-  writerOptions.positionsDataSetName = commandLineArgs.PositionsDataSetName();
-  writerOptions.sourcesDataSetName = commandLineArgs.SourcesDataSetName();
-  writerOptions.targetsDataSetName = commandLineArgs.TargetsDataSetName();
-
-  GraphDataWriterType writer;
-  writer.Write(writerOptions, graphData);
+  Write(resultFile, measurementsDataSetName, measurements);
+  Write(resultFile, tangentLinesPoints1DataSetName, tangentLinesPoints1);
+  Write(resultFile, tangentLinesPoints2DataSetName, tangentLinesPoints2);
+  Write(resultFile, radiusesDataSetName, radiuses);
+  Write(resultFile, positionsDataSetName, positions);
+  Write(resultFile, indices1DataSetName, indices1);
+  Write(resultFile, indices2DataSetName, indices2);
+  Write(resultFile, distancesDataSetName, distances);
+  Write(resultFile, curvaturesDataSetName, curvatures);
 }
