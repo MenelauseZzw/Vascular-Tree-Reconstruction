@@ -20,3 +20,12 @@ add_library(
 target_link_libraries(
     ${PROJECT_NAME}
     ${HDF5_CXX_STATIC_LIBRARY})
+
+install(
+	TARGETS ${PROJECT_NAME} 
+	RUNTIME DESTINATION Bin
+	ARCHIVE DESTINATION Lib
+	LIBRARY DESTINATION Lib)
+
+install(
+	FILES FileReader.hpp FileWriter.hpp DESTINATION Include)
