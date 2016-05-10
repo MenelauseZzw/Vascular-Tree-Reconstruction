@@ -8,7 +8,7 @@ endif()
 find_package(HDF5 NAMES hdf5 COMPONENTS CXX static)
 include_directories(${HDF5_INCLUDE_DIR})
 
-if (WINDOWS)
+if (WIN32)
   add_definitions("-DFileReaderClassDeclSpec=__declspec(dllexport)")
   add_definitions("-DFileWriterClassDeclSpec=__declspec(dllexport)")
 endif()
