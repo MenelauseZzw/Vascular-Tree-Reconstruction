@@ -24,4 +24,4 @@ public:
   static inline const PredType& GetDataType() { return PredType::NATIVE_DOUBLE; }
 };
 
-#endif H5Helper_hpp
+#endif//H5Helper_hpp

@@ -1,6 +1,10 @@
 #ifndef FileWriter_hpp
 #define FileWriter_hpp
 
+#ifndef _WIN32
+#define FileWriterClassDeclSpec
+#endif
+
 #ifndef FileWriterClassDeclSpec
 #define FileWriterClassDeclSpec __declspec(dllimport)
 #endif

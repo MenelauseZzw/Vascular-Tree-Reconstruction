@@ -1,6 +1,10 @@
 #ifndef FileReader_hpp
 #define FileReader_hpp
 
+#ifndef _WIN32
+#define FileReaderClassDeclSpec
+#endif
+
 #ifndef FileReaderClassDeclSpec
 #define FileReaderClassDeclSpec __declspec(dllimport)
 #endif
