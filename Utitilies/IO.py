@@ -2,21 +2,22 @@ import h5py
 import numpy as np
 import vtk
 
-def readRaw(filename, dims):
-    frangi = np.fromfile(filename, dtype=np.float32)
+def readRawFile(filename, shape):
+    rawData      = np.fromfile(filename, dtype=np.float32)
+    rawData      = np.reshape(rawData, (-1, 5)) # each row consists of rsp(1), dir(3) and rad(1)
 
-    frangi = np.reshape(frangi, (-1, 5))
+    responses    = rawData[:, 0]
 
-    responses = frangi[:, 0]
-    ignor = np.isclose(responses, 0, atol=1e-2)
-    
+    ignor        = np.isclose(responses, 0, atol=1e-2) # ignor is 1-D array
     responses    = responses[~ignor]
-    tangentLines = frangi[:, 1:4][~ignor]
-    radiuses     = frangi[:, 4][~ignor]
+    tangentLines = rawData[:, 1:4]
+    tangentLines = tangentLines[~ignor]
+    radiuses     = rawData[:, 4]
+    radiuses     = radiuses[~ignor]
 
-    ignor        = np.reshape(ignor, dims)
+    ignor        = np.reshape(ignor, shape) # ignor is 3-D array
     zs,ys,xs     = np.where(~ignor)
-    measurements = np.column_stack((xs,ys,zs))
+    measurements = np.column_stack(reversed(xs,ys,zs))
 
     tangentLinesPoints1 = np.empty_like(measurements, dtype=np.double)
     tangentLinesPoints2 = np.empty_like(measurements, dtype=np.double)
@@ -29,11 +30,11 @@ def readRaw(filename, dims):
     
     dataset = dict()
 
-    dataset['measurements'] = measurements
+    dataset['measurements']        = measurements
     dataset['tangentLinesPoints1'] = tangentLinesPoints1
     dataset['tangentLinesPoints2'] = tangentLinesPoints2
-    dataset['radiuses']  = radiuses
-    dataset['responses'] = responses
+    dataset['radiuses']            = radiuses
+    dataset['responses']           = responses
 
     return dataset
 
