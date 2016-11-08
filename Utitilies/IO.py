@@ -1,6 +1,7 @@
 import h5py
 import numpy as np
 import vtk
+from xml.etree import ElementTree
 
 def readRawFile(filename, shape):
     rawData      = np.fromfile(filename, dtype=np.float32)
@@ -17,7 +18,7 @@ def readRawFile(filename, shape):
 
     ignor        = np.reshape(ignor, shape) # ignor is 3-D array
     zs,ys,xs     = np.where(~ignor)
-    measurements = np.column_stack(reversed(xs,ys,zs))
+    measurements = np.column_stack((xs,ys,zs))
 
     tangentLinesPoints1 = np.empty_like(measurements, dtype=np.double)
     tangentLinesPoints2 = np.empty_like(measurements, dtype=np.double)
@@ -36,6 +37,57 @@ def readRawFile(filename, shape):
     dataset['radiuses']            = radiuses
     dataset['responses']           = responses
 
+    return dataset
+
+def readGxlFile(filename):
+    elemTree = ElementTree.parse(filename)
+
+    indices = dict()
+
+    positions = []
+    nodeTypes = []
+
+    for idx,node in enumerate(elemTree.getroot().findall('./graph/node')):
+        nodeID          = node.attrib['id']
+        nodeType        = node.findtext("./attr[@name=' nodeType']/string")
+        position        = tuple(float(item.text) for item in node.findall("./attr[@name=' position']/tup/float"))
+        indices[nodeID] = idx
+
+        if nodeType == ' root node ':
+            nodeTypes.append('r')
+        elif nodeType == ' bifurication ':
+            nodeTypes.append('b')
+        else:
+            assert nodeType == ' terminal node '
+            nodeTypes.append('t')
+
+        positions.extend(position)
+
+    n = len(indices)
+    
+    indices1      = []
+    indices2      = []
+    radiusesPrime = []
+
+    for edge in elemTree.getroot().findall('./graph/edge'):
+        edgeID      = edge.attrib['id']
+        sourceID    = edge.attrib['from']
+        targetID    = edge.attrib['to']
+        radiusPrime = float(edge.findtext("./attr[@name=' radius']/float"))
+        flow        = float(edge.findtext("./attr[@name=' flow']/float"))
+        
+        indices1.append(indices[sourceID])
+        indices2.append(indices[targetID])
+        radiusesPrime.append(radiusPrime)
+   
+    dataset = dict()
+
+    dataset['positions']   = np.array(positions, dtype=np.double)
+    dataset['nodeTypes']   = np.array(nodeTypes, dtype=np.string_)
+    dataset['indices1']    = np.array(indices1, dtype=np.int)
+    dataset['indices2']    = np.array(indices2, dtype=np.int)
+    dataset['radiusPrime'] = np.array(radiusesPrime, dtype=np.double)
+    
     return dataset
 
 def readH5(filename, n_dims=3):
