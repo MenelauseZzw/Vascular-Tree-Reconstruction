@@ -82,7 +82,7 @@ def readGxlFile(filename):
    
     dataset = dict()
 
-    dataset['positions']   = np.array(positions, dtype=np.double)
+    dataset['positions']   = np.reshape(positions, newshape=(-1, 3))
     dataset['nodeTypes']   = np.array(nodeTypes, dtype=np.string_)
     dataset['indices1']    = np.array(indices1, dtype=np.int)
     dataset['indices2']    = np.array(indices2, dtype=np.int)
@@ -90,7 +90,7 @@ def readGxlFile(filename):
     
     return dataset
 
-def readH5(filename, n_dims=3):
+def readH5File(filename, n_dims=3):
     dataset = dict()
 
     with h5py.File(filename, mode='r') as f:
@@ -106,14 +106,14 @@ def readH5(filename, n_dims=3):
 
     return dataset
 
-def writeH5(filename, dataset):
+def writeH5File(filename, dataset):
     with h5py.File(filename, mode='w') as f:
         for name in dataset:
             item = dataset[name]
             f.create_dataset(name, data=item.flatten())
 
 def writeParaView(filename, dataset):
-    positions = dataset['positions']
+    positions = dataset['measurements']
 
     points = vtk.vtkPoints()
     for p in positions:
