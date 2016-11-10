@@ -94,7 +94,7 @@ def readH5File(filename, n_dims=3):
     dataset = dict()
 
     with h5py.File(filename, mode='r') as f:
-        for name in ['indices1', 'indices2', 'radiuses', 'weights']:
+        for name in ['indices1', 'indices2', 'radiuses', 'weights', 'arcRadiuses']:
             if name in f:
                 dataset[name] = f[name][()]
 
@@ -112,41 +112,7 @@ def writeH5File(filename, dataset):
             item = dataset[name]
             f.create_dataset(name, data=item.flatten())
 
-def writeParaView(filename, dataset):
-    #positions = dataset['measurements']
-    positions = dataset['positions']
-
-    points = vtk.vtkPoints()
-    for p in positions:
-        points.InsertNextPoint(p)
-    
-    graph = vtk.vtkMutableUndirectedGraph()
-
-    graph.SetNumberOfVertices(points.GetNumberOfPoints())
-    graph.SetPoints(points)
-    
-    indices1 = dataset['indices1']
-    indices2 = dataset['indices2']
-    weights  = dataset['weights'] 
-
-    weightsArr = vtk.vtkDoubleArray()
-    weightsArr.SetName('Weights')
-
-    for i in xrange(len(indices1)):
-        index1 = indices1[i]
-        index2 = indices2[i]
-        graph.AddGraphEdge(index1, index2)  
-
-        weight = weights[i]
-        weightsArr.InsertNextValue(weight)
-
-    graphToPolyData = vtk.vtkGraphToPolyData()
-    graphToPolyData.SetInputData(graph)
-    graphToPolyData.Update()
-
-    polyData = graphToPolyData.GetOutput()
-    polyData.GetCellData().AddArray(weightsArr)
-
+def writePolyDataFile(filename, polyData):
     polyDataWriter = vtk.vtkXMLPolyDataWriter()
     polyDataWriter.SetInputData(polyData)
     polyDataWriter.SetFileName(filename)
