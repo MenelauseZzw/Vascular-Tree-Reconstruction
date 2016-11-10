@@ -2,9 +2,13 @@ import argparse
 import IO
 import MinimumSpanningTree
 import matplotlib.pyplot as plt
-import numpy as np
-from sklearn.neighbors import KDTree,radius_neighbors_graph
+import maxflow
 import os.path
+import numpy as np
+import numpy.linalg as linalg
+import vtk
+
+from sklearn.neighbors import KDTree,radius_neighbors_graph
 from xml.etree import ElementTree
 
 argparser = argparse.ArgumentParser()
@@ -101,43 +105,40 @@ def doConvertRawToH5(dirname):
     filename = os.path.join(dirname, 'canny2_image.h5')
     IO.writeH5File(filename, dataset)
 
-def doPlotHist(dirname):
+def doComputeArcRadiuses(dirname, pointsArrName):
     filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
     dataset  = IO.readH5File(filename)
 
-    measurements        = dataset['measurements']
+    pointsArr           = dataset[pointsArrName]
     tangentLinesPoints1 = dataset['tangentLinesPoints1']
     tangentLinesPoints2 = dataset['tangentLinesPoints2']
-    radiuses            = dataset['radiuses']
-    positions           = dataset['positions']
-
     indices1            = dataset['indices1']
     indices2            = dataset['indices2']
 
-    n = len(positions)
-    
-    curv = [[] for _ in xrange(n)]
+    n = len(pointsArr)
 
-    for i,k in zip(indices1, indices2):
-        p   = positions[i]
-        q   = positions[k]
-        lp  = tangentLinesPoints2[i] - tangentLinesPoints1[i]
+    arcRadiuses = [[] for _ in xrange(n)]
+
+    for index1,index2 in zip(indices1, indices2):
+        p   = pointsArr[index1]
+        q   = pointsArr[index2]
+        lp  = tangentLinesPoints2[index1] - tangentLinesPoints1[index1]
         Cpq = getArcCenter(p, lp, q)
 
-        arcRad = getArcRadius(p, Cpq)
-        curv[i].append(1 / arcRad)
+        arcRadius = getArcRadius(p, Cpq)
+        arcRadiuses[index1].append(arcRadius)
 
-    mean   = [None for _ in xrange(n)]
-    stdDev = [None for _ in xrange(n)]
+    arcRadiusesMean   = np.empty(n, dtype=np.double)
+    arcRadiusesStdDev = np.empty(n, dtype=np.double)
 
     for i in xrange(n):
-        if len(curv[i]) != 0:
-            mean[i]   = np.mean(curv[i])
-            stdDev[i] = np.std(curv[i])
+        arcRadiusesMean[i]   = np.mean(np.reciprocal(arcRadiuses[i]))
+        arcRadiusesStdDev[i] = np.std(np.reciprocal(arcRadiuses[i]))
 
-    bins = np.linspace(0, 1, 100)
-    plt.hist(mean, bins, alpha=0.5)
-    plt.show()
+    dataset['arcRadiusesMean']   = arcRadiusesMean
+    dataset['arcRadiusesStdDev'] = arcRadiusesStdDev
+
+    IO.writeH5File(filename, dataset)
 
 def doConvertH5ToParaView(dirname):
     filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
@@ -146,11 +147,318 @@ def doConvertH5ToParaView(dirname):
     filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.vtp')
     IO.writeParaView(filename, dataset)
 
+def createLine(p, q):
+    lineSrc = vtk.vtkLineSource()
+    lineSrc.SetPoint1(p)
+    lineSrc.SetPoint2(q)
+    lineSrc.Update()
+    return lineSrc.GetOutput()
+
+def createSplinePolyData(spline, num_points):
+    points = vtk.vtkPoints()
+
+    for t in np.linspace(0, 1, num_points):
+        points.InsertNextPoint(spline(t))
+
+    polyLine = vtk.vtkPolyLineSource()
+    polyLine.SetNumberOfPoints(points.GetNumberOfPoints())
+    polyLine.SetPoints(points)
+    polyLine.Update()
+
+    polyData = polyLine.GetOutput()
+    return polyData
+
+# Hermite basis functions
+def h00(t):
+    s = 1 - t
+    return (1 + 2 * t) * s * s
+
+def h10(t):
+    s = 1 - t
+    return t * s * s
+
+def h01(t):
+    return t * t * (3 - 2 * t)
+
+def h11(t):
+    return t * t * (t - 1)
+
+def createSpline(p0, m0, p1, m1):
+    return lambda t: h00(t) * p0 + h10(t) * m0 + h01(t) * p1 + h11(t) * m1
+
+def splineLength(spline, num_points):
+    ts = np.linspace(0.0, 1.0, num_points, dtype=np.double)
+    points = spline(ts[:,np.newaxis])
+    splineLen = np.linalg.norm(points[:-1] - points[1:], axis=1).sum()
+    return splineLen
+
+def createGraphPolyData(pointsArr, indices1, indices2, weightsArr):
+    points = vtk.vtkPoints()
+
+    for p in pointsArr:
+        points.InsertNextPoint(p)
+    
+    graph = vtk.vtkMutableUndirectedGraph()
+
+    graph.SetNumberOfVertices(points.GetNumberOfPoints())
+    graph.SetPoints(points)
+
+    for index1,index2 in zip(indices1, indices2):
+        graph.AddGraphEdge(index1, index2)
+
+    weights = vtk.vtkDoubleArray()
+    weights.SetName('Weights')
+    
+    for w in weightsArr:
+        weights.InsertNextValue(w)
+
+    graphToPolyData = vtk.vtkGraphToPolyData()
+    graphToPolyData.SetInputData(graph)
+    graphToPolyData.Update()
+
+    polyData = graphToPolyData.GetOutput()
+    polyData.GetCellData().AddArray(weights)
+
+    return polyData
+
+def createCircularPolyData(pointsArr, tangentLinesPoints1, tangentLinesPoints2, radiusesArr):
+    polygonSrc = vtk.vtkRegularPolygonSource()
+    polygonSrc.GeneratePolygonOff()
+
+    appendPolyData = vtk.vtkAppendPolyData()
+
+    for i,p in enumerate(pointsArr):
+        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
+        radius = radiusesArr[i]
+
+        polygonSrc.SetCenter(p)
+        polygonSrc.SetNormal(lp)
+        polygonSrc.SetNumberOfSides(36)
+        polygonSrc.SetRadius(radius)
+        polygonSrc.Update()
+
+        polyData = vtk.vtkPolyData()
+        polyData.DeepCopy(polygonSrc.GetOutput())
+        appendPolyData.AddInputData(polyData)
+    
+    appendPolyData.Update()
+    polyData = appendPolyData.GetOutput()
+
+    return polyData
+
+def doCreateGraphPolyDataFile(dirname, pointsArrName, weightsArrName):
+    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
+    dataset  = IO.readH5File(filename)
+
+    pointsArr  = dataset[pointsArrName]
+    indices1   = dataset['indices1']
+    indices2   = dataset['indices2']
+    weightsArr = dataset[weightsArrName]
+
+    graphPolyData = createGraphPolyData(pointsArr, indices1, indices2, weightsArr)
+    
+    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.vtp')
+    IO.writePolyDataFile(filename, graphPolyData)
+
+def doCreateCircularPolyDataFile(dirname, pointsArrName, radiusesArrName):
+    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
+    dataset  = IO.readH5File(filename)
+
+    pointsArr           = dataset[pointsArrName]
+    tangentLinesPoints1 = dataset['tangentLinesPoints1']
+    tangentLinesPoints2 = dataset['tangentLinesPoints2']
+    radiusesArr         = dataset[radiusesArrName]
+
+    polyData = createCircularPolyData(pointsArr, tangentLinesPoints1, tangentLinesPoints2, radiusesArr)
+    
+    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.vtp')
+    IO.writePolyDataFile(filename, polyData)
+
+def doCreateSplinePolyDataFile(dirname):
+    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
+    dataset  = IO.readH5File(filename)
+
+    positions           = dataset['positions']
+    tangentLinesPoints1 = dataset['tangentLinesPoints1']
+    tangentLinesPoints2 = dataset['tangentLinesPoints2']
+    
+    indices1            = dataset['indices1']
+    indices2            = dataset['indices2']
+
+    n = len(positions)
+
+    appendPolyData = vtk.vtkAppendPolyData()
+
+    for i,k in zip(indices1, indices2):
+        p  = positions[i]
+        q  = positions[k]
+        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
+        lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
+
+        lp = lp / linalg.norm(lp)
+        lq = lq / linalg.norm(lq)
+        dist = linalg.norm(p - q)
+        lp = lp * dist
+        lq = lq * dist
+
+        spline = createSpline(p, lp, q, lq)
+        splinePolyData = createSplinePolyData(spline, num_points=100)
+
+        polyData = vtk.vtkPolyData()
+        polyData.DeepCopy(splinePolyData)
+        appendPolyData.AddInputData(polyData)
+    
+    appendPolyData.Update()
+    polyData = appendPolyData.GetOutput()
+
+    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.vtp')
+    IO.writePolyDataFile(filename, polyData)
+
+def doGraphCut(dirname):
+    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
+    dataset  = IO.readH5File(filename)
+
+    positions           = dataset['positions']
+    tangentLinesPoints1 = dataset['tangentLinesPoints1']
+    tangentLinesPoints2 = dataset['tangentLinesPoints2']
+    
+    indices1            = dataset['indices1']
+    indices2            = dataset['indices2']
+
+    n = len(positions)
+    g = maxflow.Graph[float]()
+
+    nodes = g.add_nodes(n)
+
+    appendPolyData = vtk.vtkAppendPolyData()
+
+    indices1 = []
+    indices2 = []
+
+    for i in xrange(n):
+        for k in xrange(i + 1, n):
+            if linalg.norm(positions[i] - positions[k]) < 5:
+                indices1.append(i)
+                indices2.append(k)
+
+    for i,k in zip(indices1, indices2):
+        if k < i: continue
+
+        p  = positions[i]
+        q  = positions[k]
+        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
+        lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
+
+        lp = lp / linalg.norm(lp)
+        lq = lq / linalg.norm(lq)
+        dist = linalg.norm(p - q)
+        lp = lp * dist
+        lq = lq * dist
+   
+        for lpsgn,lqsgn in [(-lp,-lq), (-lp, lq), (lp,-lq), (lp, lq)]:
+            spline    = createSpline(p,lpsgn, q, lqsgn)
+            splineLen = splineLength(spline, num_points=100)
+
+        A = splineLength(createSpline(p,-lp, q,-lq), num_points=100)
+        B = splineLength(createSpline(p,-lp, q, lq), num_points=100)
+        C = splineLength(createSpline(p, lp, q,-lq), num_points=100)
+        D = splineLength(createSpline(p, lp, q, lq), num_points=100)
+
+        g.add_tedge(nodes[i], C, A)
+        g.add_tedge(nodes[k], D - C, 0)
+        g.add_edge(nodes[i], nodes[k], B + C - A - D, 0)
+
+    flow = g.maxflow()
+
+    G = dict()
+
+    for i,k in zip(indices1, indices2):
+        if k < i: continue
+
+        p  = positions[i]
+        q  = positions[k]
+        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
+        lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
+
+        lp = lp / linalg.norm(lp)
+        lq = lq / linalg.norm(lq)
+        dist = linalg.norm(p - q)
+        
+        lp = lp * dist
+        lq = lq * dist
+
+        if g.get_segment(nodes[i]) == 1:
+            lpsgn =  lp
+        else:
+            lpsgn = -lp
+
+        if g.get_segment(nodes[k]) == 1:
+            lqsgn =  lq
+        else:
+            lqsgn = -lq
+   
+        spline    = createSpline(p, lpsgn, q, lqsgn)
+        splineLen = splineLength(spline, num_points=100)
+
+        if not i in G:
+            G[i] = dict()
+
+        if not k in G:
+            G[k] = dict()
+        
+        G[i][k] = splineLen
+        G[k][i] = splineLen
+
+    T = MinimumSpanningTree.MinimumSpanningTree(G)
+
+    for i,k in T:
+        p  = positions[i]
+        q  = positions[k]
+        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
+        lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
+
+        lp = lp / linalg.norm(lp)
+        lq = lq / linalg.norm(lq)
+        dist = linalg.norm(p - q)
+        
+        lp = lp * dist
+        lq = lq * dist
+
+        if g.get_segment(nodes[i]) == 1:
+            lpsgn =  lp
+        else:
+            lpsgn = -lp
+
+        if g.get_segment(nodes[k]) == 1:
+            lqsgn =  lq
+        else:
+            lqsgn = -lq
+   
+        spline = createSpline(p, lpsgn, q, lqsgn)
+        splinePolyData = createSplinePolyData(spline, num_points=100)
+
+        polyData = vtk.vtkPolyData()
+        polyData.DeepCopy(splinePolyData)
+        appendPolyData.AddInputData(polyData)
+        
+    appendPolyData.Update()
+    polyData = appendPolyData.GetOutput()
+
+    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.vtp')
+    IO.writePolyDataFile(filename, polyData)
+
 if __name__ == '__main__':
     args = argparser.parse_args()
     dirname = args.dirname
    
     #doConvertRawToH5(dirname)
     #doConvertRawToH5NoBifurc(dirname)
-    doPlotHist(dirname)
+    #doComputeArcRadiuses(dirname, pointsArrName='measurements')
+    #doCreateCircularPolyDataFile(dirname, pointsArrName='measurements', radiusesArrName='arcRadiusesMean')
+    
+    doGraphCut(dirname)
+    #doCreateSplinePolyDataFile(dirname)
+    #doComputeArcRadiuses(dirname, pointsArrName='positions')
+    #doCreateCircularPolyDataFile(dirname, pointsArrName='positions', radiusesArrName='arcRadiusesMean')
+    #doCreateGraphPolyDataFile(dirname, pointsArrName='positions', weightsArrName='arcRadiuses')
     #doConvertH5ToParaView(dirname)
