@@ -48,7 +48,7 @@ def doConvertRawToH5NoBifurc(dirname):
  
     dist, ind = bifurcnn.query(measurements, k=1)
 
-    ignor = dist[:,0] < 2 * radiuses
+    ignor = dist[:,0] < 1
 
     measurements        = measurements[~ignor]
     tangentLinesPoints1 = tangentLinesPoints1[~ignor]
@@ -314,6 +314,72 @@ def doCreateSplinePolyDataFile(dirname):
     filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.vtp')
     IO.writePolyDataFile(filename, polyData)
 
+def doMST(dirname):
+    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
+    dataset  = IO.readH5File(filename)
+
+    measurements        = dataset['measurements']
+    positions           = dataset['positions']
+    tangentLinesPoints1 = dataset['tangentLinesPoints1']
+    tangentLinesPoints2 = dataset['tangentLinesPoints2']
+    radiuses            = dataset['radiuses']
+    
+    indices1            = dataset['indices1']
+    indices2            = dataset['indices2']
+
+    n = len(positions)
+
+    G = dict()
+
+    for i,k in zip(indices1, indices2):
+        p  = positions[i]
+        q  = positions[k]
+        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
+        lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
+
+        lp = lp / linalg.norm(lp)
+        lq = lq / linalg.norm(lq)
+        dist = linalg.norm(p - q)
+        lp = lp * dist
+        lq = lq * dist
+
+        spline    = createSpline(p, lp, q, lq)
+        splineLen = splineLength(spline, num_points=100)
+        
+        if not i in G:
+            G[i] = dict()
+
+        if not k in G:
+            G[k] = dict()
+
+        G[i][k] = dist
+        G[k][i] = dist
+
+    T = MinimumSpanningTree.MinimumSpanningTree(G)
+
+    deg = np.full(n, 0, dtype=np.int)
+
+    for i,k in T:
+        deg[i] += 1
+        deg[k] += 1
+
+    
+    appendPolyData = vtk.vtkAppendPolyData()
+
+    for i in xrange(n):
+        p  = positions[i]
+        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
+        lp = lp / (2 * linalg.norm(lp))
+
+        polyData = createLine(p - lp, p + lp)
+        appendPolyData.AddInputData(polyData)
+    
+    appendPolyData.Update()
+    polyData = appendPolyData.GetOutput()
+
+    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.vtp')
+    IO.writePolyDataFile(filename, polyData)
+
 def doGraphCut(dirname):
     filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
     dataset  = IO.readH5File(filename)
@@ -337,7 +403,7 @@ def doGraphCut(dirname):
 
     for i in xrange(n):
         for k in xrange(i + 1, n):
-            if linalg.norm(positions[i] - positions[k]) < 5:
+            if linalg.norm(positions[i] - positions[k]) < 2:
                 indices1.append(i)
                 indices2.append(k)
 
@@ -363,6 +429,8 @@ def doGraphCut(dirname):
         B = splineLength(createSpline(p,-lp, q, lq), num_points=100)
         C = splineLength(createSpline(p, lp, q,-lq), num_points=100)
         D = splineLength(createSpline(p, lp, q, lq), num_points=100)
+
+        #assert A + D <= B + C
 
         g.add_tedge(nodes[i], C, A)
         g.add_tedge(nodes[k], D - C, 0)
@@ -456,7 +524,7 @@ if __name__ == '__main__':
     #doComputeArcRadiuses(dirname, pointsArrName='measurements')
     #doCreateCircularPolyDataFile(dirname, pointsArrName='measurements', radiusesArrName='arcRadiusesMean')
     
-    doGraphCut(dirname)
+    doMST(dirname)
     #doCreateSplinePolyDataFile(dirname)
     #doComputeArcRadiuses(dirname, pointsArrName='positions')
     #doCreateCircularPolyDataFile(dirname, pointsArrName='positions', radiusesArrName='arcRadiusesMean')
