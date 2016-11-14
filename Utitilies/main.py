@@ -11,8 +11,34 @@ import vtk
 from sklearn.neighbors import KDTree,radius_neighbors_graph
 from xml.etree import ElementTree
 
-argparser = argparse.ArgumentParser()
-argparser.add_argument('dirname')
+def doConvertRawToH5(args):
+    dirname  = args.dirname
+    basename = args.basename
+
+    filename = os.path.join(dirname, basename)
+    dataset  = IO.readRawFile(filename, shape=(101,101,101))
+
+    measurements        = dataset['measurements']
+
+    conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
+    indices1, indices2 = np.nonzero(conn)
+
+    mask = indices1 < indices2
+    
+    indices1 = indices1[mask]
+    indices2 = indices2[mask]
+
+    dataset['indices1'] = np.hstack((indices1, indices2))
+    dataset['indices2'] = np.hstack((indices2, indices1))
+
+    weights = np.full(len(indices1) + len(indices2), 20, dtype=np.float)
+
+    dataset['weights']  = weights
+
+    filename, _ = os.path.splitext(filename)
+    filename    = filename + '.h5'
+    
+    IO.writeH5File(filename, dataset)
 
 def getArcCenter(p, lp, q):
     chord = q - p
@@ -79,30 +105,6 @@ def doConvertRawToH5NoBifurc(dirname):
     dataset['weights'] = weights
 
     filename = os.path.join(dirname, 'canny2_image_nobifurc.h5')
-    IO.writeH5File(filename, dataset)
-
-def doConvertRawToH5(dirname):
-    filename = os.path.join(dirname, 'canny2_image.raw')
-    dataset  = IO.readRawFile(filename, shape=(101,101,101))
-
-    measurements        = dataset['measurements']
-
-    conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
-    indices1, indices2 = np.nonzero(conn)
-
-    mask = indices1 < indices2
-    
-    indices1 = indices1[mask]
-    indices2 = indices2[mask]
-
-    dataset['indices1'] = np.hstack((indices1, indices2))
-    dataset['indices2'] = np.hstack((indices2, indices1))
-
-    weights = np.full(len(indices1) + len(indices2), 20, dtype=np.float)
-
-    dataset['weights']  = weights
-
-    filename = os.path.join(dirname, 'canny2_image.h5')
     IO.writeH5File(filename, dataset)
 
 def doComputeArcRadiuses(dirname, pointsArrName):
@@ -516,15 +518,27 @@ def doGraphCut(dirname):
     IO.writePolyDataFile(filename, polyData)
 
 if __name__ == '__main__':
+    # create the top-level parser
+    argparser = argparse.ArgumentParser()
+    subparsers = argparser.add_subparsers()
+
+    # create the parser for the "doConvertRawToH5" command
+    subparser = subparsers.add_parser('doConvertRawToH5')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.set_defaults(func=doConvertRawToH5)
+
+    # parse the args and call whatever function was selected
     args = argparser.parse_args()
-    dirname = args.dirname
+    args.func(args)
+
    
     #doConvertRawToH5(dirname)
     #doConvertRawToH5NoBifurc(dirname)
     #doComputeArcRadiuses(dirname, pointsArrName='measurements')
     #doCreateCircularPolyDataFile(dirname, pointsArrName='measurements', radiusesArrName='arcRadiusesMean')
     
-    doMST(dirname)
+    #doMST(dirname)
     #doCreateSplinePolyDataFile(dirname)
     #doComputeArcRadiuses(dirname, pointsArrName='positions')
     #doCreateCircularPolyDataFile(dirname, pointsArrName='positions', radiusesArrName='arcRadiusesMean')
