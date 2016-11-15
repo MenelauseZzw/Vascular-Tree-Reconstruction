@@ -217,7 +217,7 @@ def doCreateArcsLengthsMST(args):
             
             arcLen1  = getArcLength(p, q, Cpq)
             arcLen2  = getArcLength(q, p, Cqp)
-            arcLen12 = (arcLen1 + arcLen12) / 2 
+            arcLen12 = (arcLen1 + arcLen2) / 2 
 
             G[i][k] = arcLen12
             G[k][i] = arcLen12
@@ -293,7 +293,7 @@ def doCreateCubicSplineLengthMST(args):
                 spline = createSpline(p, dist * lpsgn * lp, q, dist * lqsgn * lq)
                 splLen = getSplineLength(spline, num_points=100)
                 if splLen < minSplLen:
-                    minSplLen = spllen
+                    minSplLen = splLen
 
             G[i][k] = minSplLen
             G[k][i] = minSplLen
