@@ -326,6 +326,7 @@ def doConvertRawToH5Ignor(args):
 
     dataset['indices1'] = indices1
     dataset['indices2'] = indices2
+    dataset['radiuses'] = radiuses
 
     weights = np.full(len(indices1), 2.0, dtype=np.float)
 
