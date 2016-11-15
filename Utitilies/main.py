@@ -176,8 +176,11 @@ def getArcCenter(p, lp, q):
         Cpq = p + t * radialLine
     return Cpq
 
+def getArcRadius(p, Cpq):
+    return np.sqrt((p - Cpq).dot(p - Cpq))
+
 def getArcLength(p, q, Cpq):
-    arcRadius = linalg.norm(q - Cpq)
+    arcRadius = getArcRadius(p, Cpq)
     arcLength = np.arccos((p - Cpq).dot(q - Cpq) / (arcRadius * arcRadius)) * arcRadius
     return arcLength
 
@@ -223,8 +226,79 @@ def doCreateArcsLengthsMST(args):
 
     IO.writeH5File(filename, dataset)
 
-def getArcRadius(p, Cpq):
-    return np.sqrt((p - Cpq).dot(p - Cpq))
+# Hermite basis functions
+def h00(t):
+    s = 1 - t
+    return (1 + 2 * t) * s * s
+
+def h10(t):
+    s = 1 - t
+    return t * s * s
+
+def h01(t):
+    return t * t * (3 - 2 * t)
+
+def h11(t):
+    return t * t * (t - 1)
+
+def createSpline(p0, m0, p1, m1):
+    return lambda t: h00(t) * p0 + h10(t) * m0 + h01(t) * p1 + h11(t) * m1
+
+def getSplineLength(spline, num_points):
+    ts = np.linspace(0.0, 1.0, num_points, dtype=np.double)
+    points = spline(ts[:,np.newaxis])
+    splineLen = np.linalg.norm(points[:-1] - points[1:], axis=1).sum()
+    return splineLen
+
+def doCreateCubicSplineLengthMST(args):
+    dirname  = args.dirname
+    basename = args.basename
+
+    filename = os.path.join(dirname, basename)
+    dataset  = IO.readH5File(filename)
+
+    positions           = dataset['positions']
+    tangentLinesPoints1 = dataset['tangentLinesPoints1']
+    tangentLinesPoints2 = dataset['tangentLinesPoints2']
+
+    n = len(positions)
+    G = dict((i, dict()) for i in xrange(n))
+
+    for i in xrange(n):
+        p  = positions[i]
+        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
+        lp = lp / linalg.norm(lp)
+
+        for k in xrange(i+1, n):
+            q  = positions[k]
+            lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
+            lq = lq / linalg.norm(lq)
+            
+            dist = linalg.norm(p - q)
+
+            minlen = np.inf
+
+            for lpsgn,lqsgn in [(-1,-1),(-1, 1),(1,-1),(1, 1)]:
+                spline = createSpline(p, dist * lpsgn * lp, q, dist * lqsgn * lq)
+                spllen = getSplineLength(spline, num_points=100)
+                if spllen < minlen:
+                    minlen = spllen
+
+            G[i][k] = minlen
+            G[k][i] = minlen
+
+    T = MinimumSpanningTree.MinimumSpanningTree(G)
+
+    indices1 = [p[0] for p in T]
+    indices2 = [p[1] for p in T]
+
+    dataset['indices1'] = np.array(indices1, dtype=np.int)
+    dataset['indices2'] = np.array(indices2, dtype=np.int)
+    
+    filename, _ = os.path.splitext(filename)
+    filename    = filename + '_cubspl_mst.h5'
+
+    IO.writeH5File(filename, dataset)
 
 def doComputeArcRadiuses(dirname, pointsArrName):
     filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
@@ -281,30 +355,6 @@ def createSplinePolyData(spline, num_points):
 
     polyData = polyLine.GetOutput()
     return polyData
-
-# Hermite basis functions
-def h00(t):
-    s = 1 - t
-    return (1 + 2 * t) * s * s
-
-def h10(t):
-    s = 1 - t
-    return t * s * s
-
-def h01(t):
-    return t * t * (3 - 2 * t)
-
-def h11(t):
-    return t * t * (t - 1)
-
-def createSpline(p0, m0, p1, m1):
-    return lambda t: h00(t) * p0 + h10(t) * m0 + h01(t) * p1 + h11(t) * m1
-
-def splineLength(spline, num_points):
-    ts = np.linspace(0.0, 1.0, num_points, dtype=np.double)
-    points = spline(ts[:,np.newaxis])
-    splineLen = np.linalg.norm(points[:-1] - points[1:], axis=1).sum()
-    return splineLen
 
 def createCircularPolyData(pointsArr, tangentLinesPoints1, tangentLinesPoints2, radiusesArr):
     polygonSrc = vtk.vtkRegularPolygonSource()
@@ -620,6 +670,12 @@ if __name__ == '__main__':
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.set_defaults(func=doCreateArcsLengthsMST)
+
+    # create the parser for the "doCreateCubicSplineLengthMST" command
+    subparser = subparsers.add_parser('doCreateCubicSplineLengthMST')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.set_defaults(func=doCreateCubicSplineLengthMST)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
