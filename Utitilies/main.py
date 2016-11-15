@@ -155,7 +155,8 @@ def doCreateEMST(args):
 
     T = MinimumSpanningTree.MinimumSpanningTree(G)
 
-    indices1,indices2 = T
+    indices1 = [p[0] for p in T]
+    indices2 = [p[1] for p in T]
 
     dataset['indices1'] = indices1
     dataset['indices2'] = indices2
@@ -211,7 +212,8 @@ def doCreateArcsLengthsMST(args):
 
     T = MinimumSpanningTree.MinimumSpanningTree(G)
 
-    indices1,indices2 = T
+    indices1 = [p[0] for p in T]
+    indices2 = [p[1] for p in T]
 
     dataset['indices1'] = indices1
     dataset['indices2'] = indices2
