@@ -115,14 +115,14 @@ def createGraphPolyData(points, indices1, indices2):
     return polyData
 
 def doCreateGraphPolyDataFile(args):
-    dirname           = args.dirname
-    basename          = args.basename
-    pointsDataSetName = args.pointsDataSetName
+    dirname   = args.dirname
+    basename  = args.basename
+    positions = args.positions
 
     filename = os.path.join(dirname, basename)
     dataset  = IO.readH5File(filename)
 
-    points     = dataset[pointsDataSetName]
+    positions  = dataset[positions]
     indices1   = dataset['indices1']
     indices2   = dataset['indices2']
 
@@ -667,7 +667,7 @@ if __name__ == '__main__':
     subparser = subparsers.add_parser('doCreateGraphPolyDataFile')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
-    subparser.add_argument('pointsDataSetName')
+    subparser.add_argument('--positions', default='positions')
     subparser.set_defaults(func=doCreateGraphPolyDataFile)
 
     # create the parser for the "doCreateEMST" command
