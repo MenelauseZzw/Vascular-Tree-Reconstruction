@@ -23,15 +23,10 @@ def doConvertRawToH5(args):
     conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
     indices1, indices2 = np.nonzero(conn)
 
-    mask = indices1 < indices2
-    
-    indices1 = indices1[mask]
-    indices2 = indices2[mask]
+    dataset['indices1'] = indices1
+    dataset['indices2'] = indices2
 
-    dataset['indices1'] = np.hstack((indices1, indices2))
-    dataset['indices2'] = np.hstack((indices2, indices1))
-
-    weights = np.full(len(indices1) + len(indices2), 2.0, dtype=np.float)
+    weights = np.full(len(indices1), 2.0, dtype=np.float)
 
     dataset['weights']  = weights
 
@@ -84,7 +79,7 @@ def doConvertRawToH5NoBifurc(args):
     dataset['indices1'] = indices1
     dataset['indices2'] = indices2
     
-    weights = np.full(len(indices1) + len(indices2), 2.0, dtype=np.float)
+    weights = np.full(len(indices1), 2.0, dtype=np.float)
 
     dataset['weights'] = weights
 
@@ -309,6 +304,36 @@ def doCreateCubicSplineLengthMST(args):
     filename, _ = os.path.splitext(filename)
     filename    = filename + '_cubspl_mst.h5'
 
+    IO.writeH5File(filename, dataset)
+
+def doConvertRawToH5Ignor(args):
+    dirname  = args.dirname
+    basename = args.basename
+    thresh   = args.thresh
+
+    filename = os.path.join(dirname, basename)
+    dataset  = IO.readRawFile(filename, shape=(101,101,101))
+
+    measurements     = dataset['measurements']
+    radiuses         = dataset['radiuses']
+    responses        = dataset['responses']
+
+    ignor            = responses < thresh
+    radiuses[~ignor] = np.inf
+
+    conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
+    indices1, indices2 = np.nonzero(conn)
+
+    dataset['indices1'] = indices1
+    dataset['indices2'] = indices2
+
+    weights = np.full(len(indices1), 2.0, dtype=np.float)
+
+    dataset['weights']  = weights
+
+    filename, _ = os.path.splitext(filename)
+    filename    = filename + '_ignor.h5'
+    
     IO.writeH5File(filename, dataset)
 
 def doComputeArcRadiuses(dirname, pointsArrName):
@@ -690,6 +715,13 @@ if __name__ == '__main__':
     subparser.add_argument('basename')
     subparser.add_argument('--maxdist', default=5)
     subparser.set_defaults(func=doCreateCubicSplineLengthMST)
+
+    # create the parser for the "doConvertRawToH5Ignor" command
+    subparser = subparsers.add_parser('doConvertRawToH5Ignor')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.add_argument('--thresh', default=0.5)
+    subparser.set_defaults(func=doConvertRawToH5Ignor)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
