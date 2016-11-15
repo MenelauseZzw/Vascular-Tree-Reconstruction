@@ -135,6 +135,7 @@ def doCreateGraphPolyDataFile(args):
 def doCreateEMST(args):
     dirname  = args.dirname
     basename = args.basename
+    maxdist  = args.maxdist
 
     filename = os.path.join(dirname, basename)
     dataset  = IO.readH5File(filename)
@@ -150,6 +151,8 @@ def doCreateEMST(args):
             q = positions[k]
 
             dist = linalg.norm(p - q)
+            if dist > maxdist: continue
+    
             G[i][k] = dist
             G[k][i] = dist
 
@@ -187,6 +190,7 @@ def getArcLength(p, q, Cpq):
 def doCreateArcsLengthsMST(args):
     dirname  = args.dirname
     basename = args.basename
+    maxdist  = args.maxdist
 
     filename = os.path.join(dirname, basename)
     dataset  = IO.readH5File(filename)
@@ -205,13 +209,18 @@ def doCreateArcsLengthsMST(args):
             q  = positions[k]
             lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
 
+            dist = linalg.norm(p - q)
+            if dist > maxdist: continue
+
             Cpq = getArcCenter(p, lp, q)
             Cqp = getArcCenter(q, lq, p)
-        
-            dist = (getArcLength(p, q, Cpq) + getArcLength(q, p, Cqp)) / 2 
+            
+            arcLen1  = getArcLength(p, q, Cpq)
+            arcLen2  = getArcLength(q, p, Cqp)
+            arcLen12 = (arcLen1 + arcLen12) / 2 
 
-            G[i][k] = dist
-            G[k][i] = dist
+            G[i][k] = arcLen12
+            G[k][i] = arcLen12
 
     T = MinimumSpanningTree.MinimumSpanningTree(G)
 
@@ -253,6 +262,7 @@ def getSplineLength(spline, num_points):
 def doCreateCubicSplineLengthMST(args):
     dirname  = args.dirname
     basename = args.basename
+    maxdist  = args.maxdist
 
     filename = os.path.join(dirname, basename)
     dataset  = IO.readH5File(filename)
@@ -275,17 +285,18 @@ def doCreateCubicSplineLengthMST(args):
             lq = lq / linalg.norm(lq)
             
             dist = linalg.norm(p - q)
+            if dist > maxdist: continue
 
-            minlen = np.inf
+            minSplLen = np.inf
 
             for lpsgn,lqsgn in [(-1,-1),(-1, 1),(1,-1),(1, 1)]:
                 spline = createSpline(p, dist * lpsgn * lp, q, dist * lqsgn * lq)
-                spllen = getSplineLength(spline, num_points=100)
-                if spllen < minlen:
-                    minlen = spllen
+                splLen = getSplineLength(spline, num_points=100)
+                if splLen < minSplLen:
+                    minSplLen = spllen
 
-            G[i][k] = minlen
-            G[k][i] = minlen
+            G[i][k] = minSplLen
+            G[k][i] = minSplLen
 
     T = MinimumSpanningTree.MinimumSpanningTree(G)
 
@@ -663,18 +674,21 @@ if __name__ == '__main__':
     subparser = subparsers.add_parser('doCreateEMST')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
+    subparser.add_argument('--maxdist', default=5)
     subparser.set_defaults(func=doCreateEMST)
 
     # create the parser for the "doCreateArcsLengthsMST" command
     subparser = subparsers.add_parser('doCreateArcsLengthsMST')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
+    subparser.add_argument('--maxdist', default=5)
     subparser.set_defaults(func=doCreateArcsLengthsMST)
 
     # create the parser for the "doCreateCubicSplineLengthMST" command
     subparser = subparsers.add_parser('doCreateCubicSplineLengthMST')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
+    subparser.add_argument('--maxdist', default=5)
     subparser.set_defaults(func=doCreateCubicSplineLengthMST)
 
     # parse the args and call whatever function was selected
