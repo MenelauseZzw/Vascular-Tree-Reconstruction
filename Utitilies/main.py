@@ -158,8 +158,8 @@ def doCreateEMST(args):
     indices1 = [p[0] for p in T]
     indices2 = [p[1] for p in T]
 
-    dataset['indices1'] = indices1
-    dataset['indices2'] = indices2
+    dataset['indices1'] = np.array(indices1, dtype=np.int)
+    dataset['indices2'] = np.array(indices2, dtype=np.int)
     
     filename, _ = os.path.splitext(filename)
     filename    = filename + '_emst.h5'
@@ -215,8 +215,8 @@ def doCreateArcsLengthsMST(args):
     indices1 = [p[0] for p in T]
     indices2 = [p[1] for p in T]
 
-    dataset['indices1'] = indices1
-    dataset['indices2'] = indices2
+    dataset['indices1'] = np.array(indices1, dtype=np.int)
+    dataset['indices2'] = np.array(indices2, dtype=np.int)
     
     filename, _ = os.path.splitext(filename)
     filename    = filename + '_arclen_mst.h5'
