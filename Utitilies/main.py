@@ -337,6 +337,42 @@ def doConvertRawToH5Ignor(args):
     
     IO.writeH5File(filename, dataset)
 
+def doCreateEMSTOrigTopo(args):
+    dirname  = args.dirname
+    basename = args.basename
+
+    filename = os.path.join(dirname, basename)
+    dataset  = IO.readH5File(filename)
+
+    positions = dataset['positions']
+    indices1  = dataset['indices1']
+    indices2  = dataset['indices2']
+
+    n = len(positions)
+    G = dict((i, dict()) for i in xrange(n))
+
+    for i,k in indices1,indices2:
+        p = positions[i]
+        q = positions[k]
+
+        dist = linalg.norm(p - q)
+    
+        G[i][k] = dist
+        G[k][i] = dist
+
+    T = MinimumSpanningTree.MinimumSpanningTree(G)
+
+    indices1 = [p[0] for p in T]
+    indices2 = [p[1] for p in T]
+
+    dataset['indices1'] = np.array(indices1, dtype=np.int)
+    dataset['indices2'] = np.array(indices2, dtype=np.int)
+    
+    filename, _ = os.path.splitext(filename)
+    filename    = filename + '_emst_origtopo.h5'
+
+    IO.writeH5File(filename, dataset)
+
 def doComputeArcRadiuses(dirname, pointsArrName):
     filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
     dataset  = IO.readH5File(filename)
@@ -723,6 +759,12 @@ if __name__ == '__main__':
     subparser.add_argument('basename')
     subparser.add_argument('--thresh', default=0.5)
     subparser.set_defaults(func=doConvertRawToH5Ignor)
+
+    # create the parser for the "doCreateEMSTOrigTopo" command
+    subparser = subparsers.add_parser('doCreateEMSTOrigTopo')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.set_defaults(func=doCreateEMSTOrigTopo)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
