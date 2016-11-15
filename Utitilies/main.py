@@ -319,7 +319,7 @@ def doConvertRawToH5Ignor(args):
     responses        = dataset['responses']
 
     ignor            = responses < thresh
-    radiuses[~ignor] = np.inf
+    radiuses[ignor]  = np.inf
 
     conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
     indices1, indices2 = np.nonzero(conn)
