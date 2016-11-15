@@ -351,7 +351,7 @@ def doCreateEMSTOrigTopo(args):
     n = len(positions)
     G = dict((i, dict()) for i in xrange(n))
 
-    for i,k in indices1,indices2:
+    for i,k in zip(indices1,indices2):
         p = positions[i]
         q = positions[k]
 
