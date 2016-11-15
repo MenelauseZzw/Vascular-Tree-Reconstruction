@@ -126,7 +126,7 @@ def doCreateGraphPolyDataFile(args):
     indices1   = dataset['indices1']
     indices2   = dataset['indices2']
 
-    polyData   = createGraphPolyData(points, indices1, indices2)
+    polyData   = createGraphPolyData(positions, indices1, indices2)
     
     filename, _ = os.path.splitext(filename)
     filename    = filename + '.vtp'
