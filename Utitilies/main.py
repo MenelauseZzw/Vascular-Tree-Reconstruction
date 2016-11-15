@@ -31,7 +31,7 @@ def doConvertRawToH5(args):
     dataset['indices1'] = np.hstack((indices1, indices2))
     dataset['indices2'] = np.hstack((indices2, indices1))
 
-    weights = np.full(len(indices1) + len(indices2), 20, dtype=np.float)
+    weights = np.full(len(indices1) + len(indices2), 2.0, dtype=np.float)
 
     dataset['weights']  = weights
 
@@ -40,20 +40,10 @@ def doConvertRawToH5(args):
     
     IO.writeH5File(filename, dataset)
 
-def getArcCenter(p, lp, q):
-    chord = q - p
-    radialLine = chord * lp.dot(lp) - lp * lp.dot(chord) # radialLine = lp x (chord x lp) = chord * ||lp||^2 - lp * <lp,chord>
-    t = 0.5 * chord.dot(chord) / chord.dot(radialLine)
-    if np.isinf(t):
-        Cpq = np.array((np.inf, np.inf, np.inf))
-    else:
-        Cpq = p + t * radialLine
-    return Cpq
+def doConvertRawToH5NoBifurc(args):
+    dirname  = args.dirname
+    basename = args.basename
 
-def getArcRadius(p, Cpq):
-    return np.sqrt((p - Cpq).dot(p - Cpq))
-
-def doConvertRawToH5NoBifurc(dirname):
     filename = os.path.join(dirname, 'tree_structure.xml')
     dataset = IO.readGxlFile(filename)
 
@@ -63,7 +53,7 @@ def doConvertRawToH5NoBifurc(dirname):
     bifurcs  = positions[nodeTypes == 'b']
     bifurcnn = KDTree(bifurcs)
 
-    filename = os.path.join(dirname, 'canny2_image.raw')
+    filename = os.path.join(dirname, basename)
     dataset  = IO.readRawFile(filename, shape=(101,101,101))
 
     measurements        = dataset['measurements']
@@ -72,9 +62,8 @@ def doConvertRawToH5NoBifurc(dirname):
     radiuses            = dataset['radiuses']
     responses           = dataset['responses']
  
-    dist, ind = bifurcnn.query(measurements, k=1)
-
-    ignor = dist[:,0] < 1
+    dist, _ = bifurcnn.query(measurements, k=1)
+    ignor   = dist[:,0] < (np.sqrt(3) + 2) / 2
 
     measurements        = measurements[~ignor]
     tangentLinesPoints1 = tangentLinesPoints1[~ignor]
@@ -92,20 +81,148 @@ def doConvertRawToH5NoBifurc(dirname):
     conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
     indices1, indices2 = np.nonzero(conn)
 
-    mask = indices1 < indices2
-    
-    indices1 = indices1[mask]
-    indices2 = indices2[mask]
-
-    dataset['indices1'] = np.hstack((indices1, indices2))
-    dataset['indices2'] = np.hstack((indices2, indices1))
+    dataset['indices1'] = indices1
+    dataset['indices2'] = indices2
     
     weights = np.full(len(indices1) + len(indices2), 2.0, dtype=np.float)
 
     dataset['weights'] = weights
 
-    filename = os.path.join(dirname, 'canny2_image_nobifurc.h5')
+    filename, _ = os.path.splitext(filename)
+    filename    = filename + '_nobifurc.h5'
+
     IO.writeH5File(filename, dataset)
+
+def createGraphPolyData(points, indices1, indices2):
+    pointsArr = vtk.vtkPoints()
+
+    for p in points:
+        pointsArr.InsertNextPoint(p)
+    
+    graph = vtk.vtkMutableUndirectedGraph()
+
+    graph.SetNumberOfVertices(pointsArr.GetNumberOfPoints())
+    graph.SetPoints(pointsArr)
+
+    for index1,index2 in zip(indices1, indices2):
+        graph.AddGraphEdge(index1, index2)
+
+    graphToPolyData = vtk.vtkGraphToPolyData()
+    graphToPolyData.SetInputData(graph)
+    graphToPolyData.Update()
+
+    polyData = graphToPolyData.GetOutput()
+    return polyData
+
+def doCreateGraphPolyDataFile(args):
+    dirname           = args.dirname
+    basename          = args.basename
+    pointsDataSetName = args.pointsDataSetName
+
+    filename = os.path.join(dirname, basename)
+    dataset  = IO.readH5File(filename)
+
+    points     = dataset[pointsDataSetName]
+    indices1   = dataset['indices1']
+    indices2   = dataset['indices2']
+
+    polyData   = createGraphPolyData(points, indices1, indices2)
+    
+    filename, _ = os.path.splitext(filename)
+    filename    = filename + '.vtp'
+    IO.writePolyDataFile(filename, polyData)
+
+def doCreateEMST(args):
+    dirname  = args.dirname
+    basename = args.basename
+
+    filename = os.path.join(dirname, basename)
+    dataset  = IO.readH5File(filename)
+
+    positions = dataset['positions']
+
+    n = len(positions)
+    G = dict((i, dict()) for i in xrange(n))
+
+    for i in xrange(n):
+        p = positions[i]
+        for k in xrange(i+1, n):
+            q = positions[k]
+
+            dist = linalg.norm(p - q)
+            G[i][k] = dist
+            G[k][i] = dist
+
+    T = MinimumSpanningTree.MinimumSpanningTree(G)
+
+    indices1,indices2 = T
+
+    dataset['indices1'] = indices1
+    dataset['indices2'] = indices2
+    
+    filename, _ = os.path.splitext(filename)
+    filename    = filename + '_emst.h5'
+
+    IO.writeH5File(filename, dataset)
+
+def getArcCenter(p, lp, q):
+    chord = q - p
+    radialLine = chord * lp.dot(lp) - lp * lp.dot(chord) # radialLine = lp x (chord x lp) = chord * ||lp||^2 - lp * <lp,chord>
+    t = 0.5 * chord.dot(chord) / chord.dot(radialLine)
+    if np.isinf(t):
+        Cpq = np.array((np.inf, np.inf, np.inf))
+    else:
+        Cpq = p + t * radialLine
+    return Cpq
+
+def getArcLength(p, q, Cpq):
+    arcRadius = linalg.norm(q - Cpq)
+    arcLength = np.arccos((p - Cpq).dot(q - Cpq) / (arcRadius * arcRadius)) * arcRadius
+    return arcLength
+
+def doCreateArcsLengthsMST(args):
+    dirname  = args.dirname
+    basename = args.basename
+
+    filename = os.path.join(dirname, basename)
+    dataset  = IO.readH5File(filename)
+
+    positions           = dataset['positions']
+    tangentLinesPoints1 = dataset['tangentLinesPoints1']
+    tangentLinesPoints2 = dataset['tangentLinesPoints2']
+
+    n = len(positions)
+    G = dict((i, dict()) for i in xrange(n))
+
+    for i in xrange(n):
+        p  = positions[i]
+        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
+        for k in xrange(i+1, n):
+            q  = positions[k]
+            lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
+
+            Cpq = getArcCenter(p, lp, q)
+            Cqp = getArcCenter(q, lq, p)
+        
+            dist = (getArcLength(p, q, Cpq) + getArcLength(q, p, Cqp)) / 2 
+
+            G[i][k] = dist
+            G[k][i] = dist
+
+    T = MinimumSpanningTree.MinimumSpanningTree(G)
+
+    indices1,indices2 = T
+
+    dataset['indices1'] = indices1
+    dataset['indices2'] = indices2
+    
+    filename, _ = os.path.splitext(filename)
+    filename    = filename + '_arclen_mst.h5'
+
+    IO.writeH5File(filename, dataset)
+
+def getArcRadius(p, Cpq):
+    return np.sqrt((p - Cpq).dot(p - Cpq))
 
 def doComputeArcRadiuses(dirname, pointsArrName):
     filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
@@ -141,13 +258,6 @@ def doComputeArcRadiuses(dirname, pointsArrName):
     dataset['arcRadiusesStdDev'] = arcRadiusesStdDev
 
     IO.writeH5File(filename, dataset)
-
-def doConvertH5ToParaView(dirname):
-    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
-    dataset = IO.readH5File(filename)
-
-    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.vtp')
-    IO.writeParaView(filename, dataset)
 
 def createLine(p, q):
     lineSrc = vtk.vtkLineSource()
@@ -194,35 +304,6 @@ def splineLength(spline, num_points):
     splineLen = np.linalg.norm(points[:-1] - points[1:], axis=1).sum()
     return splineLen
 
-def createGraphPolyData(pointsArr, indices1, indices2, weightsArr):
-    points = vtk.vtkPoints()
-
-    for p in pointsArr:
-        points.InsertNextPoint(p)
-    
-    graph = vtk.vtkMutableUndirectedGraph()
-
-    graph.SetNumberOfVertices(points.GetNumberOfPoints())
-    graph.SetPoints(points)
-
-    for index1,index2 in zip(indices1, indices2):
-        graph.AddGraphEdge(index1, index2)
-
-    weights = vtk.vtkDoubleArray()
-    weights.SetName('Weights')
-    
-    for w in weightsArr:
-        weights.InsertNextValue(w)
-
-    graphToPolyData = vtk.vtkGraphToPolyData()
-    graphToPolyData.SetInputData(graph)
-    graphToPolyData.Update()
-
-    polyData = graphToPolyData.GetOutput()
-    polyData.GetCellData().AddArray(weights)
-
-    return polyData
-
 def createCircularPolyData(pointsArr, tangentLinesPoints1, tangentLinesPoints2, radiusesArr):
     polygonSrc = vtk.vtkRegularPolygonSource()
     polygonSrc.GeneratePolygonOff()
@@ -247,20 +328,6 @@ def createCircularPolyData(pointsArr, tangentLinesPoints1, tangentLinesPoints2, 
     polyData = appendPolyData.GetOutput()
 
     return polyData
-
-def doCreateGraphPolyDataFile(dirname, pointsArrName, weightsArrName):
-    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
-    dataset  = IO.readH5File(filename)
-
-    pointsArr  = dataset[pointsArrName]
-    indices1   = dataset['indices1']
-    indices2   = dataset['indices2']
-    weightsArr = dataset[weightsArrName]
-
-    graphPolyData = createGraphPolyData(pointsArr, indices1, indices2, weightsArr)
-    
-    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.vtp')
-    IO.writePolyDataFile(filename, graphPolyData)
 
 def doCreateCircularPolyDataFile(dirname, pointsArrName, radiusesArrName):
     filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
@@ -330,7 +397,6 @@ def doMST(dirname):
     indices2            = dataset['indices2']
 
     n = len(positions)
-
     G = dict()
 
     for i,k in zip(indices1, indices2):
@@ -528,19 +594,35 @@ if __name__ == '__main__':
     subparser.add_argument('basename')
     subparser.set_defaults(func=doConvertRawToH5)
 
+    # create the parser for the "doConvertRawToH5NoBifurc" command
+    subparser = subparsers.add_parser('doConvertRawToH5NoBifurc')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.set_defaults(func=doConvertRawToH5NoBifurc)
+
+    # create the parser for the "doCreateGraphPolyDataFile" command
+    subparser = subparsers.add_parser('doCreateGraphPolyDataFile')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.add_argument('pointsDataSetName')
+    subparser.set_defaults(func=doCreateGraphPolyDataFile)
+
+    # create the parser for the "doCreateEMST" command
+    subparser = subparsers.add_parser('doCreateEMST')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.set_defaults(func=doCreateEMST)
+
+    # create the parser for the "doCreateArcsLengthsMST" command
+    subparser = subparsers.add_parser('doCreateArcsLengthsMST')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.set_defaults(func=doCreateArcsLengthsMST)
+
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
     args.func(args)
 
    
-    #doConvertRawToH5(dirname)
-    #doConvertRawToH5NoBifurc(dirname)
-    #doComputeArcRadiuses(dirname, pointsArrName='measurements')
-    #doCreateCircularPolyDataFile(dirname, pointsArrName='measurements', radiusesArrName='arcRadiusesMean')
-    
-    #doMST(dirname)
     #doCreateSplinePolyDataFile(dirname)
-    #doComputeArcRadiuses(dirname, pointsArrName='positions')
     #doCreateCircularPolyDataFile(dirname, pointsArrName='positions', radiusesArrName='arcRadiusesMean')
-    #doCreateGraphPolyDataFile(dirname, pointsArrName='positions', weightsArrName='arcRadiuses')
-    #doConvertH5ToParaView(dirname)
