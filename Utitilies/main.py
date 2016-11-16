@@ -309,7 +309,6 @@ def doCreateCubicSplineLengthMST(args):
 def doConvertRawToH5Weights(args):
     dirname  = args.dirname
     basename = args.basename
-    thresh   = args.thresh
 
     filename = os.path.join(dirname, basename)
     dataset  = IO.readRawFile(filename, shape=(101,101,101))
@@ -318,9 +317,6 @@ def doConvertRawToH5Weights(args):
     radiuses         = dataset['radiuses']
     responses        = dataset['responses']
 
-    ignor            = responses < thresh
-    radiuses[ignor]  = np.inf
-
     conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
     indices1, indices2 = np.nonzero(conn)
 
@@ -328,8 +324,9 @@ def doConvertRawToH5Weights(args):
     dataset['indices2'] = indices2
     dataset['radiuses'] = radiuses
 
-    #weights = np.full(len(indices1), 2.0, dtype=np.float)
-    weights = 2.0 * np.reciprocal(np.min(responses[indices1], responses[indices2]))
+    weights = 6.0 * responses[indices1] # 6.0 is 'better' than 9.0
+    # weights = 4.0 * responses[indices2] indices1 works 'better' than indices2
+    # weights = 4.0 * (responses[indices1] + responses[indices2])
 
     dataset['weights']  = weights
 
