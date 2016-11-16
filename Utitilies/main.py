@@ -1,6 +1,12 @@
 import argparse
 import IO
 import MinimumSpanningTree
+import matplotlib
+
+# http://stackoverflow.com/questions/2801882/generating-a-png-with-matplotlib-when-display-is-undefined
+# Force matplotlib to not use any Xwindows backend.
+matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
 import maxflow
 import os.path
