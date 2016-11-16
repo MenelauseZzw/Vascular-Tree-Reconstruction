@@ -9,7 +9,7 @@ def readRawFile(filename, shape):
 
     responses    = rawData[:, 0]
 
-    ignor        = np.isclose(responses, 0, atol=1e-2) # ignor is 1-D array
+    ignor        = responses < 0.1 # ignor is 1-D array
     responses    = responses[~ignor]
     tangentLines = rawData[:, 1:4]
     tangentLines = tangentLines[~ignor]
