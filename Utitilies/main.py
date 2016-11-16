@@ -306,7 +306,7 @@ def doCreateCubicSplineLengthMST(args):
 
     IO.writeH5File(filename, dataset)
 
-def doConvertRawToH5Ignor(args):
+def doConvertRawToH5Weights(args):
     dirname  = args.dirname
     basename = args.basename
     thresh   = args.thresh
@@ -328,12 +328,13 @@ def doConvertRawToH5Ignor(args):
     dataset['indices2'] = indices2
     dataset['radiuses'] = radiuses
 
-    weights = np.full(len(indices1), 2.0, dtype=np.float)
+    #weights = np.full(len(indices1), 2.0, dtype=np.float)
+    weights = 2.0 * np.reciprocal(np.min(responses[indices1], responses[indices2]))
 
     dataset['weights']  = weights
 
     filename, _ = os.path.splitext(filename)
-    filename    = filename + '_ignor.h5'
+    filename    = filename + '.h5'
     
     IO.writeH5File(filename, dataset)
 
@@ -753,12 +754,11 @@ if __name__ == '__main__':
     subparser.add_argument('--maxdist', default=5)
     subparser.set_defaults(func=doCreateCubicSplineLengthMST)
 
-    # create the parser for the "doConvertRawToH5Ignor" command
-    subparser = subparsers.add_parser('doConvertRawToH5Ignor')
+    # create the parser for the "doConvertRawToH5Weights" command
+    subparser = subparsers.add_parser('doConvertRawToH5Weights')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
-    subparser.add_argument('--thresh', default=0.5)
-    subparser.set_defaults(func=doConvertRawToH5Ignor)
+    subparser.set_defaults(func=doConvertRawToH5Weights)
 
     # create the parser for the "doCreateEMSTOrigTopo" command
     subparser = subparsers.add_parser('doCreateEMSTOrigTopo')
