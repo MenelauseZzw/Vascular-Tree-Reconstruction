@@ -371,6 +371,41 @@ def doCreateEMSTOrigTopo(args):
 
     IO.writeH5File(filename, dataset)
 
+def doROC(args):
+    dirname  = args.dirname
+
+    filename = os.path.join(dirname, 'frangi_image_curv_emst.csv')
+
+    stgd1 = np.genfromtxt(filename, delimiter=',', usecols=1, skip_header=1) # source-to-target-graphs-distance
+    sglr1 = np.genfromtxt(filename, delimiter=',', usecols=2, skip_header=1) # source-graphs-length-ratio
+    tglr1 = np.genfromtxt(filename, delimiter=',', usecols=3, skip_header=1) # target-graphs-length-ratio
+    
+    filename = os.path.join(dirname, '26-curvature-emst.csv')
+
+    stgd2 = np.genfromtxt(filename, delimiter=',', usecols=1, skip_header=1) # source-to-target-graphs-distance
+    sglr2 = np.genfromtxt(filename, delimiter=',', usecols=2, skip_header=1) # source-graphs-length-ratio
+    tglr2 = np.genfromtxt(filename, delimiter=',', usecols=3, skip_header=1) # target-graphs-length-ratio
+
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    fig.set_size_inches(16, 6)
+
+    ax1.set_xlabel('source-to-target-graphs-distance')
+    ax1.set_ylabel('source-graphs-length-ratio')
+
+    ax1.axis((0, np.maximum(stgd1.max(), stgd2.max()), 0, 100))
+    ax1.scatter(stgd1, 100 * sglr1, 2.0, color='green', marker=',')
+    ax1.scatter(stgd2, 100 * sglr2, 2.0, color='blue', marker=',')
+
+    ax2.set_xlabel('source-to-target-graphs-distance')
+    ax2.set_ylabel('target-graphs-length-ratio')
+
+    ax2.axis((0, np.maximum(stgd1.max(), stgd2.max()), 0, 100))
+    ax2.scatter(stgd1, 100 * tglr1, 2.0, color='green', marker=',')
+    ax2.scatter(stgd2, 100 * tglr2, 2.0, color='blue', marker=',')
+
+    filename = os.path.join(dirname, 'roc.png')
+    fig.savefig(filename)
+
 def doComputeArcRadiuses(dirname, pointsArrName):
     filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
     dataset  = IO.readH5File(filename)
@@ -762,6 +797,11 @@ if __name__ == '__main__':
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.set_defaults(func=doCreateEMSTOrigTopo)
+
+    # create the parser for the "doROC" command
+    subparser = subparsers.add_parser('doROC')
+    subparser.add_argument('dirname')
+    subparser.set_defaults(func=doROC)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
