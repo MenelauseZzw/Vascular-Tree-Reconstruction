@@ -355,7 +355,7 @@ def doConvertRawToH5Weights(args):
     
     IO.writeH5File(filename, dataset)
 
-def doCreateEMSTOrigTopo(args):
+def doCreateEMSTRadius(args):
     dirname  = args.dirname
     basename = args.basename
 
@@ -363,13 +363,16 @@ def doCreateEMSTOrigTopo(args):
     dataset  = IO.readH5File(filename)
 
     positions = dataset['positions']
-    indices1  = dataset['indices1']
-    indices2  = dataset['indices2']
+
+    conn = radius_neighbors_graph(positions, radius=5, metric='euclidean', include_self=False)
+    indices1, indices2 = np.nonzero(conn)
 
     n = len(positions)
     G = dict((i, dict()) for i in xrange(n))
 
     for i,k in zip(indices1,indices2):
+        if i > k: continue
+
         p = positions[i]
         q = positions[k]
 
@@ -387,7 +390,7 @@ def doCreateEMSTOrigTopo(args):
     dataset['indices2'] = np.array(indices2, dtype=np.int)
     
     filename, _ = os.path.splitext(filename)
-    filename    = filename + '_emst_origtopo.h5'
+    filename    = filename + '_emst_radius.h5'
 
     IO.writeH5File(filename, dataset)
 
@@ -842,11 +845,11 @@ if __name__ == '__main__':
     subparser.add_argument('--shape', nargs=3, type=int, default=[101,101,101])
     subparser.set_defaults(func=doConvertRawToH5Weights)
 
-    # create the parser for the "doCreateEMSTOrigTopo" command
-    subparser = subparsers.add_parser('doCreateEMSTOrigTopo')
+    # create the parser for the "doCreateEMSTRadius" command
+    subparser = subparsers.add_parser('doCreateEMSTRadius')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
-    subparser.set_defaults(func=doCreateEMSTOrigTopo)
+    subparser.set_defaults(func=doCreateEMSTRadius)
 
     # create the parser for the "doROC" command
     subparser = subparsers.add_parser('doROC')
