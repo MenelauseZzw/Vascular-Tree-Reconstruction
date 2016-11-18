@@ -315,22 +315,36 @@ def doCreateCubicSplineLengthMST(args):
 def doConvertRawToH5Weights(args):
     dirname  = args.dirname
     basename = args.basename
+    shape    = tuple(args.shape)
 
     filename = os.path.join(dirname, basename)
-    dataset  = IO.readRawFile(filename, shape=(101,101,101))
+    dataset  = IO.readRawFile(filename, shape=shape)
 
     measurements     = dataset['measurements']
     radiuses         = dataset['radiuses']
     responses        = dataset['responses']
 
     conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
+    # conn = radius_neighbors_graph(measurements, radius=(1 + np.sqrt(2)) / 2, metric='euclidean', include_self=False)
     indices1, indices2 = np.nonzero(conn)
+
+    # Sort in ascending order
+    # indices1, indices2 = zip(*sorted(zip(indices1,indices2)))
+
+    # Sort in descending order
+    # indices1, indices2 = zip(*sorted(zip(indices1,indices2), key=lambda x: x[1], reverse=True))
+    # indices1, indices2 = zip(*sorted(zip(indices1,indices2), key=lambda x: x[0]))
+
+    indices1 = np.array(indices1, dtype=np.int)
+    indices2 = np.array(indices2, dtype=np.int)
 
     dataset['indices1'] = indices1
     dataset['indices2'] = indices2
     dataset['radiuses'] = radiuses
 
-    weights = 6.0 * responses[indices1] # 6.0 is 'better' than 9.0
+    weights = np.full_like(indices1, 100.0, dtype=np.double)
+    # weights = 2.0 * responses[indices1] # data15
+    # weights = 6.0 * responses[indices1] # 6.0 is 'better' than 9.0
     # weights = 4.0 * responses[indices2] indices1 works 'better' than indices2
     # weights = 4.0 * (responses[indices1] + responses[indices2])
 
@@ -796,6 +810,7 @@ if __name__ == '__main__':
     subparser = subparsers.add_parser('doConvertRawToH5Weights')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
+    subparser.add_argument('--shape', nargs=3, type=int, default=[101,101,101])
     subparser.set_defaults(func=doConvertRawToH5Weights)
 
     # create the parser for the "doCreateEMSTOrigTopo" command
