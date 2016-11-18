@@ -342,8 +342,8 @@ def doConvertRawToH5Weights(args):
     dataset['indices2'] = indices2
     dataset['radiuses'] = radiuses
 
-    weights = np.full_like(indices1, 100.0, dtype=np.double)
-    # weights = 2.0 * responses[indices1] # data15
+    # weights = np.full_like(indices1, 2.0, dtype=np.double)
+    weights = 2.0 * responses[indices1] # data15
     # weights = 6.0 * responses[indices1] # 6.0 is 'better' than 9.0
     # weights = 4.0 * responses[indices2] indices1 works 'better' than indices2
     # weights = 4.0 * (responses[indices1] + responses[indices2])
