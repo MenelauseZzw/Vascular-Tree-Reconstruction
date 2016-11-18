@@ -426,6 +426,42 @@ def doROC(args):
     filename = os.path.join(dirname, 'roc.png')
     fig.savefig(filename)
 
+def createLinePolyData(p, q):
+    lineSrc = vtk.vtkLineSource()
+    lineSrc.SetPoint1(p)
+    lineSrc.SetPoint2(q)
+    lineSrc.Update()
+    polyData = lineSrc.GetOutput()
+    return polyData
+
+def createTangentsPolyData(tangentLinesPoints1, tangentLinesPoints2):
+    appendPolyData = vtk.vtkAppendPolyData()
+
+    for p,q in zip(tangentLinesPoints1, tangentLinesPoints2):
+        polyData = createLinePolyData(p,q)
+        appendPolyData.AddInputData(polyData)
+
+    appendPolyData.Update()
+    polyData = appendPolyData.GetOutput()
+
+    return polyData
+
+def doCreateTangentsPolyDataFile(args):
+    dirname   = args.dirname
+    basename  = args.basename
+
+    filename = os.path.join(dirname, basename)
+    dataset  = IO.readH5File(filename)
+
+    tangentLinesPoints1 = dataset['tangentLinesPoints1']
+    tangentLinesPoints2 = dataset['tangentLinesPoints2']
+
+    polyData = createTangentsPolyData(tangentLinesPoints1, tangentLinesPoints2)
+    
+    filename, _ = os.path.splitext(filename)
+    filename    = filename + '_tangents.vtp'
+    IO.writePolyDataFile(filename, polyData)
+
 def doComputeArcRadiuses(dirname, pointsArrName):
     filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
     dataset  = IO.readH5File(filename)
@@ -460,13 +496,6 @@ def doComputeArcRadiuses(dirname, pointsArrName):
     dataset['arcRadiusesStdDev'] = arcRadiusesStdDev
 
     IO.writeH5File(filename, dataset)
-
-def createLine(p, q):
-    lineSrc = vtk.vtkLineSource()
-    lineSrc.SetPoint1(p)
-    lineSrc.SetPoint2(q)
-    lineSrc.Update()
-    return lineSrc.GetOutput()
 
 def createSplinePolyData(spline, num_points):
     points = vtk.vtkPoints()
@@ -823,6 +852,12 @@ if __name__ == '__main__':
     subparser = subparsers.add_parser('doROC')
     subparser.add_argument('dirname')
     subparser.set_defaults(func=doROC)
+
+    # create the parser for the "doCreateTangentsPolyDataFile" command
+    subparser = subparsers.add_parser('doCreateTangentsPolyDataFile')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.set_defaults(func=doCreateTangentsPolyDataFile)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
