@@ -188,10 +188,14 @@ def getArcRadius(p, Cpq):
 
 def getArcLength(p, q, Cpq):
     arcRad = getArcRadius(p, Cpq)
-    if np.isinf(arcRad):
-        arcLen = linalg.norm(p - q)
-    else:
-        arcLen = np.arccos((p - Cpq).dot(q - Cpq) / (arcRad * arcRad)) * arcRad
+
+    pMinusCpq = p - Cpq
+    qMinusCpq = q - Cpq
+
+    pMinusCpq /= linarg.norm(pMinusCpq)
+    qMinusCpq /= linarg.norm(qMinusCpq)
+
+    arcLen = np.arccos(pMinusCpq.dot(qMinusCpq)) * arcRad
     return arcLen
 
 def doArcMST(args):
