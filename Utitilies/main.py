@@ -134,9 +134,9 @@ def doCreateGraphPolyDataFile(args):
     IO.writePolyDataFile(filename, polyData)
 
 def doCreateEMST(args):
-    dirname  = args.dirname
-    basename = args.basename
-    maxdist  = args.maxdist
+    dirname   = args.dirname
+    basename  = args.basename
+    maxradius = args.maxradius
 
     filename = os.path.join(dirname, basename)
     dataset  = IO.readH5File(filename)
@@ -150,23 +150,19 @@ def doCreateEMST(args):
         p = positions[i]
         for k in xrange(i+1, n):
             q = positions[k]
-
             dist = linalg.norm(p - q)
-            if dist > maxdist: continue
-    
+            if dist > maxradius: continue
             G[i][k] = dist
             G[k][i] = dist
 
     T = MinimumSpanningTree.MinimumSpanningTree(G)
-
-    indices1 = [p[0] for p in T]
-    indices2 = [p[1] for p in T]
+    indices1,indices2 = zip(*T)
 
     dataset['indices1'] = np.array(indices1, dtype=np.int)
     dataset['indices2'] = np.array(indices2, dtype=np.int)
     
     filename, _ = os.path.splitext(filename)
-    filename    = filename + '_emst.h5'
+    filename    = filename + 'EMST.h5'
 
     IO.writeH5File(filename, dataset)
 
@@ -353,45 +349,6 @@ def doConvertRawToH5Weights(args):
     filename, _ = os.path.splitext(filename)
     filename    = filename + '.h5'
     
-    IO.writeH5File(filename, dataset)
-
-def doCreateEMSTRadius(args):
-    dirname  = args.dirname
-    basename = args.basename
-
-    filename = os.path.join(dirname, basename)
-    dataset  = IO.readH5File(filename)
-
-    positions = dataset['positions']
-
-    conn = radius_neighbors_graph(positions, radius=5, metric='euclidean', include_self=False)
-    indices1, indices2 = np.nonzero(conn)
-
-    n = len(positions)
-    G = dict((i, dict()) for i in xrange(n))
-
-    for i,k in zip(indices1,indices2):
-        if i > k: continue
-
-        p = positions[i]
-        q = positions[k]
-
-        dist = linalg.norm(p - q)
-    
-        G[i][k] = dist
-        G[k][i] = dist
-
-    T = MinimumSpanningTree.MinimumSpanningTree(G)
-
-    indices1 = [p[0] for p in T]
-    indices2 = [p[1] for p in T]
-
-    dataset['indices1'] = np.array(indices1, dtype=np.int)
-    dataset['indices2'] = np.array(indices2, dtype=np.int)
-    
-    filename, _ = os.path.splitext(filename)
-    filename    = filename + '_emst_radius.h5'
-
     IO.writeH5File(filename, dataset)
 
 def doROC(args):
@@ -810,6 +767,13 @@ if __name__ == '__main__':
     subparser.add_argument('basename')
     subparser.set_defaults(func=doConvertRawToH5NoBifurc)
 
+    # create the parser for the "doConvertRawToH5Weights" command
+    subparser = subparsers.add_parser('doConvertRawToH5Weights')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.add_argument('--shape', nargs=3, type=int, default=[101,101,101])
+    subparser.set_defaults(func=doConvertRawToH5Weights)
+
     # create the parser for the "doCreateGraphPolyDataFile" command
     subparser = subparsers.add_parser('doCreateGraphPolyDataFile')
     subparser.add_argument('dirname')
@@ -821,7 +785,7 @@ if __name__ == '__main__':
     subparser = subparsers.add_parser('doCreateEMST')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
-    subparser.add_argument('--maxdist', default=5)
+    subparser.add_argument('--maxradius', default=np.inf)
     subparser.set_defaults(func=doCreateEMST)
 
     # create the parser for the "doCreateArcsLengthsMST" command
@@ -838,19 +802,6 @@ if __name__ == '__main__':
     subparser.add_argument('--maxdist', default=5)
     subparser.set_defaults(func=doCreateCubicSplineLengthMST)
 
-    # create the parser for the "doConvertRawToH5Weights" command
-    subparser = subparsers.add_parser('doConvertRawToH5Weights')
-    subparser.add_argument('dirname')
-    subparser.add_argument('basename')
-    subparser.add_argument('--shape', nargs=3, type=int, default=[101,101,101])
-    subparser.set_defaults(func=doConvertRawToH5Weights)
-
-    # create the parser for the "doCreateEMSTRadius" command
-    subparser = subparsers.add_parser('doCreateEMSTRadius')
-    subparser.add_argument('dirname')
-    subparser.add_argument('basename')
-    subparser.set_defaults(func=doCreateEMSTRadius)
-
     # create the parser for the "doROC" command
     subparser = subparsers.add_parser('doROC')
     subparser.add_argument('dirname')
@@ -866,6 +817,5 @@ if __name__ == '__main__':
     args = argparser.parse_args()
     args.func(args)
 
-   
     #doCreateSplinePolyDataFile(dirname)
     #doCreateCircularPolyDataFile(dirname, pointsArrName='positions', radiusesArrName='arcRadiusesMean')
