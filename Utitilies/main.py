@@ -138,8 +138,8 @@ def doEMST(args):
     basename  = args.basename
     maxradius = args.maxradius
 
-    filename = os.path.join(dirname, basename)
-    dataset  = IO.readH5File(filename)
+    filename  = os.path.join(dirname, basename)
+    dataset   = IO.readH5File(filename)
 
     positions = dataset['positions']
 
@@ -177,58 +177,58 @@ def getArcCenter(p, lp, q):
     return Cpq
 
 def getArcRadius(p, Cpq):
-    return np.sqrt((p - Cpq).dot(p - Cpq))
+    return linalg.norm(p - Cpq)
 
 def getArcLength(p, q, Cpq):
-    arcRadius = getArcRadius(p, Cpq)
-    arcLength = np.arccos((p - Cpq).dot(q - Cpq) / (arcRadius * arcRadius)) * arcRadius
-    return arcLength
+    arcRad = getArcRadius(p, Cpq)
+    arcLen = np.arccos((p - Cpq).dot(q - Cpq) / (arcRad * arcRad)) * arcRad
+    return arcLen
 
-def doCreateArcsLengthsMST(args):
-    dirname  = args.dirname
-    basename = args.basename
-    maxdist  = args.maxdist
+def doArcsLengthsMST(args):
+    dirname   = args.dirname
+    basename  = args.basename
+    maxradius = args.maxradius
 
-    filename = os.path.join(dirname, basename)
-    dataset  = IO.readH5File(filename)
+    filename  = os.path.join(dirname, basename)
+    dataset   = IO.readH5File(filename)
 
     positions           = dataset['positions']
     tangentLinesPoints1 = dataset['tangentLinesPoints1']
     tangentLinesPoints2 = dataset['tangentLinesPoints2']
+
+    tangentLines  = tangentLinesPoints2 - tangentLinesPoints1
+    tangentLines /= linalg.norm(tangentLines, axis=1, keepdims=True)
 
     n = len(positions)
     G = dict((i, dict()) for i in xrange(n))
 
     for i in xrange(n):
         p  = positions[i]
-        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
+        lp = tangentLines[i]
         for k in xrange(i+1, n):
             q  = positions[k]
-            lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
-
             dist = linalg.norm(p - q)
-            if dist > maxdist: continue
+            if dist > maxradius: continue
+            lq = tangentLines[k]
 
             Cpq = getArcCenter(p, lp, q)
             Cqp = getArcCenter(q, lq, p)
             
-            arcLen1  = getArcLength(p, q, Cpq)
-            arcLen2  = getArcLength(q, p, Cqp)
-            arcLen12 = (arcLen1 + arcLen2) / 2 
+            arcLen1 = getArcLength(p, q, Cpq)
+            arcLen2 = getArcLength(q, p, Cqp)
+            arcLen = (arcLen1 + arcLen2) / 2
 
-            G[i][k] = arcLen12
-            G[k][i] = arcLen12
+            G[i][k] = arcLen
+            G[k][i] = arcLen
 
     T = MinimumSpanningTree.MinimumSpanningTree(G)
-
-    indices1 = [p[0] for p in T]
-    indices2 = [p[1] for p in T]
+    indices1,indices2 = zip(*T)
 
     dataset['indices1'] = np.array(indices1, dtype=np.int)
     dataset['indices2'] = np.array(indices2, dtype=np.int)
-    
+
     filename, _ = os.path.splitext(filename)
-    filename    = filename + '_arclen_mst.h5'
+    filename    = filename + 'ArcMST.h5'
 
     IO.writeH5File(filename, dataset)
 
@@ -788,12 +788,12 @@ if __name__ == '__main__':
     subparser.add_argument('--maxradius', default=np.inf)
     subparser.set_defaults(func=doEMST)
 
-    # create the parser for the "doCreateArcsLengthsMST" command
-    subparser = subparsers.add_parser('doCreateArcsLengthsMST')
+    # create the parser for the "doArcsLengthsMST" command
+    subparser = subparsers.add_parser('doArcsLengthsMST')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
-    subparser.add_argument('--maxdist', default=5)
-    subparser.set_defaults(func=doCreateArcsLengthsMST)
+    subparser.add_argument('--maxradius', default=np.inf)
+    subparser.set_defaults(func=doArcsLengthsMST)
 
     # create the parser for the "doCreateCubicSplineLengthMST" command
     subparser = subparsers.add_parser('doCreateCubicSplineLengthMST')
