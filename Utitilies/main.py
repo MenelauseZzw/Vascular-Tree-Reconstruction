@@ -192,8 +192,8 @@ def getArcLength(p, q, Cpq):
     pMinusCpq = p - Cpq
     qMinusCpq = q - Cpq
 
-    pMinusCpq /= linarg.norm(pMinusCpq)
-    qMinusCpq /= linarg.norm(qMinusCpq)
+    pMinusCpq /= linalg.norm(pMinusCpq)
+    qMinusCpq /= linalg.norm(qMinusCpq)
 
     arcLen = np.arccos(pMinusCpq.dot(qMinusCpq)) * arcRad
     return arcLen
