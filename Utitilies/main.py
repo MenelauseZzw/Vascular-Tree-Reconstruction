@@ -315,13 +315,13 @@ def getSplineLength(spline, num_points):
     splineLen = np.linalg.norm(points[:-1] - points[1:], axis=1).sum()
     return splineLen
 
-def doCreateCubicSplineLengthMST(args):
+def doCubicSplineMST(args):
     dirname   = args.dirname
     basename  = args.basename
     maxradius = args.maxradius
 
-    filename = os.path.join(dirname, basename)
-    dataset  = IO.readH5File(filename)
+    filename  = os.path.join(dirname, basename)
+    dataset   = IO.readH5File(filename)
 
     positions           = dataset['positions']
     tangentLinesPoints1 = dataset['tangentLinesPoints1']
@@ -363,6 +363,70 @@ def doCreateCubicSplineLengthMST(args):
     filename    = filename + 'CubicSplineMST.h5'
 
     IO.writeH5File(filename, dataset)
+
+def createSplinePolyData(spline, num_points):
+    points = vtk.vtkPoints()
+
+    for t in np.linspace(0.0, 1.0, num_points):
+        points.InsertNextPoint(spline(t))
+
+    polyLineSrc = vtk.vtkPolyLineSource()
+    polyLineSrc.SetNumberOfPoints(points.GetNumberOfPoints())
+    polyLineSrc.SetPoints(points)
+    polyLineSrc.Update()
+    polyData = polyLineSrc.GetOutput()
+    return polyData
+
+def doCreateCubicSplinePolyDataFile(args):
+    dirname   = args.dirname
+    basename  = args.basename
+
+    filename  = os.path.join(dirname, basename)
+    dataset   = IO.readH5File(filename)
+
+    positions           = dataset['positions']
+    tangentLinesPoints1 = dataset['tangentLinesPoints1']
+    tangentLinesPoints2 = dataset['tangentLinesPoints2']
+
+    tangentLines  = tangentLinesPoints2 - tangentLinesPoints1
+    tangentLines /= linalg.norm(tangentLines, axis=1, keepdims=True)
+    
+    n = len(positions)
+
+    indices1 = dataset['indices1']
+    indices2 = dataset['indices2']
+
+    appendPolyData = vtk.vtkAppendPolyData()
+
+    for i,k in zip(indices1, indices2):
+        p  = positions[i]
+        q  = positions[k]
+
+        lp = tangentLines[i]
+        lq = tangentLines[k]
+
+        dist = linalg.norm(p - q)
+
+        spline = None
+        minLength = np.inf
+
+        for lpsgn,lqsgn in ((-1,-1),(-1, 1),(1,-1),(1, 1)):
+            cubicSpline  = getCubicSpline(p, dist * lpsgn * lp, q, dist * lqsgn * lq)
+            splineLength = getSplineLength(cubicSpline, num_points=100)
+            if splineLength < minLength:
+                minLength = splineLength
+                spline    = cubicSpline
+
+        splinePolyData = createSplinePolyData(spline, num_points=100)
+        appendPolyData.AddInputData(splinePolyData)
+    
+    appendPolyData.Update()
+    polyData = appendPolyData.GetOutput()
+
+    filename, _ = os.path.splitext(filename)
+    filename    = filename + '.vtp'
+
+    IO.writePolyDataFile(filename, polyData)
 
 def doConvertRawToH5Weights(args):
     dirname  = args.dirname
@@ -513,20 +577,6 @@ def doComputeArcRadiuses(dirname, pointsArrName):
 
     IO.writeH5File(filename, dataset)
 
-def createSplinePolyData(spline, num_points):
-    points = vtk.vtkPoints()
-
-    for t in np.linspace(0, 1, num_points):
-        points.InsertNextPoint(spline(t))
-
-    polyLine = vtk.vtkPolyLineSource()
-    polyLine.SetNumberOfPoints(points.GetNumberOfPoints())
-    polyLine.SetPoints(points)
-    polyLine.Update()
-
-    polyData = polyLine.GetOutput()
-    return polyData
-
 def createCircularPolyData(pointsArr, tangentLinesPoints1, tangentLinesPoints2, radiusesArr):
     polygonSrc = vtk.vtkRegularPolygonSource()
     polygonSrc.GeneratePolygonOff()
@@ -563,46 +613,6 @@ def doCreateCircularPolyDataFile(dirname, pointsArrName, radiusesArrName):
 
     polyData = createCircularPolyData(pointsArr, tangentLinesPoints1, tangentLinesPoints2, radiusesArr)
     
-    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.vtp')
-    IO.writePolyDataFile(filename, polyData)
-
-def doCreateSplinePolyDataFile(dirname):
-    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
-    dataset  = IO.readH5File(filename)
-
-    positions           = dataset['positions']
-    tangentLinesPoints1 = dataset['tangentLinesPoints1']
-    tangentLinesPoints2 = dataset['tangentLinesPoints2']
-    
-    indices1            = dataset['indices1']
-    indices2            = dataset['indices2']
-
-    n = len(positions)
-
-    appendPolyData = vtk.vtkAppendPolyData()
-
-    for i,k in zip(indices1, indices2):
-        p  = positions[i]
-        q  = positions[k]
-        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
-        lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
-
-        lp = lp / linalg.norm(lp)
-        lq = lq / linalg.norm(lq)
-        dist = linalg.norm(p - q)
-        lp = lp * dist
-        lq = lq * dist
-
-        spline = createSpline(p, lp, q, lq)
-        splinePolyData = createSplinePolyData(spline, num_points=100)
-
-        polyData = vtk.vtkPolyData()
-        polyData.DeepCopy(splinePolyData)
-        appendPolyData.AddInputData(polyData)
-    
-    appendPolyData.Update()
-    polyData = appendPolyData.GetOutput()
-
     filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.vtp')
     IO.writePolyDataFile(filename, polyData)
 
@@ -857,12 +867,18 @@ if __name__ == '__main__':
     subparser.add_argument('basename')
     subparser.set_defaults(func=doCreateArcsPolyDataFile)
 
-    # create the parser for the "doCreateCubicSplineLengthMST" command
-    subparser = subparsers.add_parser('doCreateCubicSplineLengthMST')
+    # create the parser for the "doCubicSplineMST" command
+    subparser = subparsers.add_parser('doCubicSplineMST')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.add_argument('--maxradius', default=np.inf)
-    subparser.set_defaults(func=doCreateCubicSplineLengthMST)
+    subparser.set_defaults(func=doCubicSplineMST)
+
+    # create the parser for the "doCreateCubicSplinePolyDataFile" command
+    subparser = subparsers.add_parser('doCreateCubicSplinePolyDataFile')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.set_defaults(func=doCreateCubicSplinePolyDataFile)
 
     # create the parser for the "doROC" command
     subparser = subparsers.add_parser('doROC')
