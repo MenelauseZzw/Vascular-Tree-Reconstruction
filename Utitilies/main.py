@@ -506,10 +506,10 @@ def doROC(args):
     filename = os.path.join(dirname, 'roc.png')
     fig.savefig(filename)
 
-def createLinePolyData(p, q):
+def createLinePolyData(s, t):
     lineSrc = vtk.vtkLineSource()
-    lineSrc.SetPoint1(p)
-    lineSrc.SetPoint2(q)
+    lineSrc.SetPoint1(s)
+    lineSrc.SetPoint2(t)
     lineSrc.Update()
     polyData = lineSrc.GetOutput()
     return polyData
@@ -533,49 +533,31 @@ def doCreateTangentsPolyDataFile(args):
     filename = os.path.join(dirname, basename)
     dataset  = IO.readH5File(filename)
 
+    positions           = dataset['positions']
     tangentLinesPoints1 = dataset['tangentLinesPoints1']
     tangentLinesPoints2 = dataset['tangentLinesPoints2']
 
-    polyData = createTangentsPolyData(tangentLinesPoints1, tangentLinesPoints2)
+    tangentLines  = tangentLinesPoints2 - tangentLinesPoints1
+    tangentLines /= linalg.norm(tangentLines, axis=1, keepdims=True)
     
-    filename, _ = os.path.splitext(filename)
-    filename    = filename + '_tangents.vtp'
-    IO.writePolyDataFile(filename, polyData)
+    n = len(positions)
 
-def doComputeArcRadiuses(dirname, pointsArrName):
-    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
-    dataset  = IO.readH5File(filename)
-
-    pointsArr           = dataset[pointsArrName]
-    tangentLinesPoints1 = dataset['tangentLinesPoints1']
-    tangentLinesPoints2 = dataset['tangentLinesPoints2']
-    indices1            = dataset['indices1']
-    indices2            = dataset['indices2']
-
-    n = len(pointsArr)
-
-    arcRadiuses = [[] for _ in xrange(n)]
-
-    for index1,index2 in zip(indices1, indices2):
-        p   = pointsArr[index1]
-        q   = pointsArr[index2]
-        lp  = tangentLinesPoints2[index1] - tangentLinesPoints1[index1]
-        Cpq = getArcCenter(p, lp, q)
-
-        arcRadius = getArcRadius(p, Cpq)
-        arcRadiuses[index1].append(arcRadius)
-
-    arcRadiusesMean   = np.empty(n, dtype=np.double)
-    arcRadiusesStdDev = np.empty(n, dtype=np.double)
+    appendPolyData = vtk.vtkAppendPolyData()
 
     for i in xrange(n):
-        arcRadiusesMean[i]   = np.mean(np.reciprocal(arcRadiuses[i]))
-        arcRadiusesStdDev[i] = np.std(np.reciprocal(arcRadiuses[i]))
+        p  = positions[i]
+        s = p + 0.5 * tangentLines[i]
+        t = p - 0.5 * tangentLines[i]
 
-    dataset['arcRadiusesMean']   = arcRadiusesMean
-    dataset['arcRadiusesStdDev'] = arcRadiusesStdDev
+        linePolyData = createLinePolyData(s,t)
+        appendPolyData.AddInputData(linePolyData)
+    
+    appendPolyData.Update()
+    polyData = appendPolyData.GetOutput()
 
-    IO.writeH5File(filename, dataset)
+    filename, _ = os.path.splitext(filename)
+    filename    = filename + 'Tangents.vtp'
+    IO.writePolyDataFile(filename, polyData)
 
 def createCircularPolyData(pointsArr, tangentLinesPoints1, tangentLinesPoints2, radiusesArr):
     polygonSrc = vtk.vtkRegularPolygonSource()
@@ -880,20 +862,17 @@ if __name__ == '__main__':
     subparser.add_argument('basename')
     subparser.set_defaults(func=doCreateCubicSplinePolyDataFile)
 
-    # create the parser for the "doROC" command
-    subparser = subparsers.add_parser('doROC')
-    subparser.add_argument('dirname')
-    subparser.set_defaults(func=doROC)
-
     # create the parser for the "doCreateTangentsPolyDataFile" command
     subparser = subparsers.add_parser('doCreateTangentsPolyDataFile')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.set_defaults(func=doCreateTangentsPolyDataFile)
 
+    # create the parser for the "doROC" command
+    subparser = subparsers.add_parser('doROC')
+    subparser.add_argument('dirname')
+    subparser.set_defaults(func=doROC)
+
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
     args.func(args)
-
-    #doCreateSplinePolyDataFile(dirname)
-    #doCreateCircularPolyDataFile(dirname, pointsArrName='positions', radiusesArrName='arcRadiusesMean')
