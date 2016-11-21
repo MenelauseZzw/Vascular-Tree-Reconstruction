@@ -144,7 +144,7 @@ def doEMST(args):
     positions = dataset['positions']
 
     n = len(positions)
-    G = dict((i, dict()) for i in xrange(n))
+    G = dict()
 
     for i in xrange(n):
         p = positions[i]
@@ -152,6 +152,13 @@ def doEMST(args):
             q = positions[k]
             dist = linalg.norm(p - q)
             if dist > maxradius: continue
+
+            if not i in G:
+                G[i] = dict()
+
+            if not k in G:
+                G[k] = dict()
+
             G[i][k] = dist
             G[k][i] = dist
 
@@ -184,7 +191,7 @@ def getArcLength(p, q, Cpq):
     arcLen = np.arccos((p - Cpq).dot(q - Cpq) / (arcRad * arcRad)) * arcRad
     return arcLen
 
-def doArcsLengthsMST(args):
+def doArcMST(args):
     dirname   = args.dirname
     basename  = args.basename
     maxradius = args.maxradius
@@ -200,11 +207,12 @@ def doArcsLengthsMST(args):
     tangentLines /= linalg.norm(tangentLines, axis=1, keepdims=True)
 
     n = len(positions)
-    G = dict((i, dict()) for i in xrange(n))
+    G = dict()
 
     for i in xrange(n):
         p  = positions[i]
         lp = tangentLines[i]
+
         for k in xrange(i+1, n):
             q  = positions[k]
             dist = linalg.norm(p - q)
@@ -217,6 +225,12 @@ def doArcsLengthsMST(args):
             arcLen1 = getArcLength(p, q, Cpq)
             arcLen2 = getArcLength(q, p, Cqp)
             arcLen = (arcLen1 + arcLen2) / 2
+
+            if not i in G:
+                G[i] = dict()
+
+            if not k in G:
+                G[k] = dict()
 
             G[i][k] = arcLen
             G[k][i] = arcLen
@@ -331,7 +345,7 @@ def doCubicSplineMST(args):
     tangentLines /= linalg.norm(tangentLines, axis=1, keepdims=True)
 
     n = len(positions)
-    G = dict((i, dict()) for i in xrange(n))
+    G = dict()
 
     for i in xrange(n):
         p  = positions[i]
@@ -349,6 +363,12 @@ def doCubicSplineMST(args):
                 splineLength = getSplineLength(cubicSpline, num_points=100)
                 if splineLength < minLength:
                     minLength = splineLength
+
+            if not i in G:
+                G[i] = dict()
+
+            if not k in G:
+                G[k] = dict()
 
             G[i][k] = minLength
             G[k][i] = minLength
@@ -836,12 +856,12 @@ if __name__ == '__main__':
     subparser.add_argument('--maxradius', default=np.inf)
     subparser.set_defaults(func=doEMST)
 
-    # create the parser for the "doArcsLengthsMST" command
-    subparser = subparsers.add_parser('doArcsLengthsMST')
+    # create the parser for the "doArcMST" command
+    subparser = subparsers.add_parser('doArcMST')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.add_argument('--maxradius', default=np.inf)
-    subparser.set_defaults(func=doArcsLengthsMST)
+    subparser.set_defaults(func=doArcMST)
 
     # create the parser for the "doCreateArcsPolyDataFile" command
     subparser = subparsers.add_parser('doCreateArcsPolyDataFile')
