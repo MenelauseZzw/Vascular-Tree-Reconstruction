@@ -232,6 +232,65 @@ def doArcsLengthsMST(args):
 
     IO.writeH5File(filename, dataset)
 
+def createArcPolyData(p, q, Cpq):
+    arcSrc = vtk.vtkArcSource()
+    arcSrc.SetPoint1(p)
+    arcSrc.SetPoint2(q)
+    arcSrc.SetCenter(Cpq)
+    arcSrc.SetResolution(36)
+    arcSrc.Update()
+    polyData = arcSrc.GetOutput()
+    return polyData
+
+def doCreateArcsPolyDataFile(args):
+    dirname   = args.dirname
+    basename  = args.basename
+
+    filename  = os.path.join(dirname, basename)
+    dataset   = IO.readH5File(filename)
+
+    positions           = dataset['positions']
+    tangentLinesPoints1 = dataset['tangentLinesPoints1']
+    tangentLinesPoints2 = dataset['tangentLinesPoints2']
+
+    tangentLines  = tangentLinesPoints2 - tangentLinesPoints1
+    tangentLines /= linalg.norm(tangentLines, axis=1, keepdims=True)
+
+    n = len(positions)
+
+    indices1 = dataset['indices1']
+    indices2 = dataset['indices2']
+
+    appendPolyData = vtk.vtkAppendPolyData()
+
+    for i,k in zip(indices1,indices2):
+        p  = positions[i]
+        q  = positions[k]
+
+        lp = tangentLines[i]
+        lq = tangentLines[k]
+
+        Cpq = getArcCenter(p, lp, q)
+        Cqp = getArcCenter(q, lq, p)
+
+        arcLen1 = getArcLength(p, q, Cpq)
+        arcLen2 = getArcLength(q, p, Cqp)
+
+        if arcLen1 < arcLen2:
+            polyData = createArcPolyData(p, q, Cpq)
+        else:
+            polyData = createArcPolyData(q, p, Cqp)
+        
+        appendPolyData.AddInputData(polyData)
+
+    appendPolyData.Update()
+    polyData = appendPolyData.GetOutput()
+
+    filename, _ = os.path.splitext(filename)
+    filename    = filename + '.vtp'
+
+    IO.writePolyDataFile(filename, polyData)
+
 # Hermite basis functions
 def h00(t):
     s = 1 - t
@@ -794,6 +853,12 @@ if __name__ == '__main__':
     subparser.add_argument('basename')
     subparser.add_argument('--maxradius', default=np.inf)
     subparser.set_defaults(func=doArcsLengthsMST)
+
+    # create the parser for the "doCreateArcsPolyDataFile" command
+    subparser = subparsers.add_parser('doCreateArcsPolyDataFile')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.set_defaults(func=doCreateArcsPolyDataFile)
 
     # create the parser for the "doCreateCubicSplineLengthMST" command
     subparser = subparsers.add_parser('doCreateCubicSplineLengthMST')
