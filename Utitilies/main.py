@@ -306,7 +306,7 @@ def h01(t):
 def h11(t):
     return t * t * (t - 1)
 
-def createSpline(p0, m0, p1, m1):
+def getCubicSpline(p0, m0, p1, m1):
     return lambda t: h00(t) * p0 + h10(t) * m0 + h01(t) * p1 + h11(t) * m1
 
 def getSplineLength(spline, num_points):
@@ -316,9 +316,9 @@ def getSplineLength(spline, num_points):
     return splineLen
 
 def doCreateCubicSplineLengthMST(args):
-    dirname  = args.dirname
-    basename = args.basename
-    maxdist  = args.maxdist
+    dirname   = args.dirname
+    basename  = args.basename
+    maxradius = args.maxradius
 
     filename = os.path.join(dirname, basename)
     dataset  = IO.readH5File(filename)
@@ -327,43 +327,40 @@ def doCreateCubicSplineLengthMST(args):
     tangentLinesPoints1 = dataset['tangentLinesPoints1']
     tangentLinesPoints2 = dataset['tangentLinesPoints2']
 
+    tangentLines  = tangentLinesPoints2 - tangentLinesPoints1
+    tangentLines /= linalg.norm(tangentLines, axis=1, keepdims=True)
+
     n = len(positions)
     G = dict((i, dict()) for i in xrange(n))
 
     for i in xrange(n):
         p  = positions[i]
-        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
-        lp = lp / linalg.norm(lp)
-
+        lp = tangentLines[i]
         for k in xrange(i+1, n):
             q  = positions[k]
-            lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
-            lq = lq / linalg.norm(lq)
-            
+            lq = tangentLines[k]
             dist = linalg.norm(p - q)
-            if dist > maxdist: continue
+            if dist > maxradius: continue
 
-            minSplLen = np.inf
+            minLength = np.inf
 
-            for lpsgn,lqsgn in [(-1,-1),(-1, 1),(1,-1),(1, 1)]:
-                spline = createSpline(p, dist * lpsgn * lp, q, dist * lqsgn * lq)
-                splLen = getSplineLength(spline, num_points=100)
-                if splLen < minSplLen:
-                    minSplLen = splLen
+            for lpsgn,lqsgn in ((-1,-1),(-1, 1),(1,-1),(1, 1)):
+                cubicSpline  = getCubicSpline(p, dist * lpsgn * lp, q, dist * lqsgn * lq)
+                splineLength = getSplineLength(cubicSpline, num_points=100)
+                if splineLength < minLength:
+                    minLength = splineLength
 
-            G[i][k] = minSplLen
-            G[k][i] = minSplLen
+            G[i][k] = minLength
+            G[k][i] = minLength
 
     T = MinimumSpanningTree.MinimumSpanningTree(G)
-
-    indices1 = [p[0] for p in T]
-    indices2 = [p[1] for p in T]
+    indices1,indices2 = zip(*T)
 
     dataset['indices1'] = np.array(indices1, dtype=np.int)
     dataset['indices2'] = np.array(indices2, dtype=np.int)
     
     filename, _ = os.path.splitext(filename)
-    filename    = filename + '_cubspl_mst.h5'
+    filename    = filename + 'CubicSplineMST.h5'
 
     IO.writeH5File(filename, dataset)
 
@@ -864,7 +861,7 @@ if __name__ == '__main__':
     subparser = subparsers.add_parser('doCreateCubicSplineLengthMST')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
-    subparser.add_argument('--maxdist', default=5)
+    subparser.add_argument('--maxradius', default=np.inf)
     subparser.set_defaults(func=doCreateCubicSplineLengthMST)
 
     # create the parser for the "doROC" command
