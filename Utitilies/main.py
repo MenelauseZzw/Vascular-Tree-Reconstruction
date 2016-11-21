@@ -133,7 +133,7 @@ def doCreateGraphPolyDataFile(args):
     filename    = filename + '.vtp'
     IO.writePolyDataFile(filename, polyData)
 
-def doCreateEMST(args):
+def doEMST(args):
     dirname   = args.dirname
     basename  = args.basename
     maxradius = args.maxradius
@@ -781,12 +781,12 @@ if __name__ == '__main__':
     subparser.add_argument('--positions', default='positions')
     subparser.set_defaults(func=doCreateGraphPolyDataFile)
 
-    # create the parser for the "doCreateEMST" command
-    subparser = subparsers.add_parser('doCreateEMST')
+    # create the parser for the "doEMST" command
+    subparser = subparsers.add_parser('doEMST')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.add_argument('--maxradius', default=np.inf)
-    subparser.set_defaults(func=doCreateEMST)
+    subparser.set_defaults(func=doEMST)
 
     # create the parser for the "doCreateArcsLengthsMST" command
     subparser = subparsers.add_parser('doCreateArcsLengthsMST')
