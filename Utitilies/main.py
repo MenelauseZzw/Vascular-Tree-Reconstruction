@@ -500,19 +500,21 @@ def doConvertRawToH5Weights(args):
     IO.writeH5File(filename, dataset)
 
 def doROC(args):
-    dirname  = args.dirname
+    dirname   = args.dirname
+    basename1 = args.basename1
+    basename2 = args.basename2
 
-    filename = os.path.join(dirname, 'frangi_image_curv_emst.csv')
+    filename1 = os.path.join(dirname, basename1)
 
-    stgd1 = np.genfromtxt(filename, delimiter=',', usecols=1, skip_header=1) # source-to-target-graphs-distance
-    sglr1 = np.genfromtxt(filename, delimiter=',', usecols=2, skip_header=1) # source-graphs-length-ratio
-    tglr1 = np.genfromtxt(filename, delimiter=',', usecols=3, skip_header=1) # target-graphs-length-ratio
+    stgd1 = np.genfromtxt(filename1, delimiter=',', usecols=1, skip_header=1) # source-to-target-graphs-distance
+    sglr1 = np.genfromtxt(filename1, delimiter=',', usecols=2, skip_header=1) # source-graphs-length-ratio
+    tglr1 = np.genfromtxt(filename1, delimiter=',', usecols=3, skip_header=1) # target-graphs-length-ratio
     
-    filename = os.path.join(dirname, '26-curvature-emst.csv')
+    filename2 = os.path.join(dirname, basename2)
 
-    stgd2 = np.genfromtxt(filename, delimiter=',', usecols=1, skip_header=1) # source-to-target-graphs-distance
-    sglr2 = np.genfromtxt(filename, delimiter=',', usecols=2, skip_header=1) # source-graphs-length-ratio
-    tglr2 = np.genfromtxt(filename, delimiter=',', usecols=3, skip_header=1) # target-graphs-length-ratio
+    stgd2 = np.genfromtxt(filename2, delimiter=',', usecols=1, skip_header=1) # source-to-target-graphs-distance
+    sglr2 = np.genfromtxt(filename2, delimiter=',', usecols=2, skip_header=1) # source-graphs-length-ratio
+    tglr2 = np.genfromtxt(filename2, delimiter=',', usecols=3, skip_header=1) # target-graphs-length-ratio
 
     fig, (ax1, ax2) = plt.subplots(1, 2)
     fig.set_size_inches(16, 6)
@@ -521,17 +523,22 @@ def doROC(args):
     ax1.set_ylabel('source-graphs-length-ratio')
 
     ax1.axis((0, np.maximum(stgd1.max(), stgd2.max()), 0, 100))
-    ax1.scatter(stgd1, 100 * sglr1, 2.0, color='green', marker=',')
-    ax1.scatter(stgd2, 100 * sglr2, 2.0, color='blue', marker=',')
+    ax1.scatter(stgd1, 100 * sglr1, 2.0, color='green', marker=',', label=basename1)
+    ax1.scatter(stgd2, 100 * sglr2, 2.0, color='blue', marker=',', label=basename2)
+    ax1.legend(loc=4)
 
     ax2.set_xlabel('source-to-target-graphs-distance')
     ax2.set_ylabel('target-graphs-length-ratio')
 
     ax2.axis((0, np.maximum(stgd1.max(), stgd2.max()), 0, 100))
-    ax2.scatter(stgd1, 100 * tglr1, 2.0, color='green', marker=',')
-    ax2.scatter(stgd2, 100 * tglr2, 2.0, color='blue', marker=',')
+    ax2.scatter(stgd1, 100 * tglr1, 2.0, color='green', marker=',', label=basename1)
+    ax2.scatter(stgd2, 100 * tglr2, 2.0, color='blue', marker=',', label=basename2)
+    ax2.legend(loc=4)
 
-    filename = os.path.join(dirname, 'roc.png')
+    basename1,_  = os.path.splitext(basename1)
+    basename2,_  = os.path.splitext(basename2)
+
+    filename = os.path.join(dirname, basename1 + '.' + basename2 + 'ROC.png')
     fig.savefig(filename)
 
 def createLinePolyData(s, t):
@@ -899,8 +906,11 @@ if __name__ == '__main__':
     # create the parser for the "doROC" command
     subparser = subparsers.add_parser('doROC')
     subparser.add_argument('dirname')
+    subparser.add_argument('basename1')
+    subparser.add_argument('basename2')
     subparser.set_defaults(func=doROC)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
+
     args.func(args)
