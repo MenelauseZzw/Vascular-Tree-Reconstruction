@@ -12,6 +12,7 @@ import maxflow
 import os.path
 import numpy as np
 import numpy.linalg as linalg
+import scipy.integrate as integrate
 import vtk
 
 from sklearn.neighbors import KDTree,radius_neighbors_graph
@@ -20,6 +21,7 @@ from xml.etree import ElementTree
 def doConvertRawToH5(args):
     dirname  = args.dirname
     basename = args.basename
+    weight   = args.weight
 
     filename = os.path.join(dirname, basename)
     dataset  = IO.readRawFile(filename, shape=(101,101,101))
@@ -32,7 +34,7 @@ def doConvertRawToH5(args):
     dataset['indices1'] = indices1
     dataset['indices2'] = indices2
 
-    weights = np.full(len(indices1), 2.0, dtype=np.float)
+    weights = np.full(len(indices1), weight, dtype=np.float)
 
     dataset['weights']  = weights
 
@@ -541,6 +543,19 @@ def doROC(args):
     filename = os.path.join(dirname, basename1 + '.' + basename2 + 'ROC.png')
     fig.savefig(filename)
 
+def doAUC(args):
+    dirname  = args.dirname
+    basename = args.basename
+
+    filename = os.path.join(dirname, basename)
+
+    sourceToTargetGraphsDistance = np.genfromtxt(filename, delimiter=',', usecols=1, skip_header=1) # source-to-target-graphs-distance
+    sourceGraphsLengthRatio      = np.genfromtxt(filename, delimiter=',', usecols=2, skip_header=1) # source-graphs-length-ratio
+    targetGraphsLengthRatio      = np.genfromtxt(filename, delimiter=',', usecols=3, skip_header=1) # target-graphs-length-ratio
+
+    print('{:18.16f}'.format(integrate.trapz(sourceGraphsLengthRatio, sourceToTargetGraphsDistance)))
+    print('{:18.16f}'.format(integrate.trapz(targetGraphsLengthRatio, sourceToTargetGraphsDistance)))
+
 def createLinePolyData(s, t):
     lineSrc = vtk.vtkLineSource()
     lineSrc.SetPoint1(s)
@@ -842,6 +857,7 @@ if __name__ == '__main__':
     subparser = subparsers.add_parser('doConvertRawToH5')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
+    subparser.add_argument('--weight', default=1.0)
     subparser.set_defaults(func=doConvertRawToH5)
 
     # create the parser for the "doConvertRawToH5NoBifurc" command
@@ -909,6 +925,12 @@ if __name__ == '__main__':
     subparser.add_argument('basename1')
     subparser.add_argument('basename2')
     subparser.set_defaults(func=doROC)
+
+    # create the parser for the "doAUC" command
+    subparser = subparsers.add_parser('doAUC')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.set_defaults(func=doAUC)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
