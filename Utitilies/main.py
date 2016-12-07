@@ -848,6 +848,38 @@ def doGraphCut(dirname):
     filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.vtp')
     IO.writePolyDataFile(filename, polyData)
 
+def doAnalyzeLabeling(args):
+    dirname   = args.dirname
+    basename  = args.basename
+
+    filename = os.path.join(dirname, 'tree_structure.xml')
+    dataset = IO.readGxlFile(filename)
+
+    positions = dataset['positions']
+    nodeTypes = dataset['nodeTypes']
+
+    bifurcs  = positions[nodeTypes == 'b']
+    bifurcnn = KDTree(bifurcs)
+
+    filename  = os.path.join(dirname, basename)
+    dataset   = IO.readH5File(filename)
+
+    positions     = dataset['positions']
+    sourceIndices = dataset['sourceIndices']
+    targetIndices = dataset['targetIndices']
+
+    dist, _    = bifurcnn.query(positions[sourceIndices], k=1)
+    nearBifurc = dist[:,0] < 1e-2
+    nearBifurc = ~nearBifurc
+
+    numNonZeros = np.count_nonzero(nearBifurc)
+    print numNonZeros
+
+    dist = linalg.norm(positions[sourceIndices] - positions[targetIndices], axis=1)
+
+    print np.mean(dist),np.std(dist)
+    print np.mean(dist[nearBifurc]),np.std(dist[nearBifurc])
+
 if __name__ == '__main__':
     # create the top-level parser
     argparser = argparse.ArgumentParser()
@@ -931,6 +963,12 @@ if __name__ == '__main__':
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.set_defaults(func=doAUC)
+
+    # create the parser for the "doAnalyzeLabeling" command
+    subparser = subparsers.add_parser('doAnalyzeLabeling')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.set_defaults(func=doAnalyzeLabeling)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
