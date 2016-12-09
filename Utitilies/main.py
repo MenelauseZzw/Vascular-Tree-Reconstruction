@@ -1048,7 +1048,7 @@ def doErrorBar(args):
     fig.set_size_inches(12, 6)
 
     ax  = fig.add_subplot(111)
-    ax.set_xlim(0, 10)
+    ax.set_xlim(0, 20)
     ax.set_ylim(0, 1.0)
 
     ax.set_xlabel('weight')
