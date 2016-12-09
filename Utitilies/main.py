@@ -1027,13 +1027,12 @@ def doProjectionOntoSourceTreeCsv(args):
     lambd        = np.array([lambd[closestIndex[I]][I] for I in np.ndindex(closestIndex.shape)])
     
     error     = linalg.norm(closestProj - pOrig, axis=1)
-    normError = error / radiusPrime[closestIndex]
 
     errMean   = np.mean(error)
     errStdDev = np.std(error)
     errMedian = np.median(error)
 
-    print '{0},{1},{2},{3}'.format(weight, errMean, errStdDev, errStdDev)
+    print '{0},{1},{2},{3}'.format(weight, errMean, errStdDev, errMedian)
     
 if __name__ == '__main__':
     # create the top-level parser
