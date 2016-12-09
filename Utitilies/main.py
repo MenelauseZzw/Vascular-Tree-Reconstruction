@@ -919,10 +919,16 @@ def doProjectionOntoSourceTree(args):
     ignor = np.logical_or(lambd < 0, lambd > 1)
     ignor = ignor[:,:,0]
     
-    dist[ignor] = np.inf
+    sDist = linalg.norm(s - p, axis=2)
+    tDist = linalg.norm(t - p, axis=2)
+
+    dist = np.where(ignor, np.minimum(sDist, tDist), dist)
+
     # closestIndex[k] is i such that an interval between points s[i] and t[i] is the closest to point p[k]
     closestIndex = np.argmin(dist, axis=0)
+
     closestProj  = np.array([proj[closestIndex[I]][I] for I in np.ndindex(closestIndex.shape)])
+    lambd        = np.array([lambd[closestIndex[I]][I] for I in np.ndindex(closestIndex.shape)])
     
     error     = linalg.norm(closestProj - pOrig, axis=1)
     normError = error / radiusPrime[closestIndex]
@@ -936,6 +942,32 @@ def doProjectionOntoSourceTree(args):
     #print 'normError.median = ', np.median(normError)
 
     #errorByRadius = sorted((rad, err) for err,rad in zip(error, radiusPrime[closestIndex]))
+
+    #numIndices = len(indices1)
+
+    #positions = []
+    #indices1  = []
+    #indices2  = []
+
+    #for index in xrange(numIndices):
+    #    mask = closestIndex == index
+    #    orderedByLambda           = sorted(zip(lambd[mask],pOrig[mask]))
+    #    if (len(orderedByLambda) == 0): continue
+
+    #    orderedLambd, orderedProj = zip(*orderedByLambda)
+
+    #    startIndex     = len(positions)
+    #    numProjections = len(orderedProj)
+
+    #    positions.extend(orderedProj)
+    #    indices1.extend(xrange(startIndex, startIndex + numProjections - 1))
+    #    indices2.extend(xrange(startIndex + 1, startIndex + numProjections))
+
+    #polyData   = createGraphPolyData(positions, indices1, indices2)
+    
+    #filename, _ = os.path.splitext(targetFileBasename)
+    #filename    = os.path.join(dirname, filename + 'Opt.vtp')
+    #IO.writePolyDataFile(filename, polyData)
 
 if __name__ == '__main__':
     # create the top-level parser
