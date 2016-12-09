@@ -870,15 +870,9 @@ def doAnalyzeLabeling(args):
 
     dist, _    = bifurcnn.query(positions[sourceIndices], k=1)
     nearBifurc = dist[:,0] < 1e-2
-    nearBifurc = ~nearBifurc
-
-    numNonZeros = np.count_nonzero(nearBifurc)
-    print numNonZeros
 
     dist = linalg.norm(positions[sourceIndices] - positions[targetIndices], axis=1)
-
-    print np.mean(dist),np.std(dist)
-    print np.mean(dist[nearBifurc]),np.std(dist[nearBifurc])
+    print np.mean(dist),np.std(dist),np.mean(dist[nearBifurc]),np.std(dist[nearBifurc]),np.count_nonzero(nearBifurc)
 
 if __name__ == '__main__':
     # create the top-level parser
