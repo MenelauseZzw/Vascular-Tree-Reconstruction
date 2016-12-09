@@ -5,7 +5,7 @@ import matplotlib
 
 # http://stackoverflow.com/questions/2801882/generating-a-png-with-matplotlib-when-display-is-undefined
 # Force matplotlib to not use any Xwindows backend.
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
 import maxflow
@@ -874,6 +874,67 @@ def doAnalyzeLabeling(args):
     dist = linalg.norm(positions[sourceIndices] - positions[targetIndices], axis=1)
     print np.mean(dist),np.std(dist),np.mean(dist[nearBifurc]),np.std(dist[nearBifurc]),np.count_nonzero(nearBifurc)
 
+def doProjectionOntoSourceTree(args):
+    dirname            = args.dirname
+    targetFileBasename = args.targetFileBasename
+    
+    sourceFilename = os.path.join(dirname, 'tree_structure.xml')
+    targetFilename = os.path.join(dirname, targetFileBasename)
+
+    sourceDataset = IO.readGxlFile(sourceFilename)
+    targetDataset = IO.readH5File(targetFilename)
+
+    positions   = sourceDataset['positions']
+    indices1    = sourceDataset['indices1']
+    indices2    = sourceDataset['indices2']
+    radiusPrime = sourceDataset['radiusPrime']
+
+    sOrig = positions[indices1]
+    tOrig = positions[indices2]
+
+    s = sOrig[:,np.newaxis,:]
+    t = tOrig[:,np.newaxis,:]
+    
+    sMinusT   = s - t
+    sMinusTSq = np.sum(sMinusT * sMinusT, axis=2)
+
+    pOrig       = targetDataset['positions']
+
+    p = pOrig[np.newaxis,:,:]
+
+    sMinusP   = s - p
+
+    sMinusPDotSMinusT = np.sum(sMinusP * sMinusT, axis=2)
+    
+    lambd = sMinusPDotSMinusT / sMinusTSq
+    lambd = lambd[:,:,np.newaxis]
+    
+    # proj[i,k] is projection of point p[k] onto line between points s[i] and t[i]
+    proj  = s - lambd * sMinusT
+
+    # dist[i,k] is distance between point p[k] and line between points s[i] and t[i]
+    dist  = linalg.norm(proj - p, axis=2)
+    
+    # ignore points which projections do not belong to corresponding intervals
+    ignor = np.logical_or(lambd < 0, lambd > 1)
+    ignor = ignor[:,:,0]
+    
+    dist[ignor] = np.inf
+    # closestIndex[k] is i such that an interval between points s[i] and t[i] is the closest to point p[k]
+    closestIndex = np.argmin(dist, axis=0)
+    closestProj  = np.array([proj[closestIndex[I]][I] for I in np.ndindex(closestIndex.shape)])
+    
+    error     = linalg.norm(closestProj - pOrig, axis=1)
+    normError = error / radiusPrime[closestIndex]
+
+    print 'error.mean   = ', np.mean(error)
+    print 'error.stdDev = ', np.std(error)
+    print 'error.median = ', np.median(error)
+
+    print 'normError.mean   = ', np.mean(normError)
+    print 'normError.stdDev = ', np.std(normError)
+    print 'normError.median = ', np.median(normError)
+
 if __name__ == '__main__':
     # create the top-level parser
     argparser = argparse.ArgumentParser()
@@ -963,6 +1024,12 @@ if __name__ == '__main__':
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.set_defaults(func=doAnalyzeLabeling)
+
+    # create the parser for the "doProjectionOntoSourceTree" command
+    subparser = subparsers.add_parser('doProjectionOntoSourceTree')
+    subparser.add_argument('dirname')
+    subparser.add_argument('targetFileBasename')
+    subparser.set_defaults(func=doProjectionOntoSourceTree)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
