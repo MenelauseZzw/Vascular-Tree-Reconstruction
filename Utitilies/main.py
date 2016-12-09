@@ -927,13 +927,15 @@ def doProjectionOntoSourceTree(args):
     error     = linalg.norm(closestProj - pOrig, axis=1)
     normError = error / radiusPrime[closestIndex]
 
-    print 'error.mean   = ', np.mean(error)
-    print 'error.stdDev = ', np.std(error)
-    print 'error.median = ', np.median(error)
+    print 'error.mean       = ', np.mean(error)
+    print 'error.stdDev     = ', np.std(error)
+    print 'error.median     = ', np.median(error)
 
-    print 'normError.mean   = ', np.mean(normError)
-    print 'normError.stdDev = ', np.std(normError)
-    print 'normError.median = ', np.median(normError)
+    #print 'normError.mean   = ', np.mean(normError)
+    #print 'normError.stdDev = ', np.std(normError)
+    #print 'normError.median = ', np.median(normError)
+
+    #errorByRadius = sorted((rad, err) for err,rad in zip(error, radiusPrime[closestIndex]))
 
 if __name__ == '__main__':
     # create the top-level parser
