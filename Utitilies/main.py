@@ -5,7 +5,7 @@ import matplotlib
 
 # http://stackoverflow.com/questions/2801882/generating-a-png-with-matplotlib-when-display-is-undefined
 # Force matplotlib to not use any Xwindows backend.
-#matplotlib.use('Agg')
+matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
 import maxflow
@@ -1027,13 +1027,40 @@ def doProjectionOntoSourceTreeCsv(args):
     lambd        = np.array([lambd[closestIndex[I]][I] for I in np.ndindex(closestIndex.shape)])
     
     error     = linalg.norm(closestProj - pOrig, axis=1)
-
     errMean   = np.mean(error)
     errStdDev = np.std(error)
     errMedian = np.median(error)
 
     print '{0},{1},{2},{3}'.format(weight, errMean, errStdDev, errMedian)
     
+def doErrorBar(args):
+    dirname  = args.dirname
+    basename = args.basename
+    
+    filename = os.path.join(dirname, basename)
+
+    weight    = np.genfromtxt(filename, delimiter=',', usecols=0, skip_header=1) # weight
+    errMean   = np.genfromtxt(filename, delimiter=',', usecols=1, skip_header=1) # error-mean
+    errStdDev = np.genfromtxt(filename, delimiter=',', usecols=2, skip_header=1) # error-stdDev
+    errMedian = np.genfromtxt(filename, delimiter=',', usecols=3, skip_header=1) # error-median
+
+    fig = plt.figure()
+    fig.set_size_inches(12, 6)
+
+    ax  = fig.add_subplot(111)
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 1.0)
+
+    ax.set_xlabel('weight')
+    ax.set_ylabel('error')
+
+    ax.errorbar(x=weight, y=errMean, yerr=errStdDev, label='mean/stdDev')
+    ax.plot(weight, errMedian, label='median')
+    ax.legend(loc=2)
+    
+    filename,_ = os.path.splitext(filename)
+    fig.savefig(filename + '.png')
+
 if __name__ == '__main__':
     # create the top-level parser
     argparser = argparse.ArgumentParser()
@@ -1136,6 +1163,12 @@ if __name__ == '__main__':
     subparser.add_argument('targetFileBasename')
     subparser.add_argument('weight')
     subparser.set_defaults(func=doProjectionOntoSourceTreeCsv)
+
+    # create the parser for the "doErrorBar" command
+    subparser = subparsers.add_parser('doErrorBar')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.set_defaults(func=doErrorBar)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
