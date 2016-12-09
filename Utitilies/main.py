@@ -969,6 +969,72 @@ def doProjectionOntoSourceTree(args):
     #filename    = os.path.join(dirname, filename + 'Opt.vtp')
     #IO.writePolyDataFile(filename, polyData)
 
+def doProjectionOntoSourceTreeCsv(args):
+    dirname            = args.dirname
+    targetFileBasename = args.targetFileBasename
+    weight             = args.weight
+    
+    sourceFilename = os.path.join(dirname, 'tree_structure.xml')
+    targetFilename = os.path.join(dirname, targetFileBasename)
+
+    sourceDataset = IO.readGxlFile(sourceFilename)
+    targetDataset = IO.readH5File(targetFilename)
+
+    positions   = sourceDataset['positions']
+    indices1    = sourceDataset['indices1']
+    indices2    = sourceDataset['indices2']
+    radiusPrime = sourceDataset['radiusPrime']
+
+    sOrig = positions[indices1]
+    tOrig = positions[indices2]
+
+    s = sOrig[:,np.newaxis,:]
+    t = tOrig[:,np.newaxis,:]
+    
+    sMinusT   = s - t
+    sMinusTSq = np.sum(sMinusT * sMinusT, axis=2)
+
+    pOrig       = targetDataset['positions']
+
+    p = pOrig[np.newaxis,:,:]
+
+    sMinusP   = s - p
+
+    sMinusPDotSMinusT = np.sum(sMinusP * sMinusT, axis=2)
+    
+    lambd = sMinusPDotSMinusT / sMinusTSq
+    lambd = lambd[:,:,np.newaxis]
+    
+    # proj[i,k] is projection of point p[k] onto line between points s[i] and t[i]
+    proj  = s - lambd * sMinusT
+
+    # dist[i,k] is distance between point p[k] and line between points s[i] and t[i]
+    dist  = linalg.norm(proj - p, axis=2)
+    
+    # ignore points which projections do not belong to corresponding intervals
+    ignor = np.logical_or(lambd < 0, lambd > 1)
+    ignor = ignor[:,:,0]
+    
+    sDist = linalg.norm(s - p, axis=2)
+    tDist = linalg.norm(t - p, axis=2)
+
+    dist = np.where(ignor, np.minimum(sDist, tDist), dist)
+
+    # closestIndex[k] is i such that an interval between points s[i] and t[i] is the closest to point p[k]
+    closestIndex = np.argmin(dist, axis=0)
+
+    closestProj  = np.array([proj[closestIndex[I]][I] for I in np.ndindex(closestIndex.shape)])
+    lambd        = np.array([lambd[closestIndex[I]][I] for I in np.ndindex(closestIndex.shape)])
+    
+    error     = linalg.norm(closestProj - pOrig, axis=1)
+    normError = error / radiusPrime[closestIndex]
+
+    errMean   = np.mean(error)
+    errStdDev = np.std(error)
+    errMedian = np.median(error)
+
+    print '{0},{1},{2},{3}'.format(weight, errMean, errStdDev, errStdDev)
+    
 if __name__ == '__main__':
     # create the top-level parser
     argparser = argparse.ArgumentParser()
@@ -1064,6 +1130,13 @@ if __name__ == '__main__':
     subparser.add_argument('dirname')
     subparser.add_argument('targetFileBasename')
     subparser.set_defaults(func=doProjectionOntoSourceTree)
+
+    # create the parser for the "doProjectionOntoSourceTreeCsv" command
+    subparser = subparsers.add_parser('doProjectionOntoSourceTreeCsv')
+    subparser.add_argument('dirname')
+    subparser.add_argument('targetFileBasename')
+    subparser.add_argument('weight')
+    subparser.set_defaults(func=doProjectionOntoSourceTreeCsv)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
