@@ -874,7 +874,7 @@ def doAnalyzeLabeling(args):
     dist = linalg.norm(positions[sourceIndices] - positions[targetIndices], axis=1)
     print np.mean(dist),np.std(dist),np.mean(dist[nearBifurc]),np.std(dist[nearBifurc]),np.count_nonzero(nearBifurc)
 
-def doProjectionOntoSourceTree(args):
+def doProjectionOntoSourceTreePolyDataFile(args):
     dirname            = args.dirname
     targetFileBasename = args.targetFileBasename
     
@@ -943,31 +943,32 @@ def doProjectionOntoSourceTree(args):
 
     #errorByRadius = sorted((rad, err) for err,rad in zip(error, radiusPrime[closestIndex]))
 
-    #numIndices = len(indices1)
+    numIndices = len(indices1)
 
-    #positions = []
-    #indices1  = []
-    #indices2  = []
+    positions = []
+    indices1  = []
+    indices2  = []
 
-    #for index in xrange(numIndices):
-    #    mask = closestIndex == index
-    #    orderedByLambda           = sorted(zip(lambd[mask],pOrig[mask]))
-    #    if (len(orderedByLambda) == 0): continue
+    for index in xrange(numIndices):
+        mask = closestIndex == index
 
-    #    orderedLambd, orderedProj = zip(*orderedByLambda)
+        orderedByLambda = sorted(zip(lambd[mask], pOrig[mask]))
+        if (len(orderedByLambda) == 0): continue
 
-    #    startIndex     = len(positions)
-    #    numProjections = len(orderedProj)
+        orderedLambd, orderedProj = zip(*orderedByLambda)
 
-    #    positions.extend(orderedProj)
-    #    indices1.extend(xrange(startIndex, startIndex + numProjections - 1))
-    #    indices2.extend(xrange(startIndex + 1, startIndex + numProjections))
+        startIndex     = len(positions)
+        numProjections = len(orderedProj)
 
-    #polyData   = createGraphPolyData(positions, indices1, indices2)
+        positions.extend(orderedProj)
+        indices1.extend(xrange(startIndex, startIndex + numProjections - 1))
+        indices2.extend(xrange(startIndex + 1, startIndex + numProjections))
+
+    polyData   = createGraphPolyData(positions, indices1, indices2)
     
-    #filename, _ = os.path.splitext(targetFileBasename)
-    #filename    = os.path.join(dirname, filename + 'Opt.vtp')
-    #IO.writePolyDataFile(filename, polyData)
+    filename, _ = os.path.splitext(targetFileBasename)
+    filename    = os.path.join(dirname, filename + 'Opt.vtp')
+    IO.writePolyDataFile(filename, polyData)
 
 def doProjectionOntoSourceTreeCsv(args):
     dirname            = args.dirname
@@ -1048,7 +1049,7 @@ def doErrorBar(args):
     fig.set_size_inches(12, 6)
 
     ax  = fig.add_subplot(111)
-    ax.set_xlim(0, 20)
+    ax.set_xlim(0, 10)
     ax.set_ylim(0, 1.0)
 
     ax.set_xlabel('weight')
@@ -1151,11 +1152,11 @@ if __name__ == '__main__':
     subparser.add_argument('basename')
     subparser.set_defaults(func=doAnalyzeLabeling)
 
-    # create the parser for the "doProjectionOntoSourceTree" command
-    subparser = subparsers.add_parser('doProjectionOntoSourceTree')
+    # create the parser for the "doProjectionOntoSourceTreePolyDataFile" command
+    subparser = subparsers.add_parser('doProjectionOntoSourceTreePolyDataFile')
     subparser.add_argument('dirname')
     subparser.add_argument('targetFileBasename')
-    subparser.set_defaults(func=doProjectionOntoSourceTree)
+    subparser.set_defaults(func=doProjectionOntoSourceTreePolyDataFile)
 
     # create the parser for the "doProjectionOntoSourceTreeCsv" command
     subparser = subparsers.add_parser('doProjectionOntoSourceTreeCsv')
