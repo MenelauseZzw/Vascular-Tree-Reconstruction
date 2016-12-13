@@ -43,6 +43,55 @@ def doConvertRawToH5(args):
     
     IO.writeH5File(filename, dataset)
 
+def doConvertRawToH5Ignor(args):
+    dirname  = args.dirname
+    basename = args.basename
+    weight   = args.weight
+
+    filename = os.path.join(dirname, basename)
+    dataset  = IO.readRawFile(filename, shape=(101,101,101))
+
+    measurements        = dataset['measurements']
+    tangentLinesPoints1 = dataset['tangentLinesPoints1']
+    tangentLinesPoints2 = dataset['tangentLinesPoints2']
+    radiuses            = dataset['radiuses']
+    responses           = dataset['responses']
+ 
+    conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
+    indices1, indices2 = np.nonzero(conn)
+
+    ignor = np.full_like(radiuses, True, dtype=np.bool)
+    ignor[indices1] = False
+    ignor[indices2] = False
+
+    measurements        = measurements[~ignor]
+    tangentLinesPoints1 = tangentLinesPoints1[~ignor]
+    tangentLinesPoints2 = tangentLinesPoints2[~ignor]
+    radiuses            = radiuses[~ignor]
+    responses           = responses[~ignor]
+
+    dataset = dict()
+
+    dataset['measurements']        = measurements
+    dataset['tangentLinesPoints1'] = tangentLinesPoints1
+    dataset['tangentLinesPoints2'] = tangentLinesPoints2
+    dataset['radiuses']            = radiuses
+
+    conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
+    indices1, indices2 = np.nonzero(conn)
+
+    dataset['indices1'] = indices1
+    dataset['indices2'] = indices2
+    
+    weights = np.full(len(indices1), weight, dtype=np.float)
+
+    dataset['weights'] = weights
+
+    filename, _ = os.path.splitext(filename)
+    filename    = filename + '_ignor.h5'
+
+    IO.writeH5File(filename, dataset)
+
 def doConvertRawToH5NoBifurc(args):
     dirname  = args.dirname
     basename = args.basename
@@ -1073,6 +1122,13 @@ if __name__ == '__main__':
     subparser.add_argument('basename')
     subparser.add_argument('--weight', default=1.0)
     subparser.set_defaults(func=doConvertRawToH5)
+
+    # create the parser for the "doConvertRawToH5Ignor" command
+    subparser = subparsers.add_parser('doConvertRawToH5Ignor')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.add_argument('--weight', default=1.0)
+    subparser.set_defaults(func=doConvertRawToH5Ignor)
 
     # create the parser for the "doConvertRawToH5NoBifurc" command
     subparser = subparsers.add_parser('doConvertRawToH5NoBifurc')
