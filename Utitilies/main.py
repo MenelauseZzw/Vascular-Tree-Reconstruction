@@ -57,7 +57,8 @@ def doConvertRawToH5Ignor(args):
     radiuses            = dataset['radiuses']
     responses           = dataset['responses']
  
-    conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
+    #conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
+    conn = radius_neighbors_graph(measurements, radius=(1 + np.sqrt(2)) / 2, metric='euclidean', include_self=False)
     indices1, indices2 = np.nonzero(conn)
 
     ignor = np.full_like(radiuses, True, dtype=np.bool)
@@ -76,8 +77,9 @@ def doConvertRawToH5Ignor(args):
     dataset['tangentLinesPoints1'] = tangentLinesPoints1
     dataset['tangentLinesPoints2'] = tangentLinesPoints2
     dataset['radiuses']            = radiuses
-
-    conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
+    
+    #conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
+    conn = radius_neighbors_graph(measurements, radius=(1 + np.sqrt(2)) / 2, metric='euclidean', include_self=False)
     indices1, indices2 = np.nonzero(conn)
 
     dataset['indices1'] = indices1
