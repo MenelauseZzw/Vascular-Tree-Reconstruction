@@ -925,36 +925,15 @@ def doAnalyzeLabeling(args):
     dist = linalg.norm(positions[sourceIndices] - positions[targetIndices], axis=1)
     print np.mean(dist),np.std(dist),np.mean(dist[nearBifurc]),np.std(dist[nearBifurc]),np.count_nonzero(nearBifurc)
 
-def doProjectionOntoSourceTreePolyDataFile(args):
-    dirname            = args.dirname
-    targetFileBasename = args.targetFileBasename
-    
-    sourceFilename = os.path.join(dirname, 'tree_structure.xml')
-    targetFilename = os.path.join(dirname, targetFileBasename)
+def projectOntoSourceTree(sOrig, tOrig, pOrig, computeErrors=False):
+    s = sOrig[:,np.newaxis,:] # s.shape = (numPoints1, 1L, numDimensions)
+    t = tOrig[:,np.newaxis,:] # t.shape = (numPoints1, 1L, numDimensions)
+    p = pOrig[np.newaxis,:,:] # p.shape = (1L, numPoints2, numDimensions)
 
-    sourceDataset = IO.readGxlFile(sourceFilename)
-    targetDataset = IO.readH5File(targetFilename)
-
-    positions   = sourceDataset['positions']
-    indices1    = sourceDataset['indices1']
-    indices2    = sourceDataset['indices2']
-    radiusPrime = sourceDataset['radiusPrime']
-
-    sOrig = positions[indices1]
-    tOrig = positions[indices2]
-
-    s = sOrig[:,np.newaxis,:]
-    t = tOrig[:,np.newaxis,:]
-    
     sMinusT   = s - t
     sMinusTSq = np.sum(sMinusT * sMinusT, axis=2)
 
-    pOrig       = targetDataset['positions']
-
-    p = pOrig[np.newaxis,:,:]
-
     sMinusP   = s - p
-
     sMinusPDotSMinusT = np.sum(sMinusP * sMinusT, axis=2)
     
     lambd = sMinusPDotSMinusT / sMinusTSq
@@ -975,24 +954,46 @@ def doProjectionOntoSourceTreePolyDataFile(args):
 
     dist = np.where(ignor, np.minimum(sDist, tDist), dist)
 
-    # closestIndex[k] is i such that an interval between points s[i] and t[i] is the closest to point p[k]
-    closestIndex = np.argmin(dist, axis=0)
+    # closIndex[k] is index i such that an interval between points s[i] and t[i] of source tree is the closest one to point p[k]
+    closIndex = np.argmin(dist, axis=0)
 
-    closestProj  = np.array([proj[closestIndex[I]][I] for I in np.ndindex(closestIndex.shape)])
-    lambd        = np.array([lambd[closestIndex[I]][I] for I in np.ndindex(closestIndex.shape)])
+    # closProj[k] is projection of point p[k] to the closest interval of source tree
+    closProj  = np.array([proj[closIndex[I]][I] for I in np.ndindex(closIndex.shape)])
+
+    # closLambd[k] is projection coefficient corresponding to closProj[k]
+    closLambd = np.array([lambd[closIndex[I]][I] for I in np.ndindex(closIndex.shape)]) 
     
-    error     = linalg.norm(closestProj - pOrig, axis=1)
-    normError = error / radiusPrime[closestIndex]
+    if (computeErrors):
+        errors = linalg.norm(closProj - pOrig, axis=1)
+        return (closIndex, closProj, closLambd, errors)
+    else:
+        return (closIndex, closProj, closLambd)
 
-    print 'error.mean       = ', np.mean(error)
-    print 'error.stdDev     = ', np.std(error)
-    print 'error.median     = ', np.median(error)
+def doProjectionOntoSourceTreePolyDataFile(args):
+    dirname            = args.dirname
+    targetFileBasename = args.targetFileBasename
+    positionsDataSet   = args.positions
+    
+    sourceFilename = os.path.join(dirname, 'tree_structure.xml')
+    targetFilename = os.path.join(dirname, targetFileBasename)
 
-    #print 'normError.mean   = ', np.mean(normError)
-    #print 'normError.stdDev = ', np.std(normError)
-    #print 'normError.median = ', np.median(normError)
+    sourceDataset = IO.readGxlFile(sourceFilename)
+    targetDataset = IO.readH5File(targetFilename)
 
-    #errorByRadius = sorted((rad, err) for err,rad in zip(error, radiusPrime[closestIndex]))
+    positions   = sourceDataset['positions']
+    indices1    = sourceDataset['indices1']
+    indices2    = sourceDataset['indices2']
+
+    sOrig = positions[indices1]
+    tOrig = positions[indices2]
+
+    pOrig = targetDataset[positionsDataSet]
+
+    closIndex,closProj,closLambd,errors = projectOntoSourceTree(sOrig, tOrig, pOrig, computeErrors=True)
+
+    print 'errors.mean       = ', np.mean(errors)
+    print 'errors.stdDev     = ', np.std(errors)
+    print 'errors.median     = ', np.median(errors)
 
     numIndices = len(indices1)
 
@@ -1001,9 +1002,9 @@ def doProjectionOntoSourceTreePolyDataFile(args):
     indices2  = []
 
     for index in xrange(numIndices):
-        mask = closestIndex == index
+        mask = np.equal(closIndex, index)
 
-        orderedByLambda = sorted(zip(lambd[mask], pOrig[mask]))
+        orderedByLambda = sorted(zip(closLambd[mask], pOrig[mask]))
         if (len(orderedByLambda) == 0): continue
 
         orderedLambd, orderedProj = zip(*orderedByLambda)
@@ -1021,10 +1022,25 @@ def doProjectionOntoSourceTreePolyDataFile(args):
     filename    = os.path.join(dirname, filename + 'Opt.vtp')
     IO.writePolyDataFile(filename, polyData)
 
+    positions = []
+    positions.extend(pOrig)
+    positions.extend(closProj)
+
+    pOrigLen = len(pOrig)
+    indices1 = list(xrange(0, pOrigLen))
+    indices2 = list(xrange(pOrigLen, len(positions)))
+
+    polyData   = createGraphPolyData(positions, indices1, indices2)
+    
+    filename, _ = os.path.splitext(targetFileBasename)
+    filename    = os.path.join(dirname, filename + 'Proj.vtp')
+    IO.writePolyDataFile(filename, polyData)
+
 def doProjectionOntoSourceTreeCsv(args):
     dirname            = args.dirname
     targetFileBasename = args.targetFileBasename
     weight             = args.weight
+    positionsDataSet   = args.positions
     
     sourceFilename = os.path.join(dirname, 'tree_structure.xml')
     targetFilename = os.path.join(dirname, targetFileBasename)
@@ -1035,53 +1051,16 @@ def doProjectionOntoSourceTreeCsv(args):
     positions   = sourceDataset['positions']
     indices1    = sourceDataset['indices1']
     indices2    = sourceDataset['indices2']
-    radiusPrime = sourceDataset['radiusPrime']
 
     sOrig = positions[indices1]
     tOrig = positions[indices2]
+    pOrig       = targetDataset[positionsDataSet]
 
-    s = sOrig[:,np.newaxis,:]
-    t = tOrig[:,np.newaxis,:]
-    
-    sMinusT   = s - t
-    sMinusTSq = np.sum(sMinusT * sMinusT, axis=2)
+    _,_,_,errors = projectOntoSourceTree(sOrig, tOrig, pOrig, computeErrors=True)
 
-    pOrig       = targetDataset['positions']
-
-    p = pOrig[np.newaxis,:,:]
-
-    sMinusP   = s - p
-
-    sMinusPDotSMinusT = np.sum(sMinusP * sMinusT, axis=2)
-    
-    lambd = sMinusPDotSMinusT / sMinusTSq
-    lambd = lambd[:,:,np.newaxis]
-    
-    # proj[i,k] is projection of point p[k] onto line between points s[i] and t[i]
-    proj  = s - lambd * sMinusT
-
-    # dist[i,k] is distance between point p[k] and line between points s[i] and t[i]
-    dist  = linalg.norm(proj - p, axis=2)
-    
-    # ignore points which projections do not belong to corresponding intervals
-    ignor = np.logical_or(lambd < 0, lambd > 1)
-    ignor = ignor[:,:,0]
-    
-    sDist = linalg.norm(s - p, axis=2)
-    tDist = linalg.norm(t - p, axis=2)
-
-    dist = np.where(ignor, np.minimum(sDist, tDist), dist)
-
-    # closestIndex[k] is i such that an interval between points s[i] and t[i] is the closest to point p[k]
-    closestIndex = np.argmin(dist, axis=0)
-
-    closestProj  = np.array([proj[closestIndex[I]][I] for I in np.ndindex(closestIndex.shape)])
-    lambd        = np.array([lambd[closestIndex[I]][I] for I in np.ndindex(closestIndex.shape)])
-    
-    error     = linalg.norm(closestProj - pOrig, axis=1)
-    errMean   = np.mean(error)
-    errStdDev = np.std(error)
-    errMedian = np.median(error)
+    errMean   = np.mean(errors)
+    errStdDev = np.std(errors)
+    errMedian = np.median(errors)
 
     print '{0},{1},{2},{3}'.format(weight, errMean, errStdDev, errMedian)
     
@@ -1214,6 +1193,7 @@ if __name__ == '__main__':
     subparser = subparsers.add_parser('doProjectionOntoSourceTreePolyDataFile')
     subparser.add_argument('dirname')
     subparser.add_argument('targetFileBasename')
+    subparser.add_argument('--positions', default='positions')
     subparser.set_defaults(func=doProjectionOntoSourceTreePolyDataFile)
 
     # create the parser for the "doProjectionOntoSourceTreeCsv" command
@@ -1221,6 +1201,7 @@ if __name__ == '__main__':
     subparser.add_argument('dirname')
     subparser.add_argument('targetFileBasename')
     subparser.add_argument('weight')
+    subparser.add_argument('--positions', default='positions')
     subparser.set_defaults(func=doProjectionOntoSourceTreeCsv)
 
     # create the parser for the "doErrorBar" command
