@@ -8,7 +8,7 @@ import matplotlib
 matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
-import maxflow
+#import maxflow
 import os.path
 import numpy as np
 import numpy.linalg as linalg
@@ -57,8 +57,7 @@ def doConvertRawToH5Ignor(args):
     radiuses            = dataset['radiuses']
     responses           = dataset['responses']
  
-    #conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
-    conn = radius_neighbors_graph(measurements, radius=(1 + np.sqrt(2)) / 2, metric='euclidean', include_self=False)
+    conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
     indices1, indices2 = np.nonzero(conn)
 
     ignor = np.full_like(radiuses, True, dtype=np.bool)
@@ -78,8 +77,7 @@ def doConvertRawToH5Ignor(args):
     dataset['tangentLinesPoints2'] = tangentLinesPoints2
     dataset['radiuses']            = radiuses
     
-    #conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
-    conn = radius_neighbors_graph(measurements, radius=(1 + np.sqrt(2)) / 2, metric='euclidean', include_self=False)
+    conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
     indices1, indices2 = np.nonzero(conn)
 
     dataset['indices1'] = indices1
@@ -630,11 +628,12 @@ def createTangentsPolyData(tangentLinesPoints1, tangentLinesPoints2):
 def doCreateTangentsPolyDataFile(args):
     dirname   = args.dirname
     basename  = args.basename
+    pointsArrName   = args.points
 
     filename = os.path.join(dirname, basename)
     dataset  = IO.readH5File(filename)
 
-    positions           = dataset['positions']
+    positions           = dataset[pointsArrName]
     tangentLinesPoints1 = dataset['tangentLinesPoints1']
     tangentLinesPoints2 = dataset['tangentLinesPoints2']
 
@@ -685,8 +684,13 @@ def createCircularPolyData(pointsArr, tangentLinesPoints1, tangentLinesPoints2, 
 
     return polyData
 
-def doCreateCircularPolyDataFile(dirname, pointsArrName, radiusesArrName):
-    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
+def doCreateCircularPolyDataFile(args):
+    dirname         = args.dirname
+    basename        = args.basename
+    pointsArrName   = args.points
+    radiusesArrName = args.radiuses
+
+    filename = os.path.join(dirname, basename)
     dataset  = IO.readH5File(filename)
 
     pointsArr           = dataset[pointsArrName]
@@ -696,7 +700,8 @@ def doCreateCircularPolyDataFile(dirname, pointsArrName, radiusesArrName):
 
     polyData = createCircularPolyData(pointsArr, tangentLinesPoints1, tangentLinesPoints2, radiusesArr)
     
-    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.vtp')
+    filename, _ = os.path.splitext(filename)
+    filename    = filename + 'Circular.vtp'
     IO.writePolyDataFile(filename, polyData)
 
 def doMST(dirname):
@@ -764,140 +769,140 @@ def doMST(dirname):
     filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.vtp')
     IO.writePolyDataFile(filename, polyData)
 
-def doGraphCut(dirname):
-    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
-    dataset  = IO.readH5File(filename)
+#def doGraphCut(dirname):
+#    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
+#    dataset  = IO.readH5File(filename)
 
-    positions           = dataset['positions']
-    tangentLinesPoints1 = dataset['tangentLinesPoints1']
-    tangentLinesPoints2 = dataset['tangentLinesPoints2']
+#    positions           = dataset['positions']
+#    tangentLinesPoints1 = dataset['tangentLinesPoints1']
+#    tangentLinesPoints2 = dataset['tangentLinesPoints2']
     
-    indices1            = dataset['indices1']
-    indices2            = dataset['indices2']
+#    indices1            = dataset['indices1']
+#    indices2            = dataset['indices2']
 
-    n = len(positions)
-    g = maxflow.Graph[float]()
+#    n = len(positions)
+#    g = maxflow.Graph[float]()
 
-    nodes = g.add_nodes(n)
+#    nodes = g.add_nodes(n)
 
-    appendPolyData = vtk.vtkAppendPolyData()
+#    appendPolyData = vtk.vtkAppendPolyData()
 
-    indices1 = []
-    indices2 = []
+#    indices1 = []
+#    indices2 = []
 
-    for i in xrange(n):
-        for k in xrange(i + 1, n):
-            if linalg.norm(positions[i] - positions[k]) < 2:
-                indices1.append(i)
-                indices2.append(k)
+#    for i in xrange(n):
+#        for k in xrange(i + 1, n):
+#            if linalg.norm(positions[i] - positions[k]) < 2:
+#                indices1.append(i)
+#                indices2.append(k)
 
-    for i,k in zip(indices1, indices2):
-        if k < i: continue
+#    for i,k in zip(indices1, indices2):
+#        if k < i: continue
 
-        p  = positions[i]
-        q  = positions[k]
-        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
-        lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
+#        p  = positions[i]
+#        q  = positions[k]
+#        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
+#        lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
 
-        lp = lp / linalg.norm(lp)
-        lq = lq / linalg.norm(lq)
-        dist = linalg.norm(p - q)
-        lp = lp * dist
-        lq = lq * dist
+#        lp = lp / linalg.norm(lp)
+#        lq = lq / linalg.norm(lq)
+#        dist = linalg.norm(p - q)
+#        lp = lp * dist
+#        lq = lq * dist
    
-        for lpsgn,lqsgn in [(-lp,-lq), (-lp, lq), (lp,-lq), (lp, lq)]:
-            spline    = createSpline(p,lpsgn, q, lqsgn)
-            splineLen = splineLength(spline, num_points=100)
+#        for lpsgn,lqsgn in [(-lp,-lq), (-lp, lq), (lp,-lq), (lp, lq)]:
+#            spline    = createSpline(p,lpsgn, q, lqsgn)
+#            splineLen = splineLength(spline, num_points=100)
 
-        A = splineLength(createSpline(p,-lp, q,-lq), num_points=100)
-        B = splineLength(createSpline(p,-lp, q, lq), num_points=100)
-        C = splineLength(createSpline(p, lp, q,-lq), num_points=100)
-        D = splineLength(createSpline(p, lp, q, lq), num_points=100)
+#        A = splineLength(createSpline(p,-lp, q,-lq), num_points=100)
+#        B = splineLength(createSpline(p,-lp, q, lq), num_points=100)
+#        C = splineLength(createSpline(p, lp, q,-lq), num_points=100)
+#        D = splineLength(createSpline(p, lp, q, lq), num_points=100)
 
-        #assert A + D <= B + C
+#        #assert A + D <= B + C
 
-        g.add_tedge(nodes[i], C, A)
-        g.add_tedge(nodes[k], D - C, 0)
-        g.add_edge(nodes[i], nodes[k], B + C - A - D, 0)
+#        g.add_tedge(nodes[i], C, A)
+#        g.add_tedge(nodes[k], D - C, 0)
+#        g.add_edge(nodes[i], nodes[k], B + C - A - D, 0)
 
-    flow = g.maxflow()
+#    flow = g.maxflow()
 
-    G = dict()
+#    G = dict()
 
-    for i,k in zip(indices1, indices2):
-        if k < i: continue
+#    for i,k in zip(indices1, indices2):
+#        if k < i: continue
 
-        p  = positions[i]
-        q  = positions[k]
-        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
-        lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
+#        p  = positions[i]
+#        q  = positions[k]
+#        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
+#        lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
 
-        lp = lp / linalg.norm(lp)
-        lq = lq / linalg.norm(lq)
-        dist = linalg.norm(p - q)
+#        lp = lp / linalg.norm(lp)
+#        lq = lq / linalg.norm(lq)
+#        dist = linalg.norm(p - q)
         
-        lp = lp * dist
-        lq = lq * dist
+#        lp = lp * dist
+#        lq = lq * dist
 
-        if g.get_segment(nodes[i]) == 1:
-            lpsgn =  lp
-        else:
-            lpsgn = -lp
+#        if g.get_segment(nodes[i]) == 1:
+#            lpsgn =  lp
+#        else:
+#            lpsgn = -lp
 
-        if g.get_segment(nodes[k]) == 1:
-            lqsgn =  lq
-        else:
-            lqsgn = -lq
+#        if g.get_segment(nodes[k]) == 1:
+#            lqsgn =  lq
+#        else:
+#            lqsgn = -lq
    
-        spline    = createSpline(p, lpsgn, q, lqsgn)
-        splineLen = splineLength(spline, num_points=100)
+#        spline    = createSpline(p, lpsgn, q, lqsgn)
+#        splineLen = splineLength(spline, num_points=100)
 
-        if not i in G:
-            G[i] = dict()
+#        if not i in G:
+#            G[i] = dict()
 
-        if not k in G:
-            G[k] = dict()
+#        if not k in G:
+#            G[k] = dict()
         
-        G[i][k] = splineLen
-        G[k][i] = splineLen
+#        G[i][k] = splineLen
+#        G[k][i] = splineLen
 
-    T = MinimumSpanningTree.MinimumSpanningTree(G)
+#    T = MinimumSpanningTree.MinimumSpanningTree(G)
 
-    for i,k in T:
-        p  = positions[i]
-        q  = positions[k]
-        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
-        lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
+#    for i,k in T:
+#        p  = positions[i]
+#        q  = positions[k]
+#        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
+#        lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
 
-        lp = lp / linalg.norm(lp)
-        lq = lq / linalg.norm(lq)
-        dist = linalg.norm(p - q)
+#        lp = lp / linalg.norm(lp)
+#        lq = lq / linalg.norm(lq)
+#        dist = linalg.norm(p - q)
         
-        lp = lp * dist
-        lq = lq * dist
+#        lp = lp * dist
+#        lq = lq * dist
 
-        if g.get_segment(nodes[i]) == 1:
-            lpsgn =  lp
-        else:
-            lpsgn = -lp
+#        if g.get_segment(nodes[i]) == 1:
+#            lpsgn =  lp
+#        else:
+#            lpsgn = -lp
 
-        if g.get_segment(nodes[k]) == 1:
-            lqsgn =  lq
-        else:
-            lqsgn = -lq
+#        if g.get_segment(nodes[k]) == 1:
+#            lqsgn =  lq
+#        else:
+#            lqsgn = -lq
    
-        spline = createSpline(p, lpsgn, q, lqsgn)
-        splinePolyData = createSplinePolyData(spline, num_points=100)
+#        spline = createSpline(p, lpsgn, q, lqsgn)
+#        splinePolyData = createSplinePolyData(spline, num_points=100)
 
-        polyData = vtk.vtkPolyData()
-        polyData.DeepCopy(splinePolyData)
-        appendPolyData.AddInputData(polyData)
+#        polyData = vtk.vtkPolyData()
+#        polyData.DeepCopy(splinePolyData)
+#        appendPolyData.AddInputData(polyData)
         
-    appendPolyData.Update()
-    polyData = appendPolyData.GetOutput()
+#    appendPolyData.Update()
+#    polyData = appendPolyData.GetOutput()
 
-    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.vtp')
-    IO.writePolyDataFile(filename, polyData)
+#    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.vtp')
+#    IO.writePolyDataFile(filename, polyData)
 
 def doAnalyzeLabeling(args):
     dirname   = args.dirname
@@ -925,7 +930,7 @@ def doAnalyzeLabeling(args):
     dist = linalg.norm(positions[sourceIndices] - positions[targetIndices], axis=1)
     print np.mean(dist),np.std(dist),np.mean(dist[nearBifurc]),np.std(dist[nearBifurc]),np.count_nonzero(nearBifurc)
 
-def projectOntoSourceTree(sOrig, tOrig, pOrig, computeErrors=False):
+def projectOntoSourceTree(sOrig, tOrig, pOrig):
     s = sOrig[:,np.newaxis,:] # s.shape = (numPoints1, 1L, numDimensions)
     t = tOrig[:,np.newaxis,:] # t.shape = (numPoints1, 1L, numDimensions)
     p = pOrig[np.newaxis,:,:] # p.shape = (1L, numPoints2, numDimensions)
@@ -989,7 +994,7 @@ def doProjectionOntoSourceTreePolyDataFile(args):
 
     pOrig = targetDataset[positionsDataSet]
 
-    closIndex,closProj,closLambd,errors = projectOntoSourceTree(sOrig, tOrig, pOrig, computeErrors=True)
+    closIndex,closProj,closLambd,errors = projectOntoSourceTree(sOrig, tOrig, pOrig)
 
     print 'errors.mean       = ', np.mean(errors)
     print 'errors.stdDev     = ', np.std(errors)
@@ -1037,10 +1042,10 @@ def doProjectionOntoSourceTreePolyDataFile(args):
     IO.writePolyDataFile(filename, polyData)
 
 def doProjectionOntoSourceTreeCsv(args):
-    dirname            = args.dirname
-    targetFileBasename = args.targetFileBasename
-    weight             = args.weight
-    positionsDataSet   = args.positions
+    dirname             = args.dirname
+    targetFileBasename  = args.targetFileBasename
+    prependStringRow    = args.prependStringRow
+    pointsArrName       = args.points
     
     sourceFilename = os.path.join(dirname, 'tree_structure.xml')
     targetFilename = os.path.join(dirname, targetFileBasename)
@@ -1048,21 +1053,26 @@ def doProjectionOntoSourceTreeCsv(args):
     sourceDataset = IO.readGxlFile(sourceFilename)
     targetDataset = IO.readH5File(targetFilename)
 
-    positions   = sourceDataset['positions']
+    positions   = sourceDataset[pointsArrName]
     indices1    = sourceDataset['indices1']
     indices2    = sourceDataset['indices2']
 
     sOrig = positions[indices1]
     tOrig = positions[indices2]
-    pOrig       = targetDataset[positionsDataSet]
+    pOrig = targetDataset[positionsDataSet]
 
-    _,_,_,errors = projectOntoSourceTree(sOrig, tOrig, pOrig, computeErrors=True)
+    _,_,_,errors = projectOntoSourceTree(sOrig, tOrig, pOrig)
 
-    errMean   = np.mean(errors)
-    errStdDev = np.std(errors)
-    errMedian = np.median(errors)
+    errMean    = np.mean(errors)
+    errStdDev  = np.std(errors)
+    errMedian  = np.median(errors)
+    
+    err25Perc  = np.percentile(errors,q=25)
+    err75Perc  = np.percentile(errors,q=75)
+    err95Perc  = np.percentile(errors,q=95)
+    err100Perc = np.percentile(errors,q=100)
 
-    print '{0},{1},{2},{3}'.format(weight, errMean, errStdDev, errMedian)
+    print '{0}{1},{2},{3},{4},{5},{6},{7}'.format(prependStringRow, errMean, errStdDev, errMedian, err25Perc, err75Perc, err95Perc, err100Perc)
     
 def doErrorBar(args):
     dirname  = args.dirname
@@ -1168,7 +1178,16 @@ if __name__ == '__main__':
     subparser = subparsers.add_parser('doCreateTangentsPolyDataFile')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
+    subparser.add_argument('--points', default='positions')
     subparser.set_defaults(func=doCreateTangentsPolyDataFile)
+
+    # create the parser for the "doCreateCircularPolyDataFile" command
+    subparser = subparsers.add_parser('doCreateCircularPolyDataFile')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.add_argument('--points', default='positions')
+    subparser.add_argument('--radiuses', default='radiuses')
+    subparser.set_defaults(func=doCreateCircularPolyDataFile)
 
     # create the parser for the "doROC" command
     subparser = subparsers.add_parser('doROC')
@@ -1200,8 +1219,8 @@ if __name__ == '__main__':
     subparser = subparsers.add_parser('doProjectionOntoSourceTreeCsv')
     subparser.add_argument('dirname')
     subparser.add_argument('targetFileBasename')
-    subparser.add_argument('weight')
-    subparser.add_argument('--positions', default='positions')
+    subparser.add_argument('prependStringRow')
+    subparser.add_argument('--points', default='positions')
     subparser.set_defaults(func=doProjectionOntoSourceTreeCsv)
 
     # create the parser for the "doErrorBar" command
