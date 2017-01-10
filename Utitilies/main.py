@@ -967,12 +967,11 @@ def projectOntoSourceTree(sOrig, tOrig, pOrig):
 
     # closLambd[k] is projection coefficient corresponding to closProj[k]
     closLambd = np.array([lambd[closIndex[I]][I] for I in np.ndindex(closIndex.shape)]) 
-    
-    if (computeErrors):
-        errors = linalg.norm(closProj - pOrig, axis=1)
-        return (closIndex, closProj, closLambd, errors)
-    else:
-        return (closIndex, closProj, closLambd)
+
+    # errors[k] = ||pOrig[k] - closProj[k]||    
+    errors = linalg.norm(closProj - pOrig, axis=1)
+
+    return (closIndex, closProj, closLambd, errors)
 
 def doProjectionOntoSourceTreePolyDataFile(args):
     dirname            = args.dirname
@@ -1053,13 +1052,13 @@ def doProjectionOntoSourceTreeCsv(args):
     sourceDataset = IO.readGxlFile(sourceFilename)
     targetDataset = IO.readH5File(targetFilename)
 
-    positions   = sourceDataset[pointsArrName]
+    positions   = sourceDataset['positions']
     indices1    = sourceDataset['indices1']
     indices2    = sourceDataset['indices2']
 
     sOrig = positions[indices1]
     tOrig = positions[indices2]
-    pOrig = targetDataset[positionsDataSet]
+    pOrig = targetDataset[pointsArrName]
 
     _,_,_,errors = projectOntoSourceTree(sOrig, tOrig, pOrig)
 
