@@ -507,10 +507,11 @@ def doCreateCubicSplinePolyDataFile(args):
 
     IO.writePolyDataFile(filename, polyData)
 
-def doConvertRawToH5Weights(args):
+def doConvertRawToH5Responses(args):
     dirname  = args.dirname
     basename = args.basename
     shape    = tuple(args.shape)
+    weight   = args.weight
 
     filename = os.path.join(dirname, basename)
     dataset  = IO.readRawFile(filename, shape=shape)
@@ -537,11 +538,7 @@ def doConvertRawToH5Weights(args):
     dataset['indices2'] = indices2
     dataset['radiuses'] = radiuses
 
-    # weights = np.full_like(indices1, 2.0, dtype=np.double)
-    weights = 2.0 * responses[indices1] # data15
-    # weights = 6.0 * responses[indices1] # 6.0 is 'better' than 9.0
-    # weights = 4.0 * responses[indices2] indices1 works 'better' than indices2
-    # weights = 4.0 * (responses[indices1] + responses[indices2])
+    weights = np.multiply(weight, responses[indices1])
 
     dataset['weights']  = weights
 
@@ -1023,7 +1020,7 @@ def doProjectionOntoSourceTreePolyDataFile(args):
     polyData   = createGraphPolyData(positions, indices1, indices2)
     
     filename, _ = os.path.splitext(targetFileBasename)
-    filename    = os.path.join(dirname, filename + 'Opt.vtp')
+    filename    = os.path.join(dirname, filename + 'OptimalTree.vtp')
     IO.writePolyDataFile(filename, polyData)
 
     positions = []
@@ -1037,7 +1034,7 @@ def doProjectionOntoSourceTreePolyDataFile(args):
     polyData   = createGraphPolyData(positions, indices1, indices2)
     
     filename, _ = os.path.splitext(targetFileBasename)
-    filename    = os.path.join(dirname, filename + 'Proj.vtp')
+    filename    = os.path.join(dirname, filename + 'ProjectionOntoSourceTree.vtp')
     IO.writePolyDataFile(filename, polyData)
 
 def doProjectionOntoSourceTreeCsv(args):
@@ -1072,7 +1069,7 @@ def doProjectionOntoSourceTreeCsv(args):
     err100Perc = np.percentile(errors,q=100)
 
     print '{0}{1},{2},{3},{4},{5},{6},{7}'.format(prependStringRow, errMean, errStdDev, errMedian, err25Perc, err75Perc, err95Perc, err100Perc)
-    
+
 def doErrorBar(args):
     dirname  = args.dirname
     basename = args.basename
@@ -1101,6 +1098,10 @@ def doErrorBar(args):
     filename,_ = os.path.splitext(filename)
     fig.savefig(filename + '.png')
 
+def doCreateProjectionOntoSourceTreeCsv(args):
+
+    pass
+
 if __name__ == '__main__':
     # create the top-level parser
     argparser = argparse.ArgumentParser()
@@ -1126,12 +1127,13 @@ if __name__ == '__main__':
     subparser.add_argument('basename')
     subparser.set_defaults(func=doConvertRawToH5NoBifurc)
 
-    # create the parser for the "doConvertRawToH5Weights" command
-    subparser = subparsers.add_parser('doConvertRawToH5Weights')
+    # create the parser for the "doConvertRawToH5Responses" command
+    subparser = subparsers.add_parser('doConvertRawToH5Responses')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.add_argument('--shape', nargs=3, type=int, default=[101,101,101])
-    subparser.set_defaults(func=doConvertRawToH5Weights)
+    subparser.add_argument('--weight', default=1.0, type=float)
+    subparser.set_defaults(func=doConvertRawToH5Responses)
 
     # create the parser for the "doCreateGraphPolyDataFile" command
     subparser = subparsers.add_parser('doCreateGraphPolyDataFile')
