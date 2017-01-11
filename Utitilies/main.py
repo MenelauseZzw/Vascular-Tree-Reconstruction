@@ -2,6 +2,7 @@ import argparse
 import IO
 import MinimumSpanningTree
 import matplotlib
+import pandas as pd
 
 # http://stackoverflow.com/questions/2801882/generating-a-png-with-matplotlib-when-display-is-undefined
 # Force matplotlib to not use any Xwindows backend.
@@ -1098,9 +1099,46 @@ def doErrorBar(args):
     filename,_ = os.path.splitext(filename)
     fig.savefig(filename + '.png')
 
-def doCreateProjectionOntoSourceTreeCsv(args):
+def doCreateDatabaseProjectionOntoSourceTreeCsvFile(args):
+    dirname  = args.dirname
+    basename = args.basename
+    firstNum = args.firstNum
+    lastNum  = args.lastNum
 
-    pass
+    df = pd.DataFrame()
+
+    items = dict()
+    curvatureWeightColumnName = 'curvatureWeight'
+
+    for num in xrange(firstNum, lastNum + 1):
+        filename = os.path.join(dirname, 'image{0:03d}'.format(num), basename)
+        rows     = np.genfromtxt(filename, delimiter=',', skip_header=1)
+
+        errorMeanColumnName   = 'errorMean{0:03d}'.format(num)
+        errorStdDevColumnName = 'errorStdDev{0:03d}'.format(num)
+
+        curvatureWeightColumn = []
+        errorMeanColumn       = []
+        errorStdDevColumn     = []
+
+        for r in rows:
+            curvatureWeight = r[0]
+            errorMean       = r[1]
+            errorStdDev     = r[2]
+
+            curvatureWeightColumn.append(curvatureWeight)
+            errorMeanColumn.append(errorMean)
+            errorStdDevColumn.append(errorStdDev)
+           
+        items[curvatureWeightColumnName] = curvatureWeightColumn
+        items[errorMeanColumnName]       = errorMeanColumn
+        items[errorStdDevColumnName]     = errorStdDevColumn
+
+    df = pd.DataFrame(items)
+    df = df.set_index(curvatureWeightColumnName)
+
+    filename = os.path.join(dirname, 'DatabaseProjectionOntoSourceTree.csv')
+    df.to_csv(filename)
 
 if __name__ == '__main__':
     # create the top-level parser
@@ -1223,6 +1261,14 @@ if __name__ == '__main__':
     subparser.add_argument('prependStringRow')
     subparser.add_argument('--points', default='positions')
     subparser.set_defaults(func=doProjectionOntoSourceTreeCsv)
+
+    # create the parser for the "doCreateDatabaseProjectionOntoSourceTreeCsvFile" command
+    subparser = subparsers.add_parser('doCreateDatabaseProjectionOntoSourceTreeCsvFile')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.add_argument('firstNum', type=int)
+    subparser.add_argument('lastNum', type=int)
+    subparser.set_defaults(func=doCreateDatabaseProjectionOntoSourceTreeCsvFile)
 
     # create the parser for the "doErrorBar" command
     subparser = subparsers.add_parser('doErrorBar')
