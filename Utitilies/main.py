@@ -27,7 +27,7 @@ def doConvertRawToH5(args):
     filename = os.path.join(dirname, basename)
     dataset  = IO.readRawFile(filename, shape=(101,101,101))
 
-    measurements        = dataset['measurements']
+    measurements = dataset['measurements']
 
     conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
     indices1, indices2 = np.nonzero(conn)
@@ -89,7 +89,7 @@ def doConvertRawToH5Ignor(args):
     dataset['weights'] = weights
 
     filename, _ = os.path.splitext(filename)
-    filename    = filename + '_ignor.h5'
+    filename    = filename + '.h5'
 
     IO.writeH5File(filename, dataset)
 
