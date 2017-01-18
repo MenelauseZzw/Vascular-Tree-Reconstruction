@@ -3,13 +3,13 @@ import numpy as np
 import vtk
 from xml.etree import ElementTree
 
-def readRawFile(filename, shape):
+def readRawFile(filename, shape, thresholdBelow=0.1):
     rawData      = np.fromfile(filename, dtype=np.float32)
     rawData      = np.reshape(rawData, (-1, 5)) # each row consists of rsp(1), dir(3) and rad(1)
 
     responses    = rawData[:, 0]
 
-    ignor        = responses < 0.1 # ignor is 1-D array
+    ignor        = responses < thresholdBelow # ignor is 1-D array
     responses    = responses[~ignor]
     tangentLines = rawData[:, 1:4]
     tangentLines = tangentLines[~ignor]
@@ -94,7 +94,7 @@ def readH5File(filename, n_dims=3):
     dataset = dict()
 
     with h5py.File(filename, mode='r') as f:
-        for name in ['indices1', 'indices2', 'radiuses', 'weights', 'arcRadiuses', 'arcRadiusesMean', 'arcRadiusesStdDev', 'sourceIndices', 'targetIndices']:
+        for name in ['indices1', 'indices2', 'radiuses', 'weights', 'responses', 'arcRadiuses', 'arcRadiusesMean', 'arcRadiusesStdDev', 'sourceIndices', 'targetIndices']:
             if name in f:
                 dataset[name] = f[name][()]
 
