@@ -1140,6 +1140,149 @@ def doCreateDatabaseProjectionOntoSourceTreeCsvFile(args):
     filename = os.path.join(dirname, 'DatabaseProjectionOntoSourceTree.csv')
     df.to_csv(filename)
 
+def createProjectionsOntoGroundTruthTree(sOrig, tOrig, pOrig):
+    s = sOrig[:,np.newaxis,:] # s.shape = (numPoints1, 1L, numDimensions)
+    t = tOrig[:,np.newaxis,:] # t.shape = (numPoints1, 1L, numDimensions)
+    p = pOrig[np.newaxis,:,:] # p.shape = (1L, numPoints2, numDimensions)
+
+    sMinusT   = s - t
+    sMinusTSq = np.sum(sMinusT * sMinusT, axis=2)
+
+    sMinusP   = s - p
+    sMinusPDotSMinusT = np.sum(sMinusP * sMinusT, axis=2)
+
+    lambd = sMinusPDotSMinusT / sMinusTSq
+    lambd = lambd[:,:,np.newaxis]
+
+    # proj[i,k] is projection of point p[k] onto line between points s[i] and t[i]
+    # dist[i,k] is distance between point p[k] and line between points s[i] and t[i]
+    proj  = s - lambd * sMinusT
+    dist  = linalg.norm(proj - p, axis=2)
+
+    # ignore points which projections do not belong to corresponding intervals
+    ignor = np.logical_or(lambd < 0, lambd > 1)
+    ignor = ignor.reshape(dist.shape)
+
+    sDist = linalg.norm(s - p, axis=2)
+    tDist = linalg.norm(t - p, axis=2)
+
+    dist  = np.where(ignor, np.minimum(sDist, tDist), dist)
+
+    # minIndex[k] is index i such that the distance between point p[k] and
+    # interval between points s[i] and t[i] is the minimal among all intervals
+    minIndex = np.argmin(dist, axis=0)
+    # minProj[k] is the closest to p[k] point belonging to the interval between points
+    # s[minIndex[k]] and t[minIndex[k]]
+    minProj  = np.array([(sOrig[minIndex[I]] if sDist[minIndex[I]][I] < tDist[minIndex[I]][I] else tOrig[minIndex[I]]) \
+        if ignor[minIndex[I]][I] else proj[minIndex[I]][I] for I in np.ndindex(minIndex.shape)])
+
+    return minProj
+
+def doCreateProjectionsOntoGroundTruthTreeGraphPolyDataFile(args):
+    dirname        = args.dirname
+    basename       = args.basename
+    pointsArrName  = args.points
+
+    filename       = os.path.join(dirname, 'tree_structure.xml')
+    dataset        = IO.readGxlFile(filename)
+
+    positions      = dataset['positions']
+    indices1       = dataset['indices1']
+    indices2       = dataset['indices2']
+
+    sOrig          = positions[indices1]
+    tOrig          = positions[indices2]
+
+    filename       = os.path.join(dirname, basename)
+    dataset        = IO.readRawFile(filename, shape=(101,101,101))
+
+    points         = dataset[pointsArrName]
+    numberOfPoints = len(points)
+    projections    = createProjectionsOntoGroundTruthTree(sOrig, tOrig, points)
+
+    indices1       = list(xrange(numberOfPoints))
+    indices2       = list(xrange(numberOfPoints, 2 * numberOfPoints))
+
+    pointsArr      = np.vstack((points, projections))
+    polyData       = createGraphPolyData(pointsArr, indices1, indices2)
+
+    filename, _    = os.path.splitext(filename)
+    filename       = filename + 'ProjectionsOntoGroundTruthTree.vtp'
+    IO.writePolyDataFile(filename, polyData)
+
+def doAnalyzeNonMaximumSuppressionVolumeCsv(args):
+    dirname        = args.dirname
+    basenameOrig   = args.basenameOrig
+    basename       = args.basename
+    pointsArrName  = args.points
+    thresholdAbove = args.thresholdAbove
+
+    filename  = os.path.join(dirname, 'tree_structure.xml')
+    dataset   = IO.readGxlFile(filename)
+
+    positions = dataset['positions']
+    indices1  = dataset['indices1']
+    indices2  = dataset['indices2']
+
+    sOrig     = positions[indices1]
+    tOrig     = positions[indices2]
+
+    filenameOrig    = os.path.join(dirname, basenameOrig)
+    filename        = os.path.join(dirname, basename)
+
+    datasetOrig     = IO.readRawFile(filenameOrig, shape=(101,101,101), thresholdBelow=0.1)
+    dataset         = IO.readRawFile(filename, shape=(101,101,101))
+
+    pointsOrig      = datasetOrig[pointsArrName]
+    points          = dataset[pointsArrName]
+
+    numberOfPointsOrig = len(pointsOrig)
+    numberOfPoints     = len(points)
+
+    projectionsOrig = createProjectionsOntoGroundTruthTree(sOrig, tOrig, pointsOrig)
+    distancesOrig   = linalg.norm(pointsOrig - projectionsOrig, axis=1)
+
+    # anything farther that thresholdAbove is considered to be negative
+    ignorOrig        = distancesOrig > thresholdAbove
+    positives,       = np.where(~ignorOrig)
+    negatives,       = np.where( ignorOrig)
+
+    numberOfNegatives = len(negatives) # the number of real negative cases in the data
+    numberOfPositives = len(positives) # the number of real positive cases in the data
+    assert numberOfPositives + numberOfNegatives == numberOfPointsOrig
+
+    # pairwiseRel[i,k] is True when pointsOrig[i] and points[k] are the same points
+    pairwiseRel         = np.all(np.equal(pointsOrig[:,np.newaxis,:], points[np.newaxis,:,:]), axis=2)
+    indicesOrig,indices = np.nonzero(pairwiseRel)
+    assert np.array_equal(pointsOrig[indicesOrig], points[indices])
+
+    # tp is positives that presented in both volumes
+    truePositives = np.intersect1d(positives, indicesOrig)
+    # fn is those positives not presented in indicesOrig
+    falsNegatives = np.setdiff1d(positives, indicesOrig)
+
+    numberOfTruePos = len(truePositives)
+    numberOfFalsNeg = len(falsNegatives)
+    assert numberOfTruePos + numberOfFalsNeg == numberOfPositives
+
+    # fp is negatives that presented in both volumes
+    falsPositives = np.intersect1d(negatives, indicesOrig)
+    # tn is those negatives not presented in incidesOrig
+    trueNegatives = np.setdiff1d(negatives, indicesOrig)
+
+    numberOfTrueNeg = len(trueNegatives)
+    numberOfFalsPos = len(falsPositives)
+    assert numberOfTrueNeg + numberOfFalsPos == numberOfNegatives
+    assert numberOfTruePos + numberOfFalsPos == numberOfPoints
+
+    precision = float(numberOfTruePos) / (numberOfTruePos + numberOfFalsPos)
+    recall    = float(numberOfTruePos) / (numberOfTruePos + numberOfFalsNeg)
+    accuracy  = (float(numberOfTruePos) + numberOfTrueNeg) / (numberOfPositives + numberOfNegatives)
+    fmeasure  = 2 * (precision * recall) / (precision + recall)
+
+    print "numberOfPositives,numberOfNegatives,numberOfTruePositives,numberOfFalsPos,numberOfFalsNegatives,numberOfTrueNegatives,precision,recall,accuracy,fmeasure"
+    print ",".join(str(i) for i in (numberOfPositives,numberOfNegatives,numberOfTruePos,numberOfFalsPos,numberOfFalsNeg,numberOfTrueNeg,precision,recall,accuracy,fmeasure))
+
 if __name__ == '__main__':
     # create the top-level parser
     argparser = argparse.ArgumentParser()
@@ -1275,6 +1418,22 @@ if __name__ == '__main__':
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.set_defaults(func=doErrorBar)
+
+    # create the parser for the "doCreateProjectionsOntoGroundTruthTreeGraphPolyDataFile" command
+    subparser = subparsers.add_parser('doCreateProjectionsOntoGroundTruthTreeGraphPolyDataFile')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.add_argument('--points', default='positions')
+    subparser.set_defaults(func=doCreateProjectionsOntoGroundTruthTreeGraphPolyDataFile)
+
+    # create the parser for the "doAnalyzeNonMaximumSuppressionVolumeCsv" command
+    subparser = subparsers.add_parser('doAnalyzeNonMaximumSuppressionVolumeCsv')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basenameOrig')
+    subparser.add_argument('basename')
+    subparser.add_argument('--points', default='positions')
+    subparser.add_argument('--thresholdAbove', type=float, default=0.5)
+    subparser.set_defaults(func=doAnalyzeNonMaximumSuppressionVolumeCsv)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
