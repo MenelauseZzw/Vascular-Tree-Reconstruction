@@ -1,22 +1,25 @@
 #include <boost/program_options.hpp>
 #include <iostream>
 #include <itkComposeImageFilter.h>
-#include <itkExceptionObject.h>
 #include <itkHessianToObjectnessMeasureImageFilter.h>
 #include <itkImage.h>
 #include <itkImageFileReader.h>
 #include <itkImageFileWriter.h>
 #include <itkImageRegionIterator.h>
 #include <itkIndex.h>
+#include <itkMacro.h>
+#include <itkMetaDataDictionary.h>
+#include <itkMetaDataObject.h>
 #include <itkMultiScaleHessianBasedMeasureImageFilter.h>
 #include <itkRescaleIntensityImageFilter.h>
 #include <itkSymmetricSecondRankTensor.h>
 #include <itkVectorImage.h>
 #include <string>
 
-void doObjectnessMeasureImageFilter(
+void DoObjectnessMeasureImageFilter(
   const std::string& inputFileName,
   const std::string& outputFileName,
+  double thresholdBelow,
   double sigmaMaximum,
   double sigmaMinimum,
   unsigned int numberOfSigmaSteps,
@@ -121,28 +124,54 @@ void doObjectnessMeasureImageFilter(
   ImageType::ConstPointer scalesImage =
     multiScaleEnhancementFilter->GetScalesOutput();
 
+  OutputVectorType outputVector;
+
   for (it.GoToBegin(); !it.IsAtEnd(); ++it)
   {
     const IndexType index = it.GetIndex();
 
-    EigenValuesArrayType eigenValues;
-    EigenVectorsMatrixType eigenVectors;
-
-    eigenAnalysis.ComputeEigenValuesAndVectors(hessianImage->GetPixel(index), eigenValues, eigenVectors);
-
-    OutputVectorType outputVector;
-
-    outputVector.SetElement(0, measureImage->GetPixel(index));
-
-    for (int d = 0; d < NumDimensions; ++d)
+    if (inputImage->GetPixel(index) < thresholdBelow)
     {
-      outputVector.SetElement(d + 1, eigenVectors(0, d));
+      outputVector.Fill(0);
+      outputVector.SetElement(1, 1);
     }
+    else
+    {
+      EigenValuesArrayType eigenValues;
+      EigenVectorsMatrixType eigenVectors;
 
-    outputVector.SetElement(NumDimensions + 1, scalesImage->GetPixel(index));
+      eigenAnalysis.ComputeEigenValuesAndVectors(hessianImage->GetPixel(index), eigenValues, eigenVectors);
+
+      outputVector.SetElement(0, measureImage->GetPixel(index));
+
+      for (int d = 0; d < NumDimensions; ++d)
+      {
+        outputVector.SetElement(d + 1, eigenVectors(0, d));
+      }
+
+      outputVector.SetElement(NumDimensions + 1, scalesImage->GetPixel(index));
+    }
 
     it.Set(outputVector);
   }
+
+  typedef itk::MetaDataDictionary MetaDataDictionaryType;
+
+  MetaDataDictionaryType outputMetaData;
+
+  EncapsulateMetaData(outputMetaData, "(ThresholdBelow)", thresholdBelow);
+  EncapsulateMetaData(outputMetaData, "(SigmaMaximum)", sigmaMaximum);
+  EncapsulateMetaData(outputMetaData, "(SigmaMinimum)", sigmaMinimum);
+  EncapsulateMetaData(outputMetaData, "(NumberOfSigmaSteps)", numberOfSigmaSteps);
+  EncapsulateMetaData(outputMetaData, "(Alpha)", alpha);
+  EncapsulateMetaData(outputMetaData, "(Beta)", beta);
+  EncapsulateMetaData(outputMetaData, "(Gamma)", gamma);
+  EncapsulateMetaData(outputMetaData, "(ObjectDimension)", objectDimension);
+  EncapsulateMetaData(outputMetaData, "(ScaleObjectnessMeasure)", scaleObjectnessMeasure);
+  EncapsulateMetaData(outputMetaData, "(OutputMaximum)", outputMaximum);
+  EncapsulateMetaData(outputMetaData, "(OutputMinimum)", outputMinimum);
+
+  outputImage->SetMetaDataDictionary(outputMetaData);
 
   FileWriterType::Pointer imageWriter =
     FileWriterType::New();
@@ -160,6 +189,8 @@ int main(int argc, char* argv[])
   std::string inputFileName;
   std::string outputFileName;
 
+  double thresholdBelow = 0;
+
   double sigmaMaximum = 5.0;
   double sigmaMinimum = 0.5;
   unsigned int numberOfSigmaSteps = 50;
@@ -168,7 +199,7 @@ int main(int argc, char* argv[])
   double beta = 0.5;
   double gamma = 25.0;
   unsigned int objectDimension = 1;
-  bool scaleObjectnessMeasure = false;
+  bool scaleObjectnessMeasure = true;
 
   double outputMaximum = 1.0;
   double outputMinimum = 0.0;
@@ -177,6 +208,7 @@ int main(int argc, char* argv[])
 
   desc.add_options()
     ("help", "print usage message")
+    ("thresholdBelow", po::value(&thresholdBelow), "the values below the threshold will be ignored")
     ("sigmaMaximum", po::value(&sigmaMaximum), "the minimum sigma value")
     ("sigmaMinimum", po::value(&sigmaMinimum), "the maximum sigma value")
     ("numberOfSigmaSteps", po::value(&numberOfSigmaSteps), "the number of scale levels")
@@ -202,7 +234,7 @@ int main(int argc, char* argv[])
 
   try
   {
-    doObjectnessMeasureImageFilter(inputFileName, outputFileName, sigmaMaximum, sigmaMinimum, numberOfSigmaSteps, alpha, beta, gamma, objectDimension, scaleObjectnessMeasure, outputMaximum, outputMinimum);
+    DoObjectnessMeasureImageFilter(inputFileName, outputFileName, thresholdBelow, sigmaMaximum, sigmaMinimum, numberOfSigmaSteps, alpha, beta, gamma, objectDimension, scaleObjectnessMeasure, outputMaximum, outputMinimum);
     return EXIT_SUCCESS;
   }
   catch (itk::ExceptionObject& e)
