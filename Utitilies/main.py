@@ -1496,7 +1496,7 @@ if __name__ == '__main__':
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.add_argument('--points', default='positions')
-    subparser.add_argument('--doOutputHeader', type=bool, default=True)
+    subparser.add_argument('--doOutputHeader', default=False, action='store_true')
     subparser.add_argument('--prependHeaderStr', default="")
     subparser.add_argument('--prependRowStr', default="")
     subparser.set_defaults(func=doCreateDistanceToGroundTruthTreeCsv)
