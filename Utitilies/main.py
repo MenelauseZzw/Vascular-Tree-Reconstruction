@@ -1291,12 +1291,12 @@ def doAnalyzeNonMaximumSuppressionVolumeCsv(args):
     print np.mean(responsesOrig[falsPositives]),np.std(responsesOrig[falsPositives])
 
 def doCreateDistanceToGroundTruthTreeCsv(args):
-    dirname        = args.dirname
-    basename       = args.basename
-    pointsArrName  = args.points
-    doOutputHeader = args.doOutputHeader
-    shape          = tuple(args.shape)
-    thresholdBelow = args.thresholdBelow
+    dirname          = args.dirname
+    basename         = args.basename
+    pointsArrName    = args.points
+    doOutputHeader   = args.doOutputHeader
+    prependHeaderStr = args.prependHeaderStr
+    prependRowStr    = args.prependRowStr
 
     filename       = os.path.join(dirname, 'tree_structure.xml')
     dataset        = IO.readGxlFile(filename)
@@ -1309,7 +1309,7 @@ def doCreateDistanceToGroundTruthTreeCsv(args):
     tOrig          = positions[indices2]
 
     filename       = os.path.join(dirname, basename)
-    dataset        = IO.readRawFile(filename, shape=shape, thresholdBelow=thresholdBelow)
+    dataset        = IO.readH5File(filename)
 
     points         = dataset[pointsArrName]
     numberOfPoints = len(points)
@@ -1335,9 +1335,9 @@ def doCreateDistanceToGroundTruthTreeCsv(args):
     keyValPairs = [(name,eval(name)) for name in ('num','ave','std','med','var','sum','ssd','p25','p75','p95','p99','max')]
 
     if (doOutputHeader):
-        print ",".join(kvp[0].upper() for kvp in keyValPairs)
+        print prependHeaderStr + (",".join(kvp[0].upper() for kvp in keyValPairs))
 
-    print ",".join(str(kvp[1]) for kvp in keyValPairs)
+    print prependRowStr + (",".join(str(kvp[1]) for kvp in keyValPairs))
 
 if __name__ == '__main__':
     # create the top-level parser
@@ -1497,8 +1497,8 @@ if __name__ == '__main__':
     subparser.add_argument('basename')
     subparser.add_argument('--points', default='positions')
     subparser.add_argument('--doOutputHeader', type=bool, default=True)
-    subparser.add_argument('--shape', nargs=3, type=int, default=[101,101,101])
-    subparser.add_argument('--thresholdBelow', type=float, default=0.05)
+    subparser.add_argument('--prependHeaderStr', default="")
+    subparser.add_argument('--prependRowStr', default="")
     subparser.set_defaults(func=doCreateDistanceToGroundTruthTreeCsv)
 
     # parse the args and call whatever function was selected
