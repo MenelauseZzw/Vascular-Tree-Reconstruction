@@ -168,14 +168,14 @@ def createGraphPolyData(points, indices1, indices2):
     return polyData
 
 def doCreateGraphPolyDataFile(args):
-    dirname   = args.dirname
-    basename  = args.basename
-    positions = args.positions
+    dirname       = args.dirname
+    basename      = args.basename
+    pointsArrName = args.points
 
     filename = os.path.join(dirname, basename)
     dataset  = IO.readH5File(filename)
 
-    positions  = dataset[positions]
+    positions  = dataset[pointsArrName]
     indices1   = dataset['indices1']
     indices2   = dataset['indices2']
 
@@ -624,9 +624,9 @@ def createTangentsPolyData(tangentLinesPoints1, tangentLinesPoints2):
     return polyData
 
 def doCreateTangentsPolyDataFile(args):
-    dirname   = args.dirname
-    basename  = args.basename
-    pointsArrName   = args.points
+    dirname       = args.dirname
+    basename      = args.basename
+    pointsArrName = args.points
 
     filename = os.path.join(dirname, basename)
     dataset  = IO.readH5File(filename)
@@ -682,24 +682,23 @@ def createCircularPolyData(pointsArr, tangentLinesPoints1, tangentLinesPoints2, 
 
     return polyData
 
-def doCreateCircularPolyDataFile(args):
+def doCreateRadiusesPolyDataFile(args):
     dirname         = args.dirname
     basename        = args.basename
     pointsArrName   = args.points
-    radiusesArrName = args.radiuses
 
     filename = os.path.join(dirname, basename)
     dataset  = IO.readH5File(filename)
 
-    pointsArr           = dataset[pointsArrName]
+    points              = dataset[pointsArrName]
     tangentLinesPoints1 = dataset['tangentLinesPoints1']
     tangentLinesPoints2 = dataset['tangentLinesPoints2']
-    radiusesArr         = dataset[radiusesArrName]
+    radiuses            = dataset['radiuses']
 
-    polyData = createCircularPolyData(pointsArr, tangentLinesPoints1, tangentLinesPoints2, radiusesArr)
+    polyData = createCircularPolyData(points, tangentLinesPoints1, tangentLinesPoints2, radiuses)
     
     filename, _ = os.path.splitext(filename)
-    filename    = filename + 'Circular.vtp'
+    filename    = filename + 'Radiuses.vtp'
     IO.writePolyDataFile(filename, polyData)
 
 def doMST(dirname):
@@ -1230,11 +1229,13 @@ def doAnalyzeNonMaximumSuppressionVolumeCsv(args):
     filenameOrig    = os.path.join(dirname, basenameOrig)
     filename        = os.path.join(dirname, basename)
 
-    datasetOrig     = IO.readRawFile(filenameOrig, shape=(101,101,101), thresholdBelow=0.1)
+    datasetOrig     = IO.readRawFile(filenameOrig, shape=(101,101,101))
     dataset         = IO.readRawFile(filename, shape=(101,101,101))
 
     pointsOrig      = datasetOrig[pointsArrName]
     points          = dataset[pointsArrName]
+
+    responsesOrig   = datasetOrig['responses']
 
     numberOfPointsOrig = len(pointsOrig)
     numberOfPoints     = len(points)
@@ -1280,8 +1281,63 @@ def doAnalyzeNonMaximumSuppressionVolumeCsv(args):
     accuracy  = (float(numberOfTruePos) + numberOfTrueNeg) / (numberOfPositives + numberOfNegatives)
     fmeasure  = 2 * (precision * recall) / (precision + recall)
 
-    print "numberOfPositives,numberOfNegatives,numberOfTruePositives,numberOfFalsPos,numberOfFalsNegatives,numberOfTrueNegatives,precision,recall,accuracy,fmeasure"
+    print "numberOfPositives,numberOfNegatives,numberOfTruePositives,numberOfFalsePositives,numberOfFalseNegatives,numberOfTrueNegatives,precision,recall,accuracy,fmeasure"
     print ",".join(str(i) for i in (numberOfPositives,numberOfNegatives,numberOfTruePos,numberOfFalsPos,numberOfFalsNeg,numberOfTrueNeg,precision,recall,accuracy,fmeasure))
+
+    print np.mean(responsesOrig[positives]),np.std(responsesOrig[positives])
+    print np.mean(responsesOrig[negatives]),np.std(responsesOrig[negatives])
+
+    print np.mean(responsesOrig[truePositives]),np.std(responsesOrig[truePositives])
+    print np.mean(responsesOrig[falsPositives]),np.std(responsesOrig[falsPositives])
+
+def doCreateDistanceToGroundTruthTreeCsv(args):
+    dirname        = args.dirname
+    basename       = args.basename
+    pointsArrName  = args.points
+    doOutputHeader = args.doOutputHeader
+    shape          = tuple(args.shape)
+    thresholdBelow = args.thresholdBelow
+
+    filename       = os.path.join(dirname, 'tree_structure.xml')
+    dataset        = IO.readGxlFile(filename)
+
+    positions      = dataset['positions']
+    indices1       = dataset['indices1']
+    indices2       = dataset['indices2']
+
+    sOrig          = positions[indices1]
+    tOrig          = positions[indices2]
+
+    filename       = os.path.join(dirname, basename)
+    dataset        = IO.readRawFile(filename, shape=shape, thresholdBelow=thresholdBelow)
+
+    points         = dataset[pointsArrName]
+    numberOfPoints = len(points)
+    projections    = createProjectionsOntoGroundTruthTree(sOrig, tOrig, points)
+
+    distancesSq    = np.sum(np.square(projections - points), axis=1)
+    distances      = np.sqrt(distancesSq)
+
+    num = len(points)
+    sum = np.sum(distances)
+    ssd = np.sum(distancesSq)
+    ave = sum / num # ave = np.mean(distances)
+    msd = ssd / num # np.mean(distancesSq)
+    var = msd - ave*ave # var = np.var(distances)
+    std = np.sqrt(var) # std = np.std(distances)
+    med = np.median(distances)
+    p25 = np.percentile(distances, q=25)
+    p75 = np.percentile(distances, q=75)
+    p95 = np.percentile(distances, q=95)
+    p99 = np.percentile(distances, q=99)
+    max = np.max(distances)
+    
+    keyValPairs = [(name,eval(name)) for name in ('num','ave','std','med','var','sum','ssd','p25','p75','p95','p99','max')]
+
+    if (doOutputHeader):
+        print ",".join(kvp[0].upper() for kvp in keyValPairs)
+
+    print ",".join(str(kvp[1]) for kvp in keyValPairs)
 
 if __name__ == '__main__':
     # create the top-level parser
@@ -1292,7 +1348,8 @@ if __name__ == '__main__':
     subparser = subparsers.add_parser('doConvertRawToH5')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
-    subparser.add_argument('--weight', default=1.0)
+    subparser.add_argument('--weight', type=float, default=1.0)
+    subparser.add_argument('--thresholdBelow', type=float, default=0.05)
     subparser.set_defaults(func=doConvertRawToH5)
 
     # create the parser for the "doConvertRawToH5Ignor" command
@@ -1320,7 +1377,7 @@ if __name__ == '__main__':
     subparser = subparsers.add_parser('doCreateGraphPolyDataFile')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
-    subparser.add_argument('--positions', default='positions')
+    subparser.add_argument('--points', default='positions')
     subparser.set_defaults(func=doCreateGraphPolyDataFile)
 
     # create the parser for the "doEMST" command
@@ -1363,13 +1420,12 @@ if __name__ == '__main__':
     subparser.add_argument('--points', default='positions')
     subparser.set_defaults(func=doCreateTangentsPolyDataFile)
 
-    # create the parser for the "doCreateCircularPolyDataFile" command
-    subparser = subparsers.add_parser('doCreateCircularPolyDataFile')
+    # create the parser for the "doCreateRadiusesPolyDataFile" command
+    subparser = subparsers.add_parser('doCreateRadiusesPolyDataFile')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.add_argument('--points', default='positions')
-    subparser.add_argument('--radiuses', default='radiuses')
-    subparser.set_defaults(func=doCreateCircularPolyDataFile)
+    subparser.set_defaults(func=doCreateRadiusesPolyDataFile)
 
     # create the parser for the "doROC" command
     subparser = subparsers.add_parser('doROC')
@@ -1435,7 +1491,16 @@ if __name__ == '__main__':
     subparser.add_argument('--thresholdAbove', type=float, default=0.5)
     subparser.set_defaults(func=doAnalyzeNonMaximumSuppressionVolumeCsv)
 
+    # create the parser for the "doCreateDistanceToGroundTruthTreeCsv" command
+    subparser = subparsers.add_parser('doCreateDistanceToGroundTruthTreeCsv')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.add_argument('--points', default='positions')
+    subparser.add_argument('--doOutputHeader', type=bool, default=True)
+    subparser.add_argument('--shape', nargs=3, type=int, default=[101,101,101])
+    subparser.add_argument('--thresholdBelow', type=float, default=0.05)
+    subparser.set_defaults(func=doCreateDistanceToGroundTruthTreeCsv)
+
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
-
     args.func(args)

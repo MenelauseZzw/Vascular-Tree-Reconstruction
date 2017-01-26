@@ -3,7 +3,7 @@ import numpy as np
 import vtk
 from xml.etree import ElementTree
 
-def readRawFile(filename, shape, thresholdBelow=0.1):
+def readRawFile(filename, shape, thresholdBelow=0.05):
     rawData      = np.fromfile(filename, dtype=np.float32)
     rawData      = np.reshape(rawData, (-1, 5)) # each row consists of rsp(1), dir(3) and rad(1)
 
