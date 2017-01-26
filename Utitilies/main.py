@@ -22,10 +22,11 @@ from xml.etree import ElementTree
 def doConvertRawToH5(args):
     dirname  = args.dirname
     basename = args.basename
+    shape    = tuple(args.shape)
     weight   = args.weight
 
     filename = os.path.join(dirname, basename)
-    dataset  = IO.readRawFile(filename, shape=(101,101,101))
+    dataset  = IO.readRawFile(filename, shape=shape)
 
     measurements = dataset['measurements']
 
@@ -47,10 +48,11 @@ def doConvertRawToH5(args):
 def doConvertRawToH5Ignor(args):
     dirname  = args.dirname
     basename = args.basename
+    shape    = tuple(args.shape)
     weight   = args.weight
 
     filename = os.path.join(dirname, basename)
-    dataset  = IO.readRawFile(filename, shape=(101,101,101))
+    dataset  = IO.readRawFile(filename, shape=shape)
 
     measurements        = dataset['measurements']
     tangentLinesPoints1 = dataset['tangentLinesPoints1']
@@ -1348,6 +1350,7 @@ if __name__ == '__main__':
     subparser = subparsers.add_parser('doConvertRawToH5')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
+    subparser.add_argument('--shape', nargs=3, type=int, default=[101,101,101])
     subparser.add_argument('--weight', type=float, default=1.0)
     subparser.add_argument('--thresholdBelow', type=float, default=0.05)
     subparser.set_defaults(func=doConvertRawToH5)
@@ -1356,6 +1359,7 @@ if __name__ == '__main__':
     subparser = subparsers.add_parser('doConvertRawToH5Ignor')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
+    subparser.add_argument('--shape', nargs=3, type=int, default=[101,101,101])
     subparser.add_argument('--weight', default=1.0)
     subparser.set_defaults(func=doConvertRawToH5Ignor)
 
