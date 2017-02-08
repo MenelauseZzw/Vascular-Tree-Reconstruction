@@ -188,14 +188,15 @@ def doCreateGraphPolyDataFile(args):
     IO.writePolyDataFile(filename, polyData)
 
 def doEMST(args):
-    dirname   = args.dirname
-    basename  = args.basename
-    maxradius = args.maxradius
+    dirname       = args.dirname
+    basename      = args.basename
+    maxradius     = args.maxradius
+    pointsArrName = args.points
 
     filename  = os.path.join(dirname, basename)
     dataset   = IO.readH5File(filename)
 
-    positions = dataset['positions']
+    positions = dataset[pointsArrName]
 
     n = len(positions)
     G = dict()
@@ -1389,6 +1390,7 @@ if __name__ == '__main__':
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.add_argument('--maxradius', default=np.inf)
+    subparser.add_argument('--points', default='positions')
     subparser.set_defaults(func=doEMST)
 
     # create the parser for the "doArcMST" command
