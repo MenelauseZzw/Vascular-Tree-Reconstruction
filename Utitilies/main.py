@@ -1383,7 +1383,7 @@ def doCreateCoDirectionalityWithClosestPointsCsv(args):
     tangentLines      = tangentLines / linalg.norm(tangentLines, axis=1, keepdims=True)
 
     xs = np.abs(np.sum(tangentLines * tangentLinesOrig, axis=1)) # cos(u,v)
-    ys = np.sqrt(1 - np.square(xs))
+    ys = np.sqrt(1 - np.square(xs)) # sin(u,v)
 
     circularMean = np.arctan2(np.mean(ys), np.mean(xs)) # https://en.wikipedia.org/wiki/Mean_of_circular_quantities
     keyValPairs = [(name,eval(name)) for name in ('circularMean',)]
@@ -1392,31 +1392,6 @@ def doCreateCoDirectionalityWithClosestPointsCsv(args):
         print prependHeaderStr + (",".join(kvp[0].upper() for kvp in keyValPairs))
 
     print prependRowStr + (",".join(str(kvp[1]) for kvp in keyValPairs))
-    pass    
-
-    #distancesSq    = np.sum(np.square(closestPoints - points), axis=1)
-    #distances      = np.sqrt(distancesSq)
-
-    #num = len(points)
-    #sum = np.sum(distances)
-    #ssd = np.sum(distancesSq)
-    #ave = sum / num # ave = np.mean(distances)
-    #msd = ssd / num # np.mean(distancesSq)
-    #var = msd - ave*ave # var = np.var(distances)
-    #std = np.sqrt(var) # std = np.std(distances)
-    #med = np.median(distances)
-    #p25 = np.percentile(distances, q=25)
-    #p75 = np.percentile(distances, q=75)
-    #p95 = np.percentile(distances, q=95)
-    #p99 = np.percentile(distances, q=99)
-    #max = np.max(distances)
-    
-    #keyValPairs = [(name,eval(name)) for name in ('num','ave','std','med','var','sum','ssd','p25','p75','p95','p99','max')]
-
-    #if (doOutputHeader):
-    #    print prependHeaderStr + (",".join(kvp[0].upper() for kvp in keyValPairs))
-
-    #print prependRowStr + (",".join(str(kvp[1]) for kvp in keyValPairs))
 
 if __name__ == '__main__':
     # create the top-level parser
