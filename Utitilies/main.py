@@ -1142,7 +1142,7 @@ def doCreateDatabaseProjectionOntoSourceTreeCsvFile(args):
     filename = os.path.join(dirname, 'DatabaseProjectionOntoSourceTree.csv')
     df.to_csv(filename)
 
-def createProjectionsOntoGroundTruthTree(sOrig, tOrig, pOrig):
+def createProjectionsOntoGroundTruthTree(sOrig, tOrig, pOrig, closestIndices=None):
     s = sOrig[:,np.newaxis,:] # s.shape = (numPoints1, 1L, numDimensions)
     t = tOrig[:,np.newaxis,:] # t.shape = (numPoints1, 1L, numDimensions)
     p = pOrig[np.newaxis,:,:] # p.shape = (1L, numPoints2, numDimensions)
@@ -1170,15 +1170,18 @@ def createProjectionsOntoGroundTruthTree(sOrig, tOrig, pOrig):
 
     dist  = np.where(ignor, np.minimum(sDist, tDist), dist)
 
-    # minIndex[k] is index i such that the distance between point p[k] and
+    # closestIndices[k] is index i such that the distance between point p[k] and
     # interval between points s[i] and t[i] is the minimal among all intervals
-    minIndex = np.argmin(dist, axis=0)
-    # minProj[k] is the closest to p[k] point belonging to the interval between points
-    # s[minIndex[k]] and t[minIndex[k]]
-    minProj  = np.array([(sOrig[minIndex[I]] if sDist[minIndex[I]][I] < tDist[minIndex[I]][I] else tOrig[minIndex[I]]) \
-        if ignor[minIndex[I]][I] else proj[minIndex[I]][I] for I in np.ndindex(minIndex.shape)])
+    if closestIndices is None:
+        closestIndices = np.argmin(dist, axis=0)
+    else:
+        np.argmin(dist, axis=0, out=closestIndices)
+    # closestPoints[k] is the closest to p[k] point belonging to the interval between points
+    # s[closestIndices[k]] and t[closestIndices[k]]
+    closestPoints = np.array([(sOrig[closestIndices[I]] if sDist[closestIndices[I]][I] < tDist[closestIndices[I]][I] else tOrig[closestIndices[I]]) \
+        if ignor[closestIndices[I]][I] else proj[closestIndices[I]][I] for I in np.ndindex(closestIndices.shape)])
 
-    return minProj
+    return closestPoints
 
 def doCreateProjectionsOntoGroundTruthTreeGraphPolyDataFile(args):
     dirname        = args.dirname
@@ -1293,7 +1296,7 @@ def doAnalyzeNonMaximumSuppressionVolumeCsv(args):
     print np.mean(responsesOrig[truePositives]),np.std(responsesOrig[truePositives])
     print np.mean(responsesOrig[falsPositives]),np.std(responsesOrig[falsPositives])
 
-def doCreateDistanceToGroundTruthTreeCsv(args):
+def doCreateDistanceToClosestPointsCsv(args):
     dirname          = args.dirname
     basename         = args.basename
     pointsArrName    = args.points
@@ -1316,9 +1319,10 @@ def doCreateDistanceToGroundTruthTreeCsv(args):
 
     points         = dataset[pointsArrName]
     numberOfPoints = len(points)
-    projections    = createProjectionsOntoGroundTruthTree(sOrig, tOrig, points)
 
-    distancesSq    = np.sum(np.square(projections - points), axis=1)
+    closestPoints  = createProjectionsOntoGroundTruthTree(sOrig, tOrig, points)
+
+    distancesSq    = np.sum(np.square(closestPoints - points), axis=1)
     distances      = np.sqrt(distancesSq)
 
     num = len(points)
@@ -1341,6 +1345,78 @@ def doCreateDistanceToGroundTruthTreeCsv(args):
         print prependHeaderStr + (",".join(kvp[0].upper() for kvp in keyValPairs))
 
     print prependRowStr + (",".join(str(kvp[1]) for kvp in keyValPairs))
+
+def doCreateCoDirectionalityWithClosestPointsCsv(args):
+    dirname          = args.dirname
+    basename         = args.basename
+    pointsArrName    = args.points
+    doOutputHeader   = args.doOutputHeader
+    prependHeaderStr = args.prependHeaderStr
+    prependRowStr    = args.prependRowStr
+
+    filename       = os.path.join(dirname, 'tree_structure.xml')
+    dataset        = IO.readGxlFile(filename)
+
+    positions      = dataset['positions']
+    indices1       = dataset['indices1']
+    indices2       = dataset['indices2']
+
+    sOrig          = positions[indices1]
+    tOrig          = positions[indices2]
+
+    filename       = os.path.join(dirname, basename)
+    dataset        = IO.readH5File(filename)
+
+    points              = dataset[pointsArrName]
+    tangentLinesPoints1 = dataset['tangentLinesPoints1']
+    tangentLinesPoints2 = dataset['tangentLinesPoints2']
+    
+    numberOfPoints = len(points)
+
+    closestIndices = np.zeros(points.shape[:1], dtype='int64')
+    closestPoints  = createProjectionsOntoGroundTruthTree(sOrig, tOrig, points, closestIndices)
+
+    tangentLinesOrig  = sOrig[closestIndices] - tOrig[closestIndices]
+    tangentLinesOrig  = tangentLinesOrig / linalg.norm(tangentLinesOrig, axis=1, keepdims=True)
+
+    tangentLines      = tangentLinesPoints1 - tangentLinesPoints2
+    tangentLines      = tangentLines / linalg.norm(tangentLines, axis=1, keepdims=True)
+
+    xs = np.abs(np.sum(tangentLines * tangentLinesOrig, axis=1)) # cos(u,v)
+    ys = np.sqrt(1 - np.square(xs))
+
+    circularMean = np.arctan2(np.mean(ys), np.mean(xs)) # https://en.wikipedia.org/wiki/Mean_of_circular_quantities
+    keyValPairs = [(name,eval(name)) for name in ('circularMean',)]
+
+    if (doOutputHeader):
+        print prependHeaderStr + (",".join(kvp[0].upper() for kvp in keyValPairs))
+
+    print prependRowStr + (",".join(str(kvp[1]) for kvp in keyValPairs))
+    pass    
+
+    #distancesSq    = np.sum(np.square(closestPoints - points), axis=1)
+    #distances      = np.sqrt(distancesSq)
+
+    #num = len(points)
+    #sum = np.sum(distances)
+    #ssd = np.sum(distancesSq)
+    #ave = sum / num # ave = np.mean(distances)
+    #msd = ssd / num # np.mean(distancesSq)
+    #var = msd - ave*ave # var = np.var(distances)
+    #std = np.sqrt(var) # std = np.std(distances)
+    #med = np.median(distances)
+    #p25 = np.percentile(distances, q=25)
+    #p75 = np.percentile(distances, q=75)
+    #p95 = np.percentile(distances, q=95)
+    #p99 = np.percentile(distances, q=99)
+    #max = np.max(distances)
+    
+    #keyValPairs = [(name,eval(name)) for name in ('num','ave','std','med','var','sum','ssd','p25','p75','p95','p99','max')]
+
+    #if (doOutputHeader):
+    #    print prependHeaderStr + (",".join(kvp[0].upper() for kvp in keyValPairs))
+
+    #print prependRowStr + (",".join(str(kvp[1]) for kvp in keyValPairs))
 
 if __name__ == '__main__':
     # create the top-level parser
@@ -1497,15 +1573,25 @@ if __name__ == '__main__':
     subparser.add_argument('--thresholdAbove', type=float, default=0.5)
     subparser.set_defaults(func=doAnalyzeNonMaximumSuppressionVolumeCsv)
 
-    # create the parser for the "doCreateDistanceToGroundTruthTreeCsv" command
-    subparser = subparsers.add_parser('doCreateDistanceToGroundTruthTreeCsv')
+    # create the parser for the "doCreateDistanceToClosestPointsCsv" command
+    subparser = subparsers.add_parser('doCreateDistanceToClosestPointsCsv')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.add_argument('--points', default='positions')
     subparser.add_argument('--doOutputHeader', default=False, action='store_true')
     subparser.add_argument('--prependHeaderStr', default="")
     subparser.add_argument('--prependRowStr', default="")
-    subparser.set_defaults(func=doCreateDistanceToGroundTruthTreeCsv)
+    subparser.set_defaults(func=doCreateDistanceToClosestPointsCsv)
+
+    # create the parser for the "doCreateCoDirectionalityWithClosestPointsCsv" command
+    subparser = subparsers.add_parser('doCreateCoDirectionalityWithClosestPointsCsv')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.add_argument('--points', default='positions')
+    subparser.add_argument('--doOutputHeader', default=False, action='store_true')
+    subparser.add_argument('--prependHeaderStr', default="")
+    subparser.add_argument('--prependRowStr', default="")
+    subparser.set_defaults(func=doCreateCoDirectionalityWithClosestPointsCsv)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
