@@ -1385,8 +1385,17 @@ def doCreateCoDirectionalityWithClosestPointsCsv(args):
     xs = np.abs(np.sum(tangentLines * tangentLinesOrig, axis=1)) # cos(u,v)
     ys = np.sqrt(1 - np.square(xs)) # sin(u,v)
 
-    circularMean = np.arctan2(np.mean(ys), np.mean(xs)) # https://en.wikipedia.org/wiki/Mean_of_circular_quantities
-    keyValPairs = [(name,eval(name)) for name in ('circularMean',)]
+    num   = numberOfPoints
+
+    sumXs = np.sum(xs)
+    sumYs = np.sum(ys)
+
+    aveXs = sumXs / num
+    aveYs = sumYs / num
+
+    circularMean = np.arctan2(aveYs, aveXs) # https://en.wikipedia.org/wiki/Mean_of_circular_quantities
+
+    keyValPairs = [(name,eval(name)) for name in ('num','circularMean','aveXs','aveYs','sumXs','sumYs')]
 
     if (doOutputHeader):
         print prependHeaderStr + (",".join(kvp[0].upper() for kvp in keyValPairs))
