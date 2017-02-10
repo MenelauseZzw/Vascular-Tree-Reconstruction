@@ -1486,6 +1486,34 @@ def doCreateDistanceClosestInnerNodesCsv(args):
 
     print prependRowStr + (",".join(str(kvp[1]) for kvp in keyValPairs))
 
+def doCreateFrangiDistanceComparisonChart(args):
+    dirname         = args.dirname
+    basenames       = args.basenames
+    argDataSetName  = args.arg
+    valDataSetName  = args.val
+
+    plt.figure(dpi=600, figsize=(20,20))
+
+    plt.xlim(0, 800)
+    plt.ylim(0, 1)
+
+    plt.xlabel(argDataSetName)
+    plt.ylabel(valDataSetName)
+
+    for basename,colorname in zip(basenames, ('red','blue','green','purple')):
+        filename    = os.path.join(dirname, basename)
+        labelname,_ = os.path.splitext(basename)
+        dataset     = pd.read_csv(filename)
+        argDataSet  = dataset[argDataSetName]
+        valDataSet  = dataset[valDataSetName]
+        plt.scatter(argDataSet, valDataSet, color=colorname, label=labelname, marker='.')
+
+    plt.legend(loc='upper left')
+
+    filename = valDataSetName + 'Vs' + argDataSetName + '.png'
+    filename = os.path.join(dirname, filename)
+    plt.savefig(filename)
+
 if __name__ == '__main__':
     # create the top-level parser
     argparser = argparse.ArgumentParser()
@@ -1670,6 +1698,14 @@ if __name__ == '__main__':
     subparser.add_argument('--prependHeaderStr', default="")
     subparser.add_argument('--prependRowStr', default="")
     subparser.set_defaults(func=doCreateDistanceClosestInnerNodesCsv)
+
+    # create the parser for the "doCreateFrangiDistanceComparisonChart" command
+    subparser = subparsers.add_parser('doCreateFrangiDistanceComparisonChart')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basenames', nargs='+')
+    subparser.add_argument('--arg')
+    subparser.add_argument('--val')
+    subparser.set_defaults(func=doCreateFrangiDistanceComparisonChart)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
