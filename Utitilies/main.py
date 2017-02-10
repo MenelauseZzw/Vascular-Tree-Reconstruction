@@ -1502,11 +1502,12 @@ def doCreateFrangiDistanceComparisonChart(args):
 
     for basename,colorname in zip(basenames, ('red','blue','green','purple')):
         filename    = os.path.join(dirname, basename)
-        labelname,_ = os.path.splitext(basename)
-        dataset     = pd.read_csv(filename)
-        argDataSet  = dataset[argDataSetName]
-        valDataSet  = dataset[valDataSetName]
-        plt.scatter(argDataSet, valDataSet, color=colorname, label=labelname, marker='.')
+        if os.path.exists(filename):
+            labelname,_ = os.path.splitext(basename)
+            dataset     = pd.read_csv(filename)
+            argDataSet  = dataset[argDataSetName]
+            valDataSet  = dataset[valDataSetName]
+            plt.scatter(argDataSet, valDataSet, color=colorname, label=labelname, marker='.')
 
     plt.legend(loc='upper left')
 
