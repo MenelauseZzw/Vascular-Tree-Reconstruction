@@ -1402,6 +1402,90 @@ def doCreateCoDirectionalityWithClosestPointsCsv(args):
 
     print prependRowStr + (",".join(str(kvp[1]) for kvp in keyValPairs))
 
+def doCreateDistanceClosestInnerNodesCsv(args):
+    dirname          = args.dirname
+    basename         = args.basename
+    pointsArrName    = args.points
+    doOutputHeader   = args.doOutputHeader
+    prependHeaderStr = args.prependHeaderStr
+    prependRowStr    = args.prependRowStr
+
+    filename       = os.path.join(dirname, 'tree_structure.xml')
+    dataset        = IO.readGxlFile(filename)
+
+    positionsOrig  = dataset['positions']
+    nodeTypes      = dataset['nodeTypes']
+
+    pointsOrig     = positionsOrig[nodeTypes == 'b']
+
+    filename       = os.path.join(dirname, basename)
+    dataset        = IO.readH5File(filename)
+
+    positions      = dataset[pointsArrName]
+    numberOfPoints = len(positions)
+
+    identity       = np.identity(numberOfPoints)
+    indices1       = dataset['indices1']
+    indices2       = dataset['indices2']
+    
+    deg = np.zeros(numberOfPoints, dtype=np.int)
+
+    for i,k in zip(indices1, indices2):
+        deg[i] += 1
+        deg[k] += 1
+    
+    points         = positions[deg > 2]
+
+    pointsTree          = KDTree(points)
+    distances,neighbors = pointsTree.query(pointsOrig)
+    neighbors = neighbors.flatten()
+
+    pointsOrigTree              = KDTree(pointsOrig)
+    distancesOrig,neighborsOrig = pointsOrigTree.query(points)
+    neighborsOrig = neighborsOrig.flatten()
+    
+    maskOrig = neighborsOrig[neighbors] == np.arange(len(neighbors))
+    mask     = neighbors[neighborsOrig] == np.arange(len(neighborsOrig))
+
+    assert np.count_nonzero(maskOrig) == np.count_nonzero(mask)
+
+    num = len(distances)
+    sum = np.sum(distances)
+    ave = np.mean(distances)
+    ssd = np.sum(np.square(distances))
+    std = np.std(distances)
+    med = np.median(distances)
+    max = np.max(distances)
+
+    numOrig = len(distancesOrig)
+    sumOrig = np.sum(distancesOrig)
+    aveOrig = np.mean(distancesOrig)
+    ssdOrig = np.sum(np.square(distancesOrig))
+    stdOrig = np.std(distancesOrig)
+    medOrig = np.median(distancesOrig)
+    maxOrig = np.max(distancesOrig)
+    
+    distancesComb = distances[maskOrig]
+    assert len(np.setdiff1d(distances[maskOrig],distancesOrig[mask])) == 0
+
+    numComb = len(distancesComb)
+    sumComb = np.sum(distancesComb)
+    aveComb = np.mean(distancesComb)
+    ssdComb = np.sum(np.square(distancesComb))
+    stdComb = np.std(distancesComb)
+    medComb = np.median(distancesComb)
+    maxComb = np.max(distancesComb)
+
+    assert maxComb <= max
+    assert maxComb <= maxOrig
+
+    keyValPairs = [(name,eval(name)) for name in ('num','sum','ave','ssd','std','med', 'max', 'numOrig','sumOrig','aveOrig','ssdOrig','stdOrig','medOrig', 'maxOrig', 'numComb','sumComb','aveComb','ssdComb','stdComb','medComb', 'maxComb')]
+
+    if (doOutputHeader):
+        print prependHeaderStr + (",".join(kvp[0].upper() for kvp in keyValPairs))
+
+    print prependRowStr + (",".join(str(kvp[1]) for kvp in keyValPairs))
+
 if __name__ == '__main__':
     # create the top-level parser
     argparser = argparse.ArgumentParser()
@@ -1576,6 +1660,16 @@ if __name__ == '__main__':
     subparser.add_argument('--prependHeaderStr', default="")
     subparser.add_argument('--prependRowStr', default="")
     subparser.set_defaults(func=doCreateCoDirectionalityWithClosestPointsCsv)
+
+    # create the parser for the "doCreateDistanceClosestInnerNodesCsv" command
+    subparser = subparsers.add_parser('doCreateDistanceClosestInnerNodesCsv')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.add_argument('--points', default='positions')
+    subparser.add_argument('--doOutputHeader', default=False, action='store_true')
+    subparser.add_argument('--prependHeaderStr', default="")
+    subparser.add_argument('--prependRowStr', default="")
+    subparser.set_defaults(func=doCreateDistanceClosestInnerNodesCsv)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
