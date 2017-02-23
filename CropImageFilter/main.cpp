@@ -55,8 +55,6 @@ void DoCropImageFilter(
   ImageType::Pointer outputImage = 
     cropImageFile->GetOutput();
 
-  outputImage->SetMetaDataDictionary(inputImage->GetMetaDataDictionary());
-
   FileWriterType::Pointer imageWriter =
     FileWriterType::New();
 
