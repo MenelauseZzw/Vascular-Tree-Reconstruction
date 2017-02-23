@@ -172,6 +172,9 @@ void DoObjectnessMeasureImageFilter(
   EncapsulateMetaData(outputMetaData, "(OutputMaximum)", outputMaximum);
   EncapsulateMetaData(outputMetaData, "(OutputMinimum)", outputMinimum);
 
+  outputImage->SetOrigin(inputImage->GetOrigin());
+  outputImage->SetSpacing(inputImage->GetSpacing());
+
   outputImage->SetMetaDataDictionary(outputMetaData);
 
   FileWriterType::Pointer imageWriter =
