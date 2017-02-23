@@ -247,6 +247,9 @@ void DoNonMaximumSuppressionFilter(const std::string& inputFileName, const std::
 
   EncapsulateMetaData(outputMetaData, "(ThresholdBelow)", thresholdBelow);
 
+  outputImage->SetOrigin(inputImage->GetOrigin());
+  outputImage->SetSpacing(inputImage->GetSpacing());
+
   outputImage->SetMetaDataDictionary(outputMetaData);
 
   FileWriterType::Pointer imageWriter =
