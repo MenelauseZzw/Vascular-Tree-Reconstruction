@@ -46,6 +46,7 @@ void DoObjectnessMeasureImageFilter(
     FileReaderType::New();
 
   imageReader->SetFileName(inputFileName);
+  imageReader->Update();
 
   ImageType::ConstPointer inputImage =
     imageReader->GetOutput();
