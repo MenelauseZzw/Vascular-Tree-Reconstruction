@@ -18,14 +18,14 @@
 #include <queue>
 #include <vector>
 
-template<unsigned int NumDimensions, typename OffsetType = itk::Offset<NumDimensions>, typename OffsetValueType = OffsetType::OffsetValueType>
+template<unsigned int NumDimensions, typename OffsetType = itk::Offset<NumDimensions>, typename OffsetValueType = typename OffsetType::OffsetValueType>
 void InitializeCubeEdgeEndPoints(std::vector<itk::Offset<NumDimensions>>& offsetsOfEndPoint1, std::vector<itk::Offset<NumDimensions>>& offsetsOfEndPoint2, OffsetValueType minOffsetValue = -1, OffsetValueType maxOffsetValue = 1)
 {
   OffsetType startingOffset;
   startingOffset.Fill(minOffsetValue);
 
   std::queue<OffsetType> Q;
-  std::set<OffsetType, OffsetType::LexicographicCompare> S;
+  std::set<OffsetType, typename OffsetType::LexicographicCompare> S;
 
   Q.push(startingOffset);
 
@@ -67,7 +67,7 @@ enum IntersectionType
 template<typename ValueType, unsigned int NumDimensions>
 ValueType DotProduct(const ValueType(&s)[NumDimensions], const ValueType(&t)[NumDimensions])
 {
-  return std::inner_product(std::cbegin(s), std::cend(s), std::cbegin(t), ValueType());
+  return std::inner_product(std::begin(s), std::end(s), std::begin(t), ValueType());
 }
 
 template<unsigned int NumDimensions, typename ValueType, typename IndexType = itk::Index<NumDimensions>>
