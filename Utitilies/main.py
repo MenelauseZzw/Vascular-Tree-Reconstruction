@@ -357,11 +357,12 @@ def doCreateArcsPolyDataFile(args):
             polyData = createArcPolyData(p, q, Cpq)
         else:
             polyData = createArcPolyData(q, p, Cqp)
-        
+
         appendPolyData.AddInputData(polyData)
 
     appendPolyData.Update()
     polyData = appendPolyData.GetOutput()
+
 
     filename, _ = os.path.splitext(filename)
     filename    = filename + '.vtp'
@@ -637,6 +638,7 @@ def doCreateTangentsPolyDataFile(args):
     positions           = dataset[pointsArrName]
     tangentLinesPoints1 = dataset['tangentLinesPoints1']
     tangentLinesPoints2 = dataset['tangentLinesPoints2']
+    scale               = dataset['radiuses']
 
     tangentLines  = tangentLinesPoints2 - tangentLinesPoints1
     tangentLines /= linalg.norm(tangentLines, axis=1, keepdims=True)
@@ -644,6 +646,9 @@ def doCreateTangentsPolyDataFile(args):
     n = len(positions)
 
     appendPolyData = vtk.vtkAppendPolyData()
+    scaleDataArray = vtk.vtkDoubleArray()
+    scaleDataArray.SetNumberOfValues(n * 2)
+    scaleDataArray.SetName("Radius")
 
     for i in xrange(n):
         p  = positions[i]
@@ -652,9 +657,13 @@ def doCreateTangentsPolyDataFile(args):
 
         linePolyData = createLinePolyData(s,t)
         appendPolyData.AddInputData(linePolyData)
+        scaleDataArray.SetValue(i * 2, scale[i])
+        scaleDataArray.SetValue(i * 2 + 1, scale[i])
     
     appendPolyData.Update()
     polyData = appendPolyData.GetOutput()
+
+    polyData.GetPointData().SetScalars(scaleDataArray)
 
     filename, _ = os.path.splitext(filename)
     filename    = filename + 'Tangents.vtp'
