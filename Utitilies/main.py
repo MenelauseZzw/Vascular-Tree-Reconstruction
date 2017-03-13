@@ -148,7 +148,7 @@ def doConvertRawToH5NoBifurc(args):
 
     IO.writeH5File(filename, dataset)
 
-def createGraphPolyData(points, indices1, indices2):
+def createGraphPolyData(points, indices1, indices2, connectedComponents):
     pointsArr = vtk.vtkPoints()
 
     for p in points:
@@ -167,6 +167,17 @@ def createGraphPolyData(points, indices1, indices2):
     graphToPolyData.Update()
 
     polyData = graphToPolyData.GetOutput()
+
+
+    colorIndexArray = vtk.vtkDoubleArray()
+    colorIndexArray.SetNumberOfValues(graph.GetNumberOfVertices())
+    colorIndexArray.SetName("ConnectedComponent")
+
+    for i in xrange(graph.GetNumberOfVertices()):
+        colorIndexArray.SetValue(i, connectedComponents[i])
+
+    polyData.GetPointData().SetScalars(colorIndexArray)
+
     return polyData
 
 def doCreateGraphPolyDataFile(args):
@@ -177,11 +188,14 @@ def doCreateGraphPolyDataFile(args):
     filename = os.path.join(dirname, basename)
     dataset  = IO.readH5File(filename)
 
-    positions  = dataset[pointsArrName]
-    indices1   = dataset['indices1']
-    indices2   = dataset['indices2']
+    connectedComponentsName = 'connectedComponentsIndices';
 
-    polyData   = createGraphPolyData(positions, indices1, indices2)
+    positions                  = dataset[pointsArrName]
+    indices1                   = dataset['indices1']
+    indices2                   = dataset['indices2']
+    connectedComponentsIndices = dataset[connectedComponentsName] if connectedComponentsName in dataset else np.zeros(len(positions), dtype="double")
+
+    polyData   = createGraphPolyData(positions, indices1, indices2, connectedComponentsIndices)
     
     filename, _ = os.path.splitext(filename)
     filename    = filename + '.vtp'

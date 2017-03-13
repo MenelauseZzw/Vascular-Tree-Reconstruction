@@ -94,7 +94,7 @@ def readH5File(filename, n_dims=3):
     dataset = dict()
 
     with h5py.File(filename, mode='r') as f:
-        for name in ['indices1', 'indices2', 'radiuses', 'weights', 'responses', 'arcRadiuses', 'arcRadiusesMean', 'arcRadiusesStdDev', 'sourceIndices', 'targetIndices']:
+        for name in ['indices1', 'indices2', 'radiuses', 'weights', 'responses', 'arcRadiuses', 'arcRadiusesMean', 'arcRadiusesStdDev', 'sourceIndices', 'targetIndices', 'connectedComponentsIndices']:
             if name in f:
                 dataset[name] = f[name][()]
 
