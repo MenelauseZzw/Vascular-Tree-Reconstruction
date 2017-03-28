@@ -191,6 +191,12 @@ void DoGenerateNeighborhoodGraph(
     }
   }
 
+  indices1.reserve(indices1.size() + indices2.size());
+  copy(indices2.cbegin(), indices2.cend(), std::back_inserter(indices1));
+
+  indices2.reserve(indices1.size());
+  copy(indices1.cbegin(), indices1.cbegin() + indices2.size(), std::back_inserter(indices2));
+
   BOOST_LOG_TRIVIAL(info) << "measurements.size = " << measurements.size();
   BOOST_LOG_TRIVIAL(info) << "tangentLinesPoints1.size = " << tangentLinesPoints1.size();
   BOOST_LOG_TRIVIAL(info) << "tangentLinesPoints2.size = " << tangentLinesPoints2.size();
