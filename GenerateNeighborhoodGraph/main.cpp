@@ -67,7 +67,7 @@ void DoGenerateNeighborhoodGraph(
 
   SizeValueType sizeOfNeighborhood = 1;
 
-  for (int k = 0; k < NumDimensions; ++k)
+  for (unsigned int k = 0; k < NumDimensions; ++k)
   {
     sizeOfNeighborhood *= (radiusOfNeighborhood + 1 + radiusOfNeighborhood);
   }
