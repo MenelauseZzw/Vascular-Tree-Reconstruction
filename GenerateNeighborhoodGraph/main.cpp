@@ -22,8 +22,7 @@
 void DoGenerateNeighborhoodGraph(
   const std::string& inputFileName,
   const std::string& outputFileName,
-  double thresholdBelow,
-  double lambda)
+  float thresholdBelow)
 {
   using namespace boost;
 
@@ -226,15 +225,6 @@ void DoGenerateNeighborhoodGraph(
 
   outputFileWriter.Write(indices1DataSetName, indices1);
   outputFileWriter.Write(indices2DataSetName, indices2);
-
-  if (lambda > 0)
-  {
-    const std::string weightsDataSetName = "weights";
-    std::vector<OutputValueType> weights(indices1.size(), lambda);
-    outputFileWriter.Write(weightsDataSetName, weights);
-
-    BOOST_LOG_TRIVIAL(info) << "weights.size = " << weights.size();
-  }
 }
 
 int main(int argc, char *argv[])
@@ -247,12 +237,9 @@ int main(int argc, char *argv[])
   double thresholdBelow = 0.05;
   po::options_description desc;
 
-  double lambda = -1;
-
   desc.add_options()
     ("help", "print usage message")
     ("thresholdBelow", po::value(&thresholdBelow), "the values below the threshold will be ignored")
-    ("lambda", po::value(&lambda), "the value of regularization parameter")
     ("inputFileName", po::value(&inputFileName)->required(), "the name of the input file")
     ("outputFileName", po::value(&outputFileName)->required(), "the name of the output file");
 
@@ -268,7 +255,7 @@ int main(int argc, char *argv[])
 
   try
   {
-    DoGenerateNeighborhoodGraph(inputFileName, outputFileName, thresholdBelow, lambda);
+    DoGenerateNeighborhoodGraph(inputFileName, outputFileName, thresholdBelow);
     return EXIT_SUCCESS;
   }
   catch (itk::ExceptionObject& e)
