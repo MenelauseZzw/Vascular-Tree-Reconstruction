@@ -7,12 +7,12 @@
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #include <algorithm>
+#include <boost/log/trivial.hpp>
 #include <cmath>
 #include <cusp/blas/blas.h>
 #include <cusp/copy.h>
 #include <cusp/multiply.h>
 #include <iomanip>
-#include <glog/logging.h>
 
 template<typename ValueType>
 static ValueType d2norm(ValueType a, ValueType b)
@@ -290,10 +290,10 @@ void LSQR(const LinearOperator1& A, const LinearOperator2& At, const Vector1& b,
   // Local arrays and variables
   typedef typename LinearOperator1::memory_space MemorySpace;
   typedef cusp::array1d<ValueType, MemorySpace> ArrayType;
-  
+
   ArrayType u(A.num_rows), v(A.num_cols), w(A.num_cols);
   ArrayType tmpU(u.size()), tmpV(v.size());
-  
+
   bool damped, prnt;
   int maxdx, nconv, nstop;
   ValueType alfopt,
@@ -336,17 +336,18 @@ void LSQR(const LinearOperator1& A, const LinearOperator2& At, const Vector1& b,
   sn2 = 0;
   z = 0;
 
-  LOG(INFO) << "";
-  LOG(INFO) << "";
-  LOG(INFO) << " LSQR      --      Least-squares solution of  Ax = b";
+  BOOST_LOG_TRIVIAL(info) << "";
+  BOOST_LOG_TRIVIAL(info) << "";
+  BOOST_LOG_TRIVIAL(info) << " LSQR      --      Least-squares solution of  Ax = b";
 
-  LOG(INFO) << "";
-  LOG(INFO) << std::setfill(' ') << " The matrix A has" << std::setw(9) << A.num_rows << " rows and" << std::setw(9) << A.num_cols << " columns";
-  LOG_IF(INFO, damped) << std::setfill(' ') << std::scientific << " The damping parameter is         damp   =" << std::setw(10) << std::setprecision(2) << damp;
+  BOOST_LOG_TRIVIAL(info) << "";
+  BOOST_LOG_TRIVIAL(info) << std::setfill(' ') << " The matrix A has" << std::setw(9) << A.num_rows << " rows and" << std::setw(9) << A.num_cols << " columns";
+  if (damped)
+    BOOST_LOG_TRIVIAL(info) << std::setfill(' ') << std::scientific << " The damping parameter is         damp   =" << std::setw(10) << std::setprecision(2) << damp;
 
-  LOG(INFO) << "";
-  LOG(INFO) << std::setfill(' ') << std::scientific << " atol   =" << std::setw(10) << std::setprecision(2) << atol << std::setw(15) << "" << "conlim =" << std::setw(10) << std::setprecision(2) << conlim;
-  LOG(INFO) << std::setfill(' ') << std::scientific << " btol   =" << std::setw(10) << std::setprecision(2) << btol << std::setw(15) << "" << "itnlim =" << std::setw(10) << itnlim;
+  BOOST_LOG_TRIVIAL(info) << "";
+  BOOST_LOG_TRIVIAL(info) << std::setfill(' ') << std::scientific << " atol   =" << std::setw(10) << std::setprecision(2) << atol << std::setw(15) << "" << "conlim =" << std::setw(10) << std::setprecision(2) << conlim;
+  BOOST_LOG_TRIVIAL(info) << std::setfill(' ') << std::scientific << " btol   =" << std::setw(10) << std::setprecision(2) << btol << std::setw(15) << "" << "itnlim =" << std::setw(10) << itnlim;
 
   //-------------------------------------------------------------------
   // Set up the first vectors u and v for the bidiagonalization.
@@ -381,16 +382,14 @@ void LSQR(const LinearOperator1& A, const LinearOperator2& At, const Vector1& b,
   rnorm = beta;
 
   if (damped)
-  {
-    LOG(INFO) << "   Itn       x(1)           Function" << "     Compatible   LS     Norm Abar Cond Abar alfa_opt";
-  }
+    BOOST_LOG_TRIVIAL(info) << "   Itn       x(1)           Function" << "     Compatible   LS     Norm Abar Cond Abar alfa_opt";
   else
-  {
-    LOG(INFO) << "   Itn       x(1)           Function" << "     Compatible   LS        Norm A    Cond A";
-  }
+    BOOST_LOG_TRIVIAL(info) << "   Itn       x(1)           Function" << "     Compatible   LS        Norm A    Cond A";
+  
   test1 = 1;
   test2 = alpha / beta;
-  LOG(INFO) << std::setfill(' ') << std::scientific << std::setw(6) << itn << std::setw(17) << std::setprecision(9) << x[0] << std::setw(17) << std::setprecision(9) << rnorm << std::setw(10) << std::setprecision(2) << test1 << std::setw(10) << std::setprecision(2) << test2;
+
+  BOOST_LOG_TRIVIAL(info) << std::setfill(' ') << std::scientific << std::setw(6) << itn << std::setw(17) << std::setprecision(9) << x[0] << std::setw(17) << std::setprecision(9) << rnorm << std::setw(10) << std::setprecision(2) << test1 << std::setw(10) << std::setprecision(2) << test2;
 
   //===================================================================
   // Main iteration loop.
@@ -555,7 +554,7 @@ void LSQR(const LinearOperator1& A, const LinearOperator2& At, const Vector1& b,
 
     if (prnt) // Print a line for this iteration.
     {
-      LOG(INFO) << std::setfill(' ') << std::scientific << std::setw(6) << itn << std::setw(17) << std::setprecision(9) << x[0] << std::setw(17) << std::setprecision(9) << rnorm << std::setw(10) << std::setprecision(2) << std::setw(10) << test1 << std::setw(10) << test2 << std::setw(10) << Anorm << std::setw(10) << Acond << std::setw(9) << std::setprecision(1) << alfopt;
+      BOOST_LOG_TRIVIAL(info) << std::setfill(' ') << std::scientific << std::setw(6) << itn << std::setw(17) << std::setprecision(9) << x[0] << std::setw(17) << std::setprecision(9) << rnorm << std::setw(10) << std::setprecision(2) << std::setw(10) << test1 << std::setw(10) << test2 << std::setw(10) << Anorm << std::setw(10) << Acond << std::setw(9) << std::setprecision(1) << alfopt;
     }
 
     //----------------------------------------------------------------
@@ -585,19 +584,19 @@ void LSQR(const LinearOperator1& A, const LinearOperator2& At, const Vector1& b,
 label800:
   if (damped && istop == 2) istop = 3;
 
-  LOG(INFO) << "";
-  LOG(INFO) << std::setfill(' ') << std::scientific << std::setw(5) << "" << "istop  =" << std::setw(2) << istop << std::setw(15) << "" << "itn    =" << std::setw(8) << itn;
-  LOG(INFO) << std::setfill(' ') << std::scientific << std::setw(5) << "" << "Anorm  =" << std::setw(12) << std::setprecision(5) << Anorm << std::setw(5) << "" << "Acond  =" << std::setw(12) << std::setprecision(5) << Acond;
-  LOG(INFO) << std::setfill(' ') << std::scientific << std::setw(5) << "" << "bnorm  =" << std::setw(12) << std::setprecision(5) << bnorm << std::setw(5) << "" << "xnorm  =" << std::setw(12) << std::setprecision(5) << xnorm;
-  LOG(INFO) << std::setfill(' ') << std::scientific << std::setw(5) << "" << "rnorm  =" << std::setw(12) << std::setprecision(5) << rnorm << std::setw(5) << "" << "Arnorm =" << std::setw(12) << std::setprecision(5) << Arnorm;
+  BOOST_LOG_TRIVIAL(info) << "";
+  BOOST_LOG_TRIVIAL(info) << std::setfill(' ') << std::scientific << std::setw(5) << "" << "istop  =" << std::setw(2) << istop << std::setw(15) << "" << "itn    =" << std::setw(8) << itn;
+  BOOST_LOG_TRIVIAL(info) << std::setfill(' ') << std::scientific << std::setw(5) << "" << "Anorm  =" << std::setw(12) << std::setprecision(5) << Anorm << std::setw(5) << "" << "Acond  =" << std::setw(12) << std::setprecision(5) << Acond;
+  BOOST_LOG_TRIVIAL(info) << std::setfill(' ') << std::scientific << std::setw(5) << "" << "bnorm  =" << std::setw(12) << std::setprecision(5) << bnorm << std::setw(5) << "" << "xnorm  =" << std::setw(12) << std::setprecision(5) << xnorm;
+  BOOST_LOG_TRIVIAL(info) << std::setfill(' ') << std::scientific << std::setw(5) << "" << "rnorm  =" << std::setw(12) << std::setprecision(5) << rnorm << std::setw(5) << "" << "Arnorm =" << std::setw(12) << std::setprecision(5) << Arnorm;
 
-  LOG(INFO) << "";
-  LOG(INFO) << std::setfill(' ') << std::scientific << std::setw(5) << "" << "max dx =" << std::setw(9) << std::setprecision(1) << dxmax << " occurred at itn" << std::setw(8) << maxdx;
-  LOG(INFO) << std::setfill(' ') << std::scientific << std::setw(5) << "" << "       =" << std::setw(9) << std::setprecision(1) << dxmax / (xnorm + 1.0e-30) << " * xnorm";
+  BOOST_LOG_TRIVIAL(info) << "";
+  BOOST_LOG_TRIVIAL(info) << std::setfill(' ') << std::scientific << std::setw(5) << "" << "max dx =" << std::setw(9) << std::setprecision(1) << dxmax << " occurred at itn" << std::setw(8) << maxdx;
+  BOOST_LOG_TRIVIAL(info) << std::setfill(' ') << std::scientific << std::setw(5) << "" << "       =" << std::setw(9) << std::setprecision(1) << dxmax / (xnorm + 1.0e-30) << " * xnorm";
 
-  LOG(INFO) << "";
-  LOG(INFO) << std::setfill(' ') << std::setw(5) << "" << msg[istop - 1];
-  LOG(INFO) << "";
+  BOOST_LOG_TRIVIAL(info) << "";
+  BOOST_LOG_TRIVIAL(info) << std::setfill(' ') << std::setw(5) << "" << msg[istop - 1];
+  BOOST_LOG_TRIVIAL(info) << "";
 }
 
 #endif//LSQR_hpp

@@ -7,9 +7,9 @@ void cpuProjectionOntoLine(ValueType const* pMeasurements, ValueType const* pTan
   for (int i = 0; i != numMeasurements; ++i)
   {
     auto const& tildeP = reinterpret_cast<const ValueType(&)[NumDimensions]>(pMeasurements[i * NumDimensions]);
-    auto const& s = reinterpret_cast<const ValueType(&)[NumDimensions]>(pTangentLinesPoints1[i * NumDimensions]);
-    auto const& t = reinterpret_cast<const ValueType(&)[NumDimensions]>(pTangentLinesPoints2[i * NumDimensions]);
-    auto& p = reinterpret_cast<ValueType(&)[NumDimensions]>(pProjections[i * NumDimensions]);
+    auto const& s      = reinterpret_cast<const ValueType(&)[NumDimensions]>(pTangentLinesPoints1[i * NumDimensions]);
+    auto const& t      = reinterpret_cast<const ValueType(&)[NumDimensions]>(pTangentLinesPoints2[i * NumDimensions]);
+    auto& p            = reinterpret_cast<ValueType(&)[NumDimensions]>(pProjections[i * NumDimensions]);
 
     ProjectionOntoLineAt(tildeP, s, t, p);
   }
