@@ -1,13 +1,10 @@
 #include <boost/program_options.hpp>
-#include <iostream>
-#include <itkComposeImageFilter.h>
 #include <itkHessianToObjectnessMeasureImageFilter.h>
 #include <itkImage.h>
 #include <itkImageFileReader.h>
 #include <itkImageFileWriter.h>
 #include <itkImageRegionIterator.h>
 #include <itkIndex.h>
-#include <itkMacro.h>
 #include <itkMetaDataDictionary.h>
 #include <itkMetaDataObject.h>
 #include <itkMultiScaleHessianBasedMeasureImageFilter.h>
@@ -33,6 +30,10 @@ void DoObjectnessMeasureImageFilter(
 {
   typedef float ValueType;
   constexpr unsigned int NumDimensions = 3;
+
+  constexpr unsigned short objectnessMeasureValueComponentIndex = 0;
+  constexpr unsigned short objectnessMeasureTangentsComponentIndex = objectnessMeasureValueComponentIndex + 1;
+  constexpr unsigned short sigmaValueComponentIndex = objectnessMeasureTangentsComponentIndex + NumDimensions;
 
   typedef itk::Image<ValueType, NumDimensions> ImageType;
   typedef itk::Index<NumDimensions> IndexType;
@@ -87,7 +88,7 @@ void DoObjectnessMeasureImageFilter(
   EigenAnalysisType eigenAnalysis;
 
   eigenAnalysis.SetDimension(NumDimensions);
-  eigenAnalysis.SetOrderEigenMagnitudes(true);
+  eigenAnalysis.SetOrder(EigenAnalysisType::OrderByMagnitude);
 
   constexpr unsigned int OutputVectorDimension = 1 + NumDimensions + 1; // each output value consists of measure(1), eigenVector(n) and scale(1)
 
@@ -116,25 +117,25 @@ void DoObjectnessMeasureImageFilter(
 
   OutputImageIteratorType it(outputImage, outputImage->GetLargestPossibleRegion());
 
-  ImageType::ConstPointer measureImage =
+  ImageType::ConstPointer objectnessMeasureImage =
     rescaleIntensityFilter->GetOutput();
 
   HessianImageType::ConstPointer hessianImage =
     multiScaleEnhancementFilter->GetHessianOutput();
 
-  ImageType::ConstPointer scalesImage =
+  ImageType::ConstPointer sigmaValueImage =
     multiScaleEnhancementFilter->GetScalesOutput();
 
-  OutputVectorType outputVector;
+  OutputVectorType outVec;
 
   for (it.GoToBegin(); !it.IsAtEnd(); ++it)
   {
     const IndexType index = it.GetIndex();
+    const bool isBelowThreshold = inputImage->GetPixel(index) < thresholdBelow;
 
-    if (inputImage->GetPixel(index) < thresholdBelow)
+    if (isBelowThreshold)
     {
-      outputVector.Fill(0);
-      outputVector.SetElement(1, 1);
+      outVec.Fill(0);
     }
     else
     {
@@ -143,39 +144,46 @@ void DoObjectnessMeasureImageFilter(
 
       eigenAnalysis.ComputeEigenValuesAndVectors(hessianImage->GetPixel(index), eigenValues, eigenVectors);
 
-      outputVector.SetElement(0, measureImage->GetPixel(index));
+      const ValueType objectnessMeasureValue = objectnessMeasureImage->GetPixel(index);
+      const ValueType sigmaValue = sigmaValueImage->GetPixel(index);
 
-      for (int d = 0; d < NumDimensions; ++d)
+      outVec.SetNthComponent(objectnessMeasureValueComponentIndex, objectnessMeasureValue);
+
+      for (unsigned int k = 0; k < NumDimensions; ++k)
       {
-        outputVector.SetElement(d + 1, eigenVectors(0, d));
+        outVec.SetNthComponent(objectnessMeasureTangentsComponentIndex + k, eigenVectors(0, k));
       }
 
-      outputVector.SetElement(NumDimensions + 1, scalesImage->GetPixel(index));
+      outVec.SetNthComponent(sigmaValueComponentIndex, sigmaValue);
     }
 
-    it.Set(outputVector);
+    it.Set(outVec);
   }
 
   typedef itk::MetaDataDictionary MetaDataDictionaryType;
 
-  MetaDataDictionaryType outputMetaData;
+  MetaDataDictionaryType outMetaData;
 
-  EncapsulateMetaData(outputMetaData, "(ThresholdBelow)", thresholdBelow);
-  EncapsulateMetaData(outputMetaData, "(SigmaMaximum)", sigmaMaximum);
-  EncapsulateMetaData(outputMetaData, "(SigmaMinimum)", sigmaMinimum);
-  EncapsulateMetaData(outputMetaData, "(NumberOfSigmaSteps)", numberOfSigmaSteps);
-  EncapsulateMetaData(outputMetaData, "(Alpha)", alpha);
-  EncapsulateMetaData(outputMetaData, "(Beta)", beta);
-  EncapsulateMetaData(outputMetaData, "(Gamma)", gamma);
-  EncapsulateMetaData(outputMetaData, "(ObjectDimension)", objectDimension);
-  EncapsulateMetaData(outputMetaData, "(ScaleObjectnessMeasure)", scaleObjectnessMeasure);
-  EncapsulateMetaData(outputMetaData, "(OutputMaximum)", outputMaximum);
-  EncapsulateMetaData(outputMetaData, "(OutputMinimum)", outputMinimum);
+  EncapsulateMetaData(outMetaData, "(ThresholdBelow)", thresholdBelow);
+  EncapsulateMetaData(outMetaData, "(SigmaMaximum)", sigmaMaximum);
+  EncapsulateMetaData(outMetaData, "(SigmaMinimum)", sigmaMinimum);
+  EncapsulateMetaData(outMetaData, "(NumberOfSigmaSteps)", numberOfSigmaSteps);
+  EncapsulateMetaData(outMetaData, "(Alpha)", alpha);
+  EncapsulateMetaData(outMetaData, "(Beta)", beta);
+  EncapsulateMetaData(outMetaData, "(Gamma)", gamma);
+  EncapsulateMetaData(outMetaData, "(ObjectDimension)", objectDimension);
+  EncapsulateMetaData(outMetaData, "(ScaleObjectnessMeasure)", scaleObjectnessMeasure);
+  EncapsulateMetaData(outMetaData, "(OutputMaximum)", outputMaximum);
+  EncapsulateMetaData(outMetaData, "(OutputMinimum)", outputMinimum);
+
+  EncapsulateMetaData(outMetaData, "(ObjectnessMeasureValueComponentIndex)", objectnessMeasureValueComponentIndex);
+  EncapsulateMetaData(outMetaData, "(ObjectnessMeasureTangentsComponentIndex)", objectnessMeasureTangentsComponentIndex);
+  EncapsulateMetaData(outMetaData, "(SigmaValueComponentIndex)", sigmaValueComponentIndex);
 
   outputImage->SetOrigin(inputImage->GetOrigin());
   outputImage->SetSpacing(inputImage->GetSpacing());
 
-  outputImage->SetMetaDataDictionary(outputMetaData);
+  outputImage->SetMetaDataDictionary(outMetaData);
 
   FileWriterType::Pointer imageWriter =
     FileWriterType::New();
