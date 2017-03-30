@@ -1,9 +1,8 @@
 #include "CurvatureCostFunction.hpp"
 #include "DistanceCostFunction.hpp"
+#include <boost/log/trivial.hpp>
 #include <cusp/blas/blas.h>
 #include <cusp/copy.h>
-#define GLOG_NO_ABBREVIATED_SEVERITIES
-#include <glog/logging.h>
 #include <iomanip>
 #include <thrust/device_ptr.h>
 #include <thrust/sequence.h>
@@ -104,8 +103,8 @@ void LinearCombination<NumDimensions, ValueType, IndexType, MemorySpace>::SetUpC
 template<int NumDimensions, typename ValueType, typename IndexType, typename MemorySpace>
 void LinearCombination<NumDimensions, ValueType, IndexType, MemorySpace>::SetUpRowPointers(cusp::array1d<IndexType, MemorySpace>& rowPointers) const
 {
-  thrust::sequence(rowPointers.begin(), rowPointers.begin() + residualVectorLength1 + 1, 0, 2 * NumDimensions);
-  thrust::sequence(rowPointers.begin() + residualVectorLength1, rowPointers.end(), (IndexType)rowPointers[residualVectorLength1], 4 * NumDimensions);
+  thrust::sequence(rowPointers.begin(), rowPointers.begin() + residualVectorLength1, 0, 2 * NumDimensions);
+  thrust::sequence(rowPointers.begin() + residualVectorLength1, rowPointers.end(), 2 * NumDimensions * residualVectorLength1, 4 * NumDimensions);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType, typename MemorySpace>
@@ -163,67 +162,55 @@ void LinearCombination<NumDimensions, ValueType, IndexType, MemorySpace>::Comput
 template<int NumDimensions, typename ValueType, typename IndexType>
 void cpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeResidual1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pResidual, int residualVectorLength) const
 {
-  LOG(INFO) << "residualVectorLength = " << residualVectorLength;
+  BOOST_LOG_TRIVIAL(info) << "Computing residuals";
   cpuDistanceCostResidual<ValueType, NumDimensions>(pTildeP, pS, pT, pWeights, pResidual, residualVectorLength);
-
-  auto tmp = cusp::make_array1d_view(pResidual, pResidual + residualVectorLength);
-  LOG(INFO) << "Distance cost " << cusp::blas::dot(tmp, tmp);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
 void cpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeJacobian1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pJacobian, int residualVectorLength) const
 {
-  LOG(INFO) << "residualVectorLength = " << residualVectorLength;
+  BOOST_LOG_TRIVIAL(info) << "Computing Jacobian matrix";
   cpuDistanceCostJacobian<ValueType, NumDimensions>(pTildeP, pS, pT, pWeights, pJacobian, residualVectorLength);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
 void gpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeResidual1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pResidual, int residualVectorLength) const
 {
-  LOG(INFO) << "residualVectorLength = " << residualVectorLength;
+  BOOST_LOG_TRIVIAL(info) << "Computing residuals";
   gpuDistanceCostResidual<ValueType, NumDimensions>(pTildeP, pS, pT, pWeights, pResidual, residualVectorLength);
-  
-  auto tmp = cusp::make_array1d_view(thrust::device_ptr<ValueType>(pResidual), thrust::device_ptr<ValueType>(pResidual) +residualVectorLength);
-  LOG(INFO) << "Distance cost " << cusp::blas::dot(tmp, tmp);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
 void gpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeJacobian1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pJacobian, int residualVectorLength) const
 {
-  LOG(INFO) << "residualVectorLength = " << residualVectorLength;
+  BOOST_LOG_TRIVIAL(info) << "Computing Jacobian matrix";
   gpuDistanceCostJacobian<ValueType, NumDimensions>(pTildeP, pS, pT, pWeights, pJacobian, residualVectorLength);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
 void cpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeResidual2(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, const IndexType* pIndices1, const IndexType* pIndices2, ValueType* pResidual, int residualVectorLength) const
 {
-  LOG(INFO) << "residualVectorLength = " << residualVectorLength;
+  BOOST_LOG_TRIVIAL(info) << "Computing residuals";
   cpuCurvatureCostResidual<ValueType, IndexType, NumDimensions>(pTildeP, pS, pT, pWeights, pIndices1, pIndices2, pResidual, residualVectorLength);
-  
-  auto tmp = cusp::make_array1d_view(pResidual, pResidual + residualVectorLength);
-  LOG(INFO) << "Curvature cost " << cusp::blas::dot(tmp, tmp);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
 void cpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeJacobian2(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, const IndexType* pIndices1, const IndexType* pIndices2, ValueType* pJacobian, int residualVectorLength) const
 {
-  LOG(INFO) << "residualVectorLength = " << residualVectorLength;
+  BOOST_LOG_TRIVIAL(info) << "Computing Jacobian matrix";
   cpuCurvatureCostJacobian<ValueType, IndexType, NumDimensions>(pTildeP, pS, pT, pWeights, pIndices1, pIndices2, pJacobian, residualVectorLength);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
 void gpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeResidual2(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, const IndexType* pIndices1, const IndexType* pIndices2, ValueType* pResidual, int residualVectorLength) const
 {
-  LOG(INFO) << "residualVectorLength = " << residualVectorLength;
+  BOOST_LOG_TRIVIAL(info) << "Computing residuals";
   gpuCurvatureCostResidual<ValueType, IndexType, NumDimensions>(pTildeP, pS, pT, pWeights, pIndices1, pIndices2, pResidual, residualVectorLength);
-  
-  auto tmp = cusp::make_array1d_view(thrust::device_ptr<ValueType>(pResidual), thrust::device_ptr<ValueType>(pResidual) + residualVectorLength);
-  LOG(INFO) << "Curvature cost " << cusp::blas::dot(tmp, tmp);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
 void gpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeJacobian2(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, const IndexType* pIndices1, const IndexType* pIndices2, ValueType* pJacobian, int residualVectorLength) const
 {
-  LOG(INFO) << "residualVectorLength = " << residualVectorLength;
+  BOOST_LOG_TRIVIAL(info) << "Computing Jacobian matrix";
   gpuCurvatureCostJacobian<ValueType, IndexType, NumDimensions>(pTildeP, pS, pT, pWeights, pIndices1, pIndices2, pJacobian, residualVectorLength);
 }                                                 
