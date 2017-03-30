@@ -33,6 +33,10 @@ void DoGenerateNeighborhoodGraph(
   constexpr unsigned int NumDimensions = 3;
   constexpr unsigned int VectorDimension = 1 + NumDimensions + 1; // each value consists of measure(1), eigenVector(n) and scale(1)
 
+  constexpr unsigned int ObjectnessMeasureValueComponentIndex = 0;
+  constexpr unsigned int ObjectnessMeasureTangentsComponentIndex = 1;
+  constexpr unsigned int SigmaValueComponentIndex = 1 + NumDimensions;
+
   typedef itk::Vector<InputValueType, VectorDimension> PixelType;
   typedef itk::Image<PixelType, NumDimensions> ObjectnessMeasureImageType;
 
@@ -119,8 +123,10 @@ void DoGenerateNeighborhoodGraph(
     else
     {
       index = objectnessMeasure.size();
+      const OutputValueType objectnessMeasureValue = valueAtPixel.GetElement(ObjectnessMeasureValueComponentIndex);
+      const OutputValueType sigmaValue = valueAtPixel.GetElement(SigmaValueComponentIndex);
 
-      objectnessMeasure.push_back(valueAtPixel.GetElement(0));
+      objectnessMeasure.push_back(objectnessMeasureValue);
 
       PointType pointAtPixel;
       inputImage->TransformIndexToPhysicalPoint(indexOfPixel, pointAtPixel);
@@ -130,8 +136,10 @@ void DoGenerateNeighborhoodGraph(
 
       for (unsigned int k = 0; k < NumDimensions; ++k)
       {
-        indexOfTangentLinePoint1.SetElement(k, indexOfPixel.GetElement(k) - valueAtPixel.GetElement(1 + k));
-        indexOfTangentLinePoint2.SetElement(k, indexOfPixel.GetElement(k) + valueAtPixel.GetElement(1 + k));
+        const OutputValueType objectnessMeasureTangent = valueAtPixel.GetElement(ObjectnessMeasureTangentsComponentIndex + k);
+
+        indexOfTangentLinePoint1.SetElement(k, indexOfPixel.GetElement(k) - objectnessMeasureTangent);
+        indexOfTangentLinePoint2.SetElement(k, indexOfPixel.GetElement(k) + objectnessMeasureTangent);
       }
 
       PointType tangentLinePoint1;
@@ -141,10 +149,10 @@ void DoGenerateNeighborhoodGraph(
       inputImage->TransformContinuousIndexToPhysicalPoint(indexOfTangentLinePoint2, tangentLinePoint2);
 
       copy(pointAtPixel.GetDataPointer(), pointAtPixel.GetDataPointer() + NumDimensions, std::back_inserter(measurements));
-
       copy(tangentLinePoint1.GetDataPointer(), tangentLinePoint1.GetDataPointer() + NumDimensions, std::back_inserter(tangentLinesPoints1));
       copy(tangentLinePoint2.GetDataPointer(), tangentLinePoint2.GetDataPointer() + NumDimensions, std::back_inserter(tangentLinesPoints2));
-      radiuses.push_back(valueAtPixel.GetElement(1 + NumDimensions));
+
+      radiuses.push_back(sigmaValue);
 
       indexToOutputIndex.insert({ indexOfPixel, index });
     }
@@ -155,39 +163,36 @@ void DoGenerateNeighborhoodGraph(
   for (imageRegionIterator.GoToBegin(); !imageRegionIterator.IsAtEnd(); ++imageRegionIterator)
   {
     const PixelType* pValueAtCenterPixel = imageRegionIterator.GetCenterPointer();
-    const InputValueType objectnessMeasureValueAtCenter = pValueAtCenterPixel->GetElement(0);
+    const InputValueType objectnessMeasureValueAtCenter = pValueAtCenterPixel->GetElement(ObjectnessMeasureValueComponentIndex);
 
-    if (objectnessMeasureValueAtCenter >= thresholdBelow)
+    if (objectnessMeasureValueAtCenter < thresholdBelow) continue;
+    const IndexType indexOfCenterPixel = imageRegionIterator.GetIndex();
+    OutputIndexType outputIndexOfCenterPixel;
+
+    bool indexOfCenterPixelValid = false;
+
+    for (NeighborhoodIteratorType neighborhoodIterator = imageRegionIterator.Begin(); !neighborhoodIterator.IsAtEnd(); ++neighborhoodIterator)
     {
-      const IndexType indexOfCenterPixel = imageRegionIterator.GetIndex();
-      OutputIndexType outputIndexOfCenterPixel;
+      const IndexType indexOfNeighbor = indexOfCenterPixel + neighborhoodIterator.GetNeighborhoodOffset();
 
-      bool indexOfCenterPixelValid = false;
+      if (!inputImage->GetLargestPossibleRegion().IsInside(indexOfNeighbor))
+        continue;
 
-      for (NeighborhoodIteratorType neighborhoodIterator = imageRegionIterator.Begin(); !neighborhoodIterator.IsAtEnd(); ++neighborhoodIterator)
+      const PixelType valueAtNeighbor = neighborhoodIterator.Get();
+      const InputValueType objectnessMeasureValueAtNeighbor = valueAtNeighbor.GetElement(ObjectnessMeasureValueComponentIndex);
+
+      if (objectnessMeasureValueAtNeighbor < thresholdBelow) continue;
+     
+      if (!indexOfCenterPixelValid)
       {
-        const IndexType indexOfNeighbor = indexOfCenterPixel + neighborhoodIterator.GetNeighborhoodOffset();
-
-        if (!inputImage->GetLargestPossibleRegion().IsInside(indexOfNeighbor))
-          continue;
-
-        const PixelType valueAtNeighbor = neighborhoodIterator.Get();
-        const InputValueType objectnessMeasureValueAtNeighbor = valueAtNeighbor.GetElement(0);
-
-        if (objectnessMeasureValueAtNeighbor >= thresholdBelow)
-        {
-          if (!indexOfCenterPixelValid)
-          {
-            outputIndexOfCenterPixel = getIndexOrAdd(indexOfCenterPixel, *pValueAtCenterPixel);
-            indexOfCenterPixelValid = true;
-          }
-
-          OutputIndexType outputIndexOfNeighbor = getIndexOrAdd(indexOfNeighbor, valueAtNeighbor);
-
-          indices1.push_back(outputIndexOfCenterPixel);
-          indices2.push_back(outputIndexOfNeighbor);
-        }
+        outputIndexOfCenterPixel = getIndexOrAdd(indexOfCenterPixel, *pValueAtCenterPixel);
+        indexOfCenterPixelValid = true;
       }
+
+      OutputIndexType outputIndexOfNeighbor = getIndexOrAdd(indexOfNeighbor, valueAtNeighbor);
+
+      indices1.push_back(outputIndexOfCenterPixel);
+      indices2.push_back(outputIndexOfNeighbor);
     }
   }
 
