@@ -19,7 +19,7 @@
 #include <vector>
 
 template<unsigned int NumDimensions, typename OffsetType = itk::Offset<NumDimensions>, typename OffsetValueType = typename OffsetType::OffsetValueType>
-void InitializeCubeEdgeEndPoints(std::vector<itk::Offset<NumDimensions>>& offsetsOfEndPoint1, std::vector<itk::Offset<NumDimensions>>& offsetsOfEndPoint2, OffsetValueType minOffsetValue = -1, OffsetValueType maxOffsetValue = 1)
+void InitializeCubeEdgesEndPoints(std::vector<itk::Offset<NumDimensions>>& offsetsOfEndPoint1, std::vector<itk::Offset<NumDimensions>>& offsetsOfEndPoint2, OffsetValueType minOffsetValue = -1, OffsetValueType maxOffsetValue = 1)
 {
   OffsetType startingOffset;
   startingOffset.Fill(minOffsetValue);
@@ -127,17 +127,19 @@ IntersectionType ComputeLineIntervalPlaneIntersection(const itk::Index<NumDimens
 }
 
 template<unsigned int NumDimensions, typename ValueType, typename IndexType = itk::Index<NumDimensions>>
-bool LineIntervalIntersectsPlane(const itk::Index<NumDimensions>& indexOfCenter, const ValueType(&normalVector)[NumDimensions], const IndexType& indexOfPoint1, const IndexType& indexOfPoint2, ValueType valueAtPoint1, ValueType valueAtPoint2, ValueType& valueAtIntersPoint)
+bool LineIntervalIntersectsPlane(const itk::Index<NumDimensions>& indexOfCenter, const ValueType(&normalVector)[NumDimensions], const IndexType& indexOfPoint1, const IndexType& indexOfPoint2, ValueType valueAtPoint1, ValueType valueAtPoint2, ValueType& valueAtXing)
 {
   ValueType intersPoint[NumDimensions];
 
-  IntersectionType intersection = ComputeLineIntervalPlaneIntersection(indexOfPoint1, indexOfPoint2, indexOfCenter, normalVector, valueAtPoint1, valueAtPoint2, intersPoint, valueAtIntersPoint);
+  IntersectionType intersection = ComputeLineIntervalPlaneIntersection(indexOfPoint1, indexOfPoint2, indexOfCenter, normalVector, valueAtPoint1, valueAtPoint2, intersPoint, valueAtXing);
 
   if (intersection == PointIntersection)
+  {
     return true;
+  }
   else if (intersection == LineIntersection)
   {
-    valueAtIntersPoint = std::max(valueAtPoint1, valueAtPoint2);
+    valueAtXing = std::max(valueAtPoint1, valueAtPoint2);
     return true;
   }
   else return false;
@@ -146,9 +148,15 @@ bool LineIntervalIntersectsPlane(const itk::Index<NumDimensions>& indexOfCenter,
 void DoNonMaximumSuppressionFilter(const std::string& inputFileName, const std::string& outputFileName, double thresholdBelow)
 {
   typedef float ValueType;
+
   constexpr unsigned int NumDimensions = 3;
 
+  constexpr unsigned int objectnessMeasureValueComponentIndex = 0;
+  constexpr unsigned int objectnessMeasureTangentsComponentIndex = 1;
+  constexpr unsigned int sigmaValueComponentIndex = 1 + NumDimensions;
+
   constexpr unsigned int VectorDimension = 1 + NumDimensions + 1; // each output value consists of measure(1), eigenVector(n) and scale(1)
+
   typedef itk::Vector<ValueType, VectorDimension> VectorType;
   typedef itk::Image<VectorType, NumDimensions> ImageType;
   typedef itk::Index<NumDimensions> IndexType;
@@ -178,29 +186,29 @@ void DoNonMaximumSuppressionFilter(const std::string& inputFileName, const std::
 
   VectorType zeroVector;
   zeroVector.Fill(0);
-  zeroVector.SetElement(1, 1);
 
   std::vector<OffsetType> offsetsOfEndPoint1;
   std::vector<OffsetType> offsetsOfEndPoint2;
 
-  InitializeCubeEdgeEndPoints(offsetsOfEndPoint1, offsetsOfEndPoint2);
+  InitializeCubeEdgesEndPoints(offsetsOfEndPoint1, offsetsOfEndPoint2);
   assert(offsetsOfEndPoint1.size() == offsetsOfEndPoint2.size());
 
   for (it.GoToBegin(); !it.IsAtEnd(); ++it)
   {
     const IndexType indexOfCenter = it.GetIndex();
-    const double valueAtCenter = inputImage->GetPixel(indexOfCenter)[0];
+    const ValueType objectnessMeasureValueAtCenter = inputImage->GetPixel(indexOfCenter).GetElement(objectnessMeasureValueComponentIndex);
 
-    if (valueAtCenter < thresholdBelow)
+    if (objectnessMeasureValueAtCenter < thresholdBelow)
     {
       it.Set(zeroVector);
       continue;
     }
 
-    double normalAtCenter[NumDimensions];
-    for (unsigned int i = 0; i < NumDimensions; ++i)
+    ValueType objectnessMeasureTangentAtCenter[NumDimensions];
+
+    for (unsigned int k = 0; k < NumDimensions; ++k)
     {
-      normalAtCenter[i] = inputImage->GetPixel(indexOfCenter)[i + 1];
+      objectnessMeasureTangentAtCenter[k] = inputImage->GetPixel(indexOfCenter).GetElement(objectnessMeasureTangentsComponentIndex + k);
     }
 
     bool isValueAtCenterLocalMaximum = true;
@@ -218,14 +226,14 @@ void DoNonMaximumSuppressionFilter(const std::string& inputFileName, const std::
 
         if (outputImage->GetLargestPossibleRegion().IsInside(indexOfEndPoint2))
         {
-          const double valueAtPoint1 = inputImage->GetPixel(indexOfEndPoint1)[0];
-          const double valueAtPoint2 = inputImage->GetPixel(indexOfEndPoint2)[0];
+          const ValueType valueAtPoint1 = inputImage->GetPixel(indexOfEndPoint1).GetElement(objectnessMeasureValueComponentIndex);
+          const ValueType valueAtPoint2 = inputImage->GetPixel(indexOfEndPoint2).GetElement(objectnessMeasureValueComponentIndex);
 
-          double valueAtIntersPoint;
+          ValueType valueAtXing;
 
-          if (LineIntervalIntersectsPlane(indexOfCenter, normalAtCenter, indexOfEndPoint1, indexOfEndPoint2, valueAtPoint1, valueAtPoint2, valueAtIntersPoint))
+          if (LineIntervalIntersectsPlane(indexOfCenter, objectnessMeasureTangentAtCenter, indexOfEndPoint1, indexOfEndPoint2, valueAtPoint1, valueAtPoint2, valueAtXing))
           {
-            if (valueAtCenter <= valueAtIntersPoint)
+            if (objectnessMeasureValueAtCenter <= valueAtXing)
             {
               isValueAtCenterLocalMaximum = false;
               break;
@@ -243,14 +251,14 @@ void DoNonMaximumSuppressionFilter(const std::string& inputFileName, const std::
 
   typedef itk::MetaDataDictionary MetaDataDictionaryType;
 
-  MetaDataDictionaryType outputMetaData;
+  MetaDataDictionaryType outMetaData;
 
-  EncapsulateMetaData(outputMetaData, "(ThresholdBelow)", thresholdBelow);
+  EncapsulateMetaData(outMetaData, "(ThresholdBelow)", thresholdBelow);
 
   outputImage->SetOrigin(inputImage->GetOrigin());
   outputImage->SetSpacing(inputImage->GetSpacing());
 
-  outputImage->SetMetaDataDictionary(outputMetaData);
+  outputImage->SetMetaDataDictionary(outMetaData);
 
   FileWriterType::Pointer imageWriter =
     FileWriterType::New();
@@ -268,7 +276,7 @@ int main(int argc, char* argv[])
   std::string inputFileName;
   std::string outputFileName;
 
-  double thresholdBelow = 0.05;
+  double thresholdBelow = 0.01;
 
   po::options_description desc;
 
