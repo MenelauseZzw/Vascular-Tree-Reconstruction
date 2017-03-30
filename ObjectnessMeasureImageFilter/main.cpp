@@ -72,9 +72,9 @@ void DoObjectnessMeasureImageFilter(
   typedef float ValueType;
   constexpr unsigned int NumDimensions = 3;
 
-  constexpr unsigned int objectnessMeasureValueComponentIndex = 0;
-  constexpr unsigned int objectnessMeasureTangentsComponentIndex = 1;
-  constexpr unsigned int sigmaValueComponentIndex = 1 + NumDimensions;
+  constexpr unsigned int ObjectnessMeasureValueComponentIndex = 0;
+  constexpr unsigned int ObjectnessMeasureTangentsComponentIndex = 1;
+  constexpr unsigned int SigmaValueComponentIndex = 1 + NumDimensions;
 
   typedef itk::Image<ValueType, NumDimensions> ImageType;
   typedef itk::Index<NumDimensions> IndexType;
@@ -189,14 +189,14 @@ void DoObjectnessMeasureImageFilter(
       const ValueType objectnessMeasureValue = objectnessMeasureImage->GetPixel(index);
       const ValueType sigmaValue = sigmaValueImage->GetPixel(index);
 
-      outVec.SetNthComponent(objectnessMeasureValueComponentIndex, objectnessMeasureValue);
+      outVec.SetNthComponent(ObjectnessMeasureValueComponentIndex, objectnessMeasureValue);
 
       for (unsigned int k = 0; k < NumDimensions; ++k)
       {
-        outVec.SetNthComponent(objectnessMeasureTangentsComponentIndex + k, eigenVectors(0, k)); // Each row of the matrix 'EigenVectors' represents an eigen vector.
+        outVec.SetNthComponent(ObjectnessMeasureTangentsComponentIndex + k, eigenVectors(0, k)); // Each row of the matrix 'EigenVectors' represents an eigen vector.
       }
 
-      outVec.SetNthComponent(sigmaValueComponentIndex, sigmaValue);
+      outVec.SetNthComponent(SigmaValueComponentIndex, sigmaValue);
     }
 
     it.Set(outVec);
@@ -218,9 +218,9 @@ void DoObjectnessMeasureImageFilter(
   EncapsulateMetaData(outMetaData, "(OutputMaximum)", outputMaximum);
   EncapsulateMetaData(outMetaData, "(OutputMinimum)", outputMinimum);
 
-  EncapsulateMetaData(outMetaData, "(ObjectnessMeasureValueComponentIndex)", objectnessMeasureValueComponentIndex);
-  EncapsulateMetaData(outMetaData, "(ObjectnessMeasureTangentsComponentIndex)", objectnessMeasureTangentsComponentIndex);
-  EncapsulateMetaData(outMetaData, "(SigmaValueComponentIndex)", sigmaValueComponentIndex);
+  EncapsulateMetaData(outMetaData, "(ObjectnessMeasureValueComponentIndex)", ObjectnessMeasureValueComponentIndex);
+  EncapsulateMetaData(outMetaData, "(ObjectnessMeasureTangentsComponentIndex)", ObjectnessMeasureTangentsComponentIndex);
+  EncapsulateMetaData(outMetaData, "(SigmaValueComponentIndex)", SigmaValueComponentIndex);
 
   outputImage->SetOrigin(inputImage->GetOrigin());
   outputImage->SetSpacing(inputImage->GetSpacing());
