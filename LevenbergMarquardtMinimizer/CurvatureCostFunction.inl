@@ -5,7 +5,8 @@
 template<typename ValueType, typename IndexType, int NumDimensions>
 void cpuCurvatureCostResidual(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, IndexType const* pPointsIndexes1, IndexType const* pPointsIndexes2, ValueType* pResidual, int residualVectorLength)
 {
-  for (int i = 0; i != residualVectorLength; ++i)
+#pragma omp parallel for
+  for (int i = 0; i < residualVectorLength; ++i)
   {
     const IndexType index1 = pPointsIndexes1[i];
 
@@ -14,7 +15,7 @@ void cpuCurvatureCostResidual(ValueType const* pMeasurements, ValueType const* p
     auto const& ti = reinterpret_cast<const ValueType(&)[NumDimensions]>(pTangentLinesPoints2[index1 * NumDimensions]);
 
     const IndexType index2 = pPointsIndexes2[i];
-    
+
     auto const& tildePj = reinterpret_cast<const ValueType(&)[NumDimensions]>(pMeasurements[index2 * NumDimensions]);
     auto const& sj = reinterpret_cast<const ValueType(&)[NumDimensions]>(pTangentLinesPoints1[index2 * NumDimensions]);
     auto const& tj = reinterpret_cast<const ValueType(&)[NumDimensions]>(pTangentLinesPoints2[index2 * NumDimensions]);
@@ -35,7 +36,8 @@ void cpuCurvatureCostJacobian(ValueType const* pMeasurements, ValueType const* p
 
   ValueType gradient[numParametersPerResidual];
 
-  for (int i = 0; i != residualVectorLength; ++i)
+#pragma omp parallel for private(sBar,tBar,gradient)
+  for (int i = 0; i < residualVectorLength; ++i)
   {
     IndexType const index1 = pPointsIndexes1[i];
     IndexType const index2 = pPointsIndexes2[i];
@@ -52,6 +54,7 @@ void cpuCurvatureCostJacobian(ValueType const* pMeasurements, ValueType const* p
     for (int k = 0; k != NumDimensions; ++k)
     {
       sBar[k].s = si[k];
+      sBar[k].sPrime = 0;
     }
 
     for (int k = 0; k != NumDimensions; ++k)
@@ -66,6 +69,7 @@ void cpuCurvatureCostJacobian(ValueType const* pMeasurements, ValueType const* p
     for (int k = 0; k != NumDimensions; ++k)
     {
       tBar[k].s = ti[k];
+      tBar[k].sPrime = 0;
     }
 
     for (int k = 0; k != NumDimensions; ++k)
@@ -238,6 +242,7 @@ __global__ void cudaCurvatureCostJacobian(ValueType const* pMeasurements, ValueT
       for (int k = 0; k != NumDimensions; ++k)
       {
         sBar[k].s = si[k];
+        sBar[k].sPrime = 0;
       }
 
       for (int k = 0; k != NumDimensions; ++k)
@@ -256,6 +261,7 @@ __global__ void cudaCurvatureCostJacobian(ValueType const* pMeasurements, ValueT
       for (int k = 0; k != NumDimensions; ++k)
       {
         tBar[k].s = ti[k];
+        tBar[k].sPrime = 0;
       }
 
       for (int k = 0; k != NumDimensions; ++k)
@@ -274,6 +280,7 @@ __global__ void cudaCurvatureCostJacobian(ValueType const* pMeasurements, ValueT
       for (int k = 0; k != NumDimensions; ++k)
       {
         sBar[k].s = sj[k];
+        sBar[k].sPrime = 0;
       }
 
       for (int k = 0; k != NumDimensions; ++k)
@@ -292,6 +299,7 @@ __global__ void cudaCurvatureCostJacobian(ValueType const* pMeasurements, ValueT
       for (int k = 0; k != NumDimensions; ++k)
       {
         tBar[k].s = tj[k];
+        tBar[k].sPrime = 0;
       }
 
       for (int k = 0; k != NumDimensions; ++k)
@@ -318,7 +326,7 @@ void gpuCurvatureCostResidual(ValueType const* pMeasurements, ValueType const* p
   const int maxNumBlocks = 65535;
 
   const int numResidualsPerBlock = numThreadsPerBlock;
- 
+
   for (int numResidualsRemaining = residualVectorLength; numResidualsRemaining > 0;)
   {
     int numBlocksRequired = (numResidualsRemaining + numResidualsPerBlock - 1) / numResidualsPerBlock;//ceil(numResidualsRemaining / numResidualsPerBlock)
@@ -329,6 +337,7 @@ void gpuCurvatureCostResidual(ValueType const* pMeasurements, ValueType const* p
 
     pPointsIndexes1 += numResidualsProcessed;
     pPointsIndexes2 += numResidualsProcessed;
+    pWeights += numResidualsProcessed;
     pResidual += numResidualsProcessed;
 
     numResidualsRemaining -= numResidualsProcessed;
@@ -353,7 +362,8 @@ void gpuCurvatureCostJacobian(ValueType const* pMeasurements, ValueType const* p
 
     pPointsIndexes1 += numResidualsProcessed;
     pPointsIndexes2 += numResidualsProcessed;
-    pJacobian += (NumDimensions + NumDimensions + NumDimensions + NumDimensions) *numResidualsProcessed;
+    pWeights += numResidualsProcessed;
+    pJacobian += (NumDimensions + NumDimensions + NumDimensions + NumDimensions) * numResidualsProcessed;
 
     numResidualsRemaining -= numResidualsProcessed;
   }

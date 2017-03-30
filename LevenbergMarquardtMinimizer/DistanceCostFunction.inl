@@ -5,7 +5,8 @@
 template<typename ValueType, int NumDimensions>
 void cpuDistanceCostResidual(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pResidual, int residualVectorLength)
 {
-  for (int i = 0; i != residualVectorLength; ++i)
+#pragma omp parallel for
+  for (int i = 0; i < residualVectorLength; ++i)
   {
     auto const& tildeP = reinterpret_cast<const ValueType(&)[NumDimensions]>(pMeasurements[i * NumDimensions]);
     auto const& s = reinterpret_cast<const ValueType(&)[NumDimensions]>(pTangentLinesPoints1[i * NumDimensions]);
@@ -20,13 +21,14 @@ template<typename ValueType, int NumDimensions>
 void cpuDistanceCostJacobian(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pJacobian, int residualVectorLength)
 {
   const int numParametersPerResidual = NumDimensions + NumDimensions;
-  
+
   DualNumber<ValueType> sBar[NumDimensions];
   DualNumber<ValueType> tBar[NumDimensions];
 
   ValueType gradient[numParametersPerResidual];
 
-  for (int i = 0; i != residualVectorLength; ++i)
+#pragma omp parallel for private(sBar,tBar,gradient)
+  for (int i = 0; i < residualVectorLength; ++i)
   {
     auto const& tildeP = reinterpret_cast<const ValueType(&)[NumDimensions]>(pMeasurements[i * NumDimensions]);
     auto const& s = reinterpret_cast<const ValueType(&)[NumDimensions]>(pTangentLinesPoints1[i * NumDimensions]);
@@ -35,6 +37,7 @@ void cpuDistanceCostJacobian(ValueType const* pMeasurements, ValueType const* pT
     for (int k = 0; k != NumDimensions; ++k)
     {
       sBar[k].s = s[k];
+      sBar[k].sPrime = 0;
     }
 
     for (int k = 0; k != NumDimensions; ++k)
@@ -49,6 +52,7 @@ void cpuDistanceCostJacobian(ValueType const* pMeasurements, ValueType const* pT
     for (int k = 0; k != NumDimensions; ++k)
     {
       tBar[k].s = t[k];
+      tBar[k].sPrime = 0;
     }
 
     for (int k = 0; k != NumDimensions; ++k)
