@@ -204,4 +204,11 @@ static __inline__ __host__ __device__ DualNumber<ValueType> sqrt(const DualNumbe
   return MakeDualNumber(std::sqrt(a.s), a.sPrime / (2 * std::sqrt(a.s)));
 }
 
+// Binary < with a scalar: a < scal
+template<typename ValueType>
+static __inline__ __host__ __device__ bool operator<(const DualNumber<ValueType>& a, const DualNumber<ValueType>& b)
+{
+  return a.s < b.s;
+}
+
 #endif//DualNumber_cuh
