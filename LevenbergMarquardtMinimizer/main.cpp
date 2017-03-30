@@ -1,110 +1,122 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+#include "FileReader.hpp"
+#include "FileWriter.hpp"
 #include "Minimize.hpp"
-#include <H5Cpp.h>
+#include <boost/log/trivial.hpp>
+#include <boost/program_options.hpp>
 #include <cuda_runtime.h>
-#include <gflags/gflags.h>
-#include <glog/logging.h>
+#include <exception>
+#include <iostream>
 #include <vector>
 
-DEFINE_string(source, "", "source filename");
-DEFINE_string(result, "", "result filename");
-DEFINE_int32(itnlim, 1000, "an upper limit on the number of iterations");
-
-using namespace std;
-
-#ifndef H5_NO_NAMESPACE
-using namespace H5;
-#endif
-
-template<typename ValueType>
-PredType GetDataType();
-
-template<>
-PredType GetDataType<float>() { return PredType::NATIVE_FLOAT; }
-
-template<>
-PredType GetDataType<double>() { return PredType::NATIVE_DOUBLE; }
-
-template<>
-PredType GetDataType<int>() { return PredType::NATIVE_INT; }
-
-template<typename ValueType>
-std::vector<ValueType> Read(const H5File& sourceFile, const string& sourceDataSetName)
+void DoLevenbergMarquardtMinimizer(const std::string& inputFileName, const std::string& outputFileName, double lambda, int maxNumberOfIterations, int gpuDevice)
 {
-  auto sourceDataSet = sourceFile.openDataSet(sourceDataSetName);
-  vector<ValueType> resultDataSet(sourceDataSet.getSpace().getSimpleExtentNpoints());
-  sourceDataSet.read(&resultDataSet[0], GetDataType<ValueType>());
-  return resultDataSet;
-}
+  const unsigned int NumDimensions = 3;
 
-template<typename ValueType>
-void Write(H5File& resultFile, const string& resultDataSetName, const std::vector<ValueType>& sourceDataSet)
-{
-  const int rank = 1;
-  const hsize_t dims = sourceDataSet.size();
+  typedef double ValueType;
+  typedef int IndexType;
 
-  auto resultDataSet = resultFile.createDataSet(resultDataSetName, GetDataType<ValueType>(), DataSpace(rank, &dims));
-  resultDataSet.write(&sourceDataSet[0], GetDataType<ValueType>());
+  const std::string measurementsDataSetName = "measurements";
+  const std::string tangentLinesPoints1DataSetName = "tangentLinesPoints1";
+  const std::string tangentLinesPoints2DataSetName = "tangentLinesPoints2";
+  const std::string radiusesDataSetName = "radiuses";
+  const std::string positionsDataSetName = "positions";
+
+  const std::string indices1DataSetName = "indices1";
+  const std::string indices2DataSetName = "indices2";
+
+  FileReader inputFileReader(inputFileName);
+
+  std::vector<ValueType> measurements;
+  std::vector<ValueType> tangentLinesPoints1;
+  std::vector<ValueType> tangentLinesPoints2;
+  std::vector<ValueType> radiuses;
+
+  std::vector<IndexType> indices1;
+  std::vector<IndexType> indices2;
+
+  inputFileReader.Read(measurementsDataSetName, measurements);
+  inputFileReader.Read(tangentLinesPoints1DataSetName, tangentLinesPoints1);
+  inputFileReader.Read(tangentLinesPoints2DataSetName, tangentLinesPoints2);
+  inputFileReader.Read(radiusesDataSetName, radiuses);
+
+  inputFileReader.Read(indices1DataSetName, indices1);
+  inputFileReader.Read(indices2DataSetName, indices2);
+
+  std::vector<ValueType> lambdas(indices1.size(), lambda);
+  std::vector<ValueType> positions(measurements.size());
+
+  if (gpuDevice != -1)
+  {
+    if (cudaErrorInvalidDevice == cudaSetDevice(gpuDevice))
+      cudaGetDevice(&gpuDevice);
+
+    cudaDeviceProp gpuDeviceProp;
+    cudaGetDeviceProperties(&gpuDeviceProp, gpuDevice);
+
+    BOOST_LOG_TRIVIAL(info) << "Device " << gpuDeviceProp.name << "(" << gpuDevice << ")";
+    BOOST_LOG_TRIVIAL(info) << "Maximum size of each dimension of a block (" << gpuDeviceProp.maxThreadsDim[0] << " " << gpuDeviceProp.maxThreadsDim[1] << " " << gpuDeviceProp.maxThreadsDim[2] << ") ";
+    BOOST_LOG_TRIVIAL(info) << "Maximum number of threads per block " << gpuDeviceProp.maxThreadsPerBlock;
+    BOOST_LOG_TRIVIAL(info) << "Maximum resident threads per multiprocessor " << gpuDeviceProp.maxThreadsPerMultiProcessor;
+
+    //DoGpuLevenbergMarquardtMinimizer(measurements, tangentLinesPoints1, tangentLinesPoints2, radiuses, indices1, indices2, positions, lambdas, maxNumberOfIterations);
+  }
+  else
+  {
+    //DoCpuLevenbergMarquardtMinimizer(measurements, tangentLinesPoints1, tangentLinesPoints2, radiuses, indices1, indices2, positions, lambdas, maxNumberOfIterations);
+  }
+
+  FileWriter outputFileWriter(outputFileName);
+
+  outputFileWriter.Write(measurementsDataSetName, measurements);
+  outputFileWriter.Write(tangentLinesPoints1DataSetName, tangentLinesPoints1);
+  outputFileWriter.Write(tangentLinesPoints2DataSetName, tangentLinesPoints2);
+  outputFileWriter.Write(radiusesDataSetName, radiuses);
+  outputFileWriter.Write(positionsDataSetName, positions);
+
+  outputFileWriter.Write(indices1DataSetName, indices1);
+  outputFileWriter.Write(indices2DataSetName, indices2);
 }
 
 int main(int argc, char *argv[])
 {
-  const int numDimensions{ 3 };
-  typedef float ValueType;
-  typedef int IndexType;
+  namespace po = boost::program_options;
 
-  google::InitGoogleLogging(argv[0]);
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
+ 
+  int maxNumberOfIterations = 1000;
+  double lambda;
+  std::string inputFileName;
+  std::string outputFileName; 
+  int gpuDevice = -1;
 
-  const string sourceFileName{ FLAGS_source };
-  const string resultFileName{ FLAGS_result };
-  const int itnlim{ FLAGS_itnlim };
+  po::options_description desc;
+  desc.add_options()
+    ("help", "print usage message")
+    ("lambda", po::value(&lambda)->required(), "the value of regularization parameter")
+    ("gpuDevice", po::value(&gpuDevice), "gpu device should be used; otherwise, run on cpu")
+    ("maxNumberOfIterations", po::value(&maxNumberOfIterations), "the upper limit on the number of iterations")
+    ("inputFileName", po::value(&inputFileName)->required(), "the name of the input file")
+    ("outputFileName", po::value(&outputFileName)->required(), "the name of the output file");
 
-  const string measurementsDataSetName{ "measurements" };
-  const string tangentLinesPoints1DataSetName{ "tangentLinesPoints1" };
-  const string tangentLinesPoints2DataSetName{ "tangentLinesPoints2" };
-  const string radiusesDataSetName{ "radiuses" };
-  const string positionsDataSetName{ "positions" };
-  const string indices1DataSetName{ "indices1" };
-  const string indices2DataSetName{ "indices2" };
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);
 
-  const string distancesDataSetName{ "distances" };
-  const string curvaturesDataSetName{ "curvatures" };
-  
-  int device;
-  cudaGetDevice(&device);
+  if (vm.count("help"))
+  {
+    desc.print(std::cout);
+    return EXIT_SUCCESS;
+  }
 
-  cudaDeviceProp prop;
-  cudaGetDeviceProperties(&prop, device);
-
-  LOG(INFO) << "Device " << prop.name << "(" << device << ")";
-  LOG(INFO) << "Maximum size of each dimension of a block (" << prop.maxThreadsDim[0] << " " << prop.maxThreadsDim[1] << " " << prop.maxThreadsDim[2] << ") ";
-  LOG(INFO) << "Maximum number of threads per block " << prop.maxThreadsPerBlock;
-  LOG(INFO) << "Maximum resident threads per multiprocessor " << prop.maxThreadsPerMultiProcessor;
-
-  H5File sourceFile(sourceFileName, H5F_ACC_RDONLY);
-
-  auto measurements = Read<ValueType>(sourceFile, measurementsDataSetName);
-  auto tangentLinesPoints1 = Read<ValueType>(sourceFile, tangentLinesPoints1DataSetName);
-  auto tangentLinesPoints2 = Read<ValueType>(sourceFile, tangentLinesPoints2DataSetName);
-  auto radiuses = Read<ValueType>(sourceFile, radiusesDataSetName);
-  auto indices1 = Read<IndexType>(sourceFile, indices1DataSetName);
-  auto indices2 = Read<IndexType>(sourceFile, indices2DataSetName);
-
-  vector<ValueType> positions(measurements.size());
-  
-  vector<ValueType> distances(measurements.size() / numDimensions);
-  vector<ValueType> curvatures(indices1.size());
-  Minimize(&measurements[0], &tangentLinesPoints1[0], &tangentLinesPoints2[0], &radiuses[0], measurements.size() / numDimensions, &indices1[0], &indices2[0], indices1.size(), &positions[0], itnlim, &distances[0], &curvatures[0]);
-
-  H5File resultFile(resultFileName, H5F_ACC_TRUNC);
-
-  Write(resultFile, measurementsDataSetName, measurements);
-  Write(resultFile, tangentLinesPoints1DataSetName, tangentLinesPoints1);
-  Write(resultFile, tangentLinesPoints2DataSetName, tangentLinesPoints2);
-  Write(resultFile, radiusesDataSetName, radiuses);
-  Write(resultFile, positionsDataSetName, positions);
-  Write(resultFile, indices1DataSetName, indices1);
-  Write(resultFile, indices2DataSetName, indices2);
-  Write(resultFile, distancesDataSetName, distances);
-  Write(resultFile, curvaturesDataSetName, curvatures);
+  try
+  {
+    DoLevenbergMarquardtMinimizer(inputFileName, outputFileName, lambda, maxNumberOfIterations, gpuDevice);
+    return EXIT_SUCCESS;
+  }
+  catch (std::exception& e)
+  {
+    std::cerr << e.what() << std::endl;
+    return EXIT_FAILURE;
+  }
 }
