@@ -151,9 +151,9 @@ void DoNonMaximumSuppressionFilter(const std::string& inputFileName, const std::
 
   constexpr unsigned int NumDimensions = 3;
 
-  constexpr unsigned int objectnessMeasureValueComponentIndex = 0;
-  constexpr unsigned int objectnessMeasureTangentsComponentIndex = 1;
-  constexpr unsigned int sigmaValueComponentIndex = 1 + NumDimensions;
+  constexpr unsigned int ObjectnessMeasureValueComponentIndex = 0;
+  constexpr unsigned int ObjectnessMeasureTangentsComponentIndex = 1;
+  constexpr unsigned int SigmaValueComponentIndex = 1 + NumDimensions;
 
   constexpr unsigned int VectorDimension = 1 + NumDimensions + 1; // each output value consists of measure(1), eigenVector(n) and scale(1)
 
@@ -196,7 +196,7 @@ void DoNonMaximumSuppressionFilter(const std::string& inputFileName, const std::
   for (it.GoToBegin(); !it.IsAtEnd(); ++it)
   {
     const IndexType indexOfCenter = it.GetIndex();
-    const ValueType objectnessMeasureValueAtCenter = inputImage->GetPixel(indexOfCenter).GetElement(objectnessMeasureValueComponentIndex);
+    const ValueType objectnessMeasureValueAtCenter = inputImage->GetPixel(indexOfCenter).GetElement(ObjectnessMeasureValueComponentIndex);
 
     if (objectnessMeasureValueAtCenter < thresholdBelow)
     {
@@ -208,7 +208,7 @@ void DoNonMaximumSuppressionFilter(const std::string& inputFileName, const std::
 
     for (unsigned int k = 0; k < NumDimensions; ++k)
     {
-      objectnessMeasureTangentAtCenter[k] = inputImage->GetPixel(indexOfCenter).GetElement(objectnessMeasureTangentsComponentIndex + k);
+      objectnessMeasureTangentAtCenter[k] = inputImage->GetPixel(indexOfCenter).GetElement(ObjectnessMeasureTangentsComponentIndex + k);
     }
 
     bool isValueAtCenterLocalMaximum = true;
@@ -226,8 +226,8 @@ void DoNonMaximumSuppressionFilter(const std::string& inputFileName, const std::
 
         if (outputImage->GetLargestPossibleRegion().IsInside(indexOfEndPoint2))
         {
-          const ValueType valueAtPoint1 = inputImage->GetPixel(indexOfEndPoint1).GetElement(objectnessMeasureValueComponentIndex);
-          const ValueType valueAtPoint2 = inputImage->GetPixel(indexOfEndPoint2).GetElement(objectnessMeasureValueComponentIndex);
+          const ValueType valueAtPoint1 = inputImage->GetPixel(indexOfEndPoint1).GetElement(ObjectnessMeasureValueComponentIndex);
+          const ValueType valueAtPoint2 = inputImage->GetPixel(indexOfEndPoint2).GetElement(ObjectnessMeasureValueComponentIndex);
 
           ValueType valueAtXing;
 
