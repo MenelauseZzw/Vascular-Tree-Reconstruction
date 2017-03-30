@@ -9,7 +9,7 @@ set(Boost_USE_STATIC_LIBS    ON) # only find static libs
 set(Boost_USE_MULTITHREADED  ON)
 set(Boost_USE_STATIC_RUNTIME OFF)
  
-find_package(Boost REQUIRED COMPONENTS program_options)
+find_package(Boost REQUIRED COMPONENTS log program_options)
 include_directories(${Boost_INCLUDE_DIRS})
 
 add_executable(ObjectnessMeasureImageFilter main.cpp)

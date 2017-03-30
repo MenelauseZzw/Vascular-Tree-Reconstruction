@@ -1,10 +1,14 @@
+#include <boost/log/trivial.hpp>
 #include <boost/program_options.hpp>
+#include <cmath>
+#include <itkCommand.h>
 #include <itkHessianToObjectnessMeasureImageFilter.h>
 #include <itkImage.h>
 #include <itkImageFileReader.h>
 #include <itkImageFileWriter.h>
 #include <itkImageRegionIterator.h>
 #include <itkIndex.h>
+#include <itkMacro.h>
 #include <itkMetaDataDictionary.h>
 #include <itkMetaDataObject.h>
 #include <itkMultiScaleHessianBasedMeasureImageFilter.h>
@@ -12,6 +16,43 @@
 #include <itkSymmetricSecondRankTensor.h>
 #include <itkVectorImage.h>
 #include <string>
+
+class ProgressUpdateCommand : public itk::Command
+{
+public:
+  typedef ProgressUpdateCommand   Self;
+  typedef itk::Command            Superclass;
+  typedef itk::SmartPointer<Self> Pointer;
+  
+  itkNewMacro(Self);
+
+protected:
+  ProgressUpdateCommand() : oldValue(0) {}
+
+public:
+  void Execute(itk::Object* caller, const itk::EventObject& event) override
+  {
+    Execute(static_cast<const itk::Object*>(caller), event);
+  }
+
+  void Execute(const itk::Object* caller, const itk::EventObject & event) override
+  {
+    if (itk::ProgressEvent().CheckEvent(&event))
+    {
+      const itk::ProcessObject* pObject = static_cast<const itk::ProcessObject*>(caller);
+      const int newValue = std::rint(100 * pObject->GetProgress());
+
+      if (newValue != oldValue)
+      {
+        BOOST_LOG_TRIVIAL(info) << "Complete " << newValue << "%";
+        oldValue = newValue;
+      }
+    }
+  }
+
+private:
+  int oldValue;
+};
 
 void DoObjectnessMeasureImageFilter(
   const std::string& inputFileName,
@@ -71,6 +112,7 @@ void DoObjectnessMeasureImageFilter(
     ObjectnessFilterType::New();
 
   multiScaleEnhancementFilter->SetHessianToMeasureFilter(objectnessFilter);
+  multiScaleEnhancementFilter->AddObserver(itk::ProgressEvent(), ProgressUpdateCommand::New());
 
   objectnessFilter->BrightObjectOn();
   objectnessFilter->SetAlpha(alpha);
