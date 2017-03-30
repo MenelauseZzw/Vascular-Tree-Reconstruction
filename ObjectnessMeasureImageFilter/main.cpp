@@ -72,9 +72,9 @@ void DoObjectnessMeasureImageFilter(
   typedef float ValueType;
   constexpr unsigned int NumDimensions = 3;
 
-  constexpr unsigned short objectnessMeasureValueComponentIndex = 0;
-  constexpr unsigned short objectnessMeasureTangentsComponentIndex = objectnessMeasureValueComponentIndex + 1;
-  constexpr unsigned short sigmaValueComponentIndex = objectnessMeasureTangentsComponentIndex + NumDimensions;
+  constexpr unsigned int objectnessMeasureValueComponentIndex = 0;
+  constexpr unsigned int objectnessMeasureTangentsComponentIndex = 1;
+  constexpr unsigned int sigmaValueComponentIndex = 1 + NumDimensions;
 
   typedef itk::Image<ValueType, NumDimensions> ImageType;
   typedef itk::Index<NumDimensions> IndexType;
@@ -130,7 +130,7 @@ void DoObjectnessMeasureImageFilter(
   EigenAnalysisType eigenAnalysis;
 
   eigenAnalysis.SetDimension(NumDimensions);
-  eigenAnalysis.SetOrder(EigenAnalysisType::OrderByMagnitude);
+  eigenAnalysis.SetOrderEigenMagnitudes(true);
 
   constexpr unsigned int OutputVectorDimension = 1 + NumDimensions + 1; // each output value consists of measure(1), eigenVector(n) and scale(1)
 
@@ -193,7 +193,7 @@ void DoObjectnessMeasureImageFilter(
 
       for (unsigned int k = 0; k < NumDimensions; ++k)
       {
-        outVec.SetNthComponent(objectnessMeasureTangentsComponentIndex + k, eigenVectors(0, k));
+        outVec.SetNthComponent(objectnessMeasureTangentsComponentIndex + k, eigenVectors(0, k)); // Each row of the matrix 'EigenVectors' represents an eigen vector.
       }
 
       outVec.SetNthComponent(sigmaValueComponentIndex, sigmaValue);
