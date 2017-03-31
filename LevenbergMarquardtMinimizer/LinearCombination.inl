@@ -160,56 +160,56 @@ void LinearCombination<NumDimensions, ValueType, IndexType, MemorySpace>::Comput
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
-void cpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeResidual1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pResidual, int residualVectorLength) const
+void CpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeResidual1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pResidual, int residualVectorLength) const
 {
   BOOST_LOG_TRIVIAL(info) << "Computing residuals";
   cpuDistanceCostResidual<ValueType, NumDimensions>(pTildeP, pS, pT, pWeights, pResidual, residualVectorLength);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
-void cpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeJacobian1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pJacobian, int residualVectorLength) const
+void CpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeJacobian1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pJacobian, int residualVectorLength) const
 {
   BOOST_LOG_TRIVIAL(info) << "Computing Jacobian matrix";
   cpuDistanceCostJacobian<ValueType, NumDimensions>(pTildeP, pS, pT, pWeights, pJacobian, residualVectorLength);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
-void gpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeResidual1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pResidual, int residualVectorLength) const
+void GpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeResidual1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pResidual, int residualVectorLength) const
 {
   BOOST_LOG_TRIVIAL(info) << "Computing residuals";
   gpuDistanceCostResidual<ValueType, NumDimensions>(pTildeP, pS, pT, pWeights, pResidual, residualVectorLength);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
-void gpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeJacobian1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pJacobian, int residualVectorLength) const
+void GpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeJacobian1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pJacobian, int residualVectorLength) const
 {
   BOOST_LOG_TRIVIAL(info) << "Computing Jacobian matrix";
   gpuDistanceCostJacobian<ValueType, NumDimensions>(pTildeP, pS, pT, pWeights, pJacobian, residualVectorLength);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
-void cpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeResidual2(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, const IndexType* pIndices1, const IndexType* pIndices2, ValueType* pResidual, int residualVectorLength) const
+void CpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeResidual2(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, const IndexType* pIndices1, const IndexType* pIndices2, ValueType* pResidual, int residualVectorLength) const
 {
   BOOST_LOG_TRIVIAL(info) << "Computing residuals";
   cpuCurvatureCostResidual<ValueType, IndexType, NumDimensions>(pTildeP, pS, pT, pWeights, pIndices1, pIndices2, pResidual, residualVectorLength);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
-void cpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeJacobian2(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, const IndexType* pIndices1, const IndexType* pIndices2, ValueType* pJacobian, int residualVectorLength) const
+void CpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeJacobian2(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, const IndexType* pIndices1, const IndexType* pIndices2, ValueType* pJacobian, int residualVectorLength) const
 {
   BOOST_LOG_TRIVIAL(info) << "Computing Jacobian matrix";
   cpuCurvatureCostJacobian<ValueType, IndexType, NumDimensions>(pTildeP, pS, pT, pWeights, pIndices1, pIndices2, pJacobian, residualVectorLength);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
-void gpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeResidual2(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, const IndexType* pIndices1, const IndexType* pIndices2, ValueType* pResidual, int residualVectorLength) const
+void GpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeResidual2(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, const IndexType* pIndices1, const IndexType* pIndices2, ValueType* pResidual, int residualVectorLength) const
 {
   BOOST_LOG_TRIVIAL(info) << "Computing residuals";
   gpuCurvatureCostResidual<ValueType, IndexType, NumDimensions>(pTildeP, pS, pT, pWeights, pIndices1, pIndices2, pResidual, residualVectorLength);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
-void gpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeJacobian2(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, const IndexType* pIndices1, const IndexType* pIndices2, ValueType* pJacobian, int residualVectorLength) const
+void GpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeJacobian2(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, const IndexType* pIndices1, const IndexType* pIndices2, ValueType* pJacobian, int residualVectorLength) const
 {
   BOOST_LOG_TRIVIAL(info) << "Computing Jacobian matrix";
   gpuCurvatureCostJacobian<ValueType, IndexType, NumDimensions>(pTildeP, pS, pT, pWeights, pIndices1, pIndices2, pJacobian, residualVectorLength);

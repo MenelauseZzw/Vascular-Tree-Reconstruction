@@ -61,18 +61,19 @@ private:
 };
 
 template<int NumDimensions, typename ValueType, typename IndexType = int>
-class cpuLinearCombination : public LinearCombination < NumDimensions, ValueType, IndexType, cusp::host_memory >
+class CpuLinearCombination : public LinearCombination < NumDimensions, ValueType, IndexType, cusp::host_memory >
 {
 public:
   typedef LinearCombination<NumDimensions, ValueType, IndexType, cusp::host_memory> Parent;
+  typedef cusp::host_memory MemorySpace;
 
   template<typename Vector1, typename Vector2, typename Vector3, typename Vector4, typename Vector5>
-  cpuLinearCombination(Vector1&& tildeP, Vector2&& indices1, Vector3&& indices2, Vector4&& weights1, Vector5&& weights2)
+  CpuLinearCombination(Vector1&& tildeP, Vector2&& indices1, Vector3&& indices2, Vector4&& weights1, Vector5&& weights2)
     : Parent(tildeP, indices1, indices2, weights1, weights2)
   {
   }
 
-  ~cpuLinearCombination()
+  ~CpuLinearCombination()
   {
   }
 
@@ -85,18 +86,19 @@ protected:
 };
 
 template<int NumDimensions, typename ValueType, typename IndexType = int>
-class gpuLinearCombination : public LinearCombination < NumDimensions, ValueType, IndexType, cusp::device_memory >
+class GpuLinearCombination : public LinearCombination < NumDimensions, ValueType, IndexType, cusp::device_memory >
 {
 public:
   typedef LinearCombination<NumDimensions, ValueType, IndexType, cusp::device_memory> Parent;
+  typedef cusp::device_memory MemorySpace;
 
   template<typename Vector1, typename Vector2, typename Vector3, typename Vector4, typename Vector5>
-  gpuLinearCombination(Vector1&& tildeP, Vector2&& indices1, Vector3&& indices2, Vector4&& weights1, Vector5&& weights2)
+  GpuLinearCombination(Vector1&& tildeP, Vector2&& indices1, Vector3&& indices2, Vector4&& weights1, Vector5&& weights2)
     : Parent(tildeP, indices1, indices2, weights1, weights2)
   {
   }
 
-  ~gpuLinearCombination()
+  ~GpuLinearCombination()
   {
   }
 
