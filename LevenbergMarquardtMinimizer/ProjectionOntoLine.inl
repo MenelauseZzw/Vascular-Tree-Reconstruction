@@ -2,7 +2,7 @@
 #include <algorithm>
 
 template<typename ValueType, int NumDimensions>
-void cpuProjectionOntoLine(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType* pProjections, int numMeasurements)
+void CpuProjectionOntoLine(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType* pProjections, int numMeasurements)
 {
   for (int i = 0; i != numMeasurements; ++i)
   {
@@ -55,7 +55,7 @@ __global__ void cudaProjectionOntoLine(ValueType const* pMeasurements, ValueType
 }
 
 template<typename ValueType, int NumDimensions>
-void gpuProjectionOntoLine(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType* pProjections, int numMeasurements)
+void GpuProjectionOntoLine(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType* pProjections, int numMeasurements)
 {
   const int numThreadsPerBlock = 192;
   const int maxNumBlocks = 65535;
