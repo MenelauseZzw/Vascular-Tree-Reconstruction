@@ -77,23 +77,7 @@ void DoGenerateNeighborhoodGraph(
 
   for (SizeValueType i = 0; i < sizeOfNeighborhood; ++i)
   {
-    itk::Offset<NumDimensions> offsetOfNeighbor = imageRegionIterator.GetOffset(i);
-
-    bool doActivateOffset = true;
-
-    for (unsigned int k = 0; k < NumDimensions; ++k)
-    {
-      if (offsetOfNeighbor[k] < 0)
-      {
-        doActivateOffset = false;
-        break;
-      }
-    }
-
-    if (doActivateOffset)
-    {
-      imageRegionIterator.ActivateOffset(offsetOfNeighbor);
-    }
+    imageRegionIterator.ActivateOffset(imageRegionIterator.GetOffset(i));
   }
 
   imageRegionIterator.DeactivateOffset(imageRegionIterator.GetOffset(imageRegionIterator.GetCenterNeighborhoodIndex()));
@@ -195,12 +179,6 @@ void DoGenerateNeighborhoodGraph(
       indices2.push_back(outputIndexOfNeighbor);
     }
   }
-
-  indices1.reserve(indices1.size() + indices2.size());
-  copy(indices2.cbegin(), indices2.cend(), std::back_inserter(indices1));
-
-  indices2.reserve(indices1.size());
-  copy(indices1.cbegin(), indices1.cbegin() + indices2.size(), std::back_inserter(indices2));
 
   BOOST_LOG_TRIVIAL(info) << "measurements.size = " << measurements.size();
   BOOST_LOG_TRIVIAL(info) << "tangentLinesPoints1.size = " << tangentLinesPoints1.size();
