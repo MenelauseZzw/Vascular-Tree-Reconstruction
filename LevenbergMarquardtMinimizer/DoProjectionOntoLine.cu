@@ -1,8 +1,8 @@
 #include "DoProjectionOntoLine.hpp"
 #include "ProjectionOntoLine.hpp"
 #include <cusp/array1d.h>
-#include <cusp/copy.h>
 #include <thrust/device_ptr.h>
+#include <thrust/copy.h>
 
 template<int NumDimensions, typename ValueType>
 void DoCpuProjectionOntoLine(
@@ -43,10 +43,7 @@ void DoGpuProjectionOntoLine(
     measurements.size() / NumDimensions);
 
   positions.resize(measurements.size());
-
-  cusp::copy(
-    cusp::make_array1d_view(gpuPositions.cbegin(), gpuPositions.cend()),
-    cusp::make_array1d_view(positions.begin(), positions.end()));
+  thrust::copy(gpuPositions.cbegin(), gpuPositions.cend(), positions.begin());
 }
 
 //Explicit instantiation

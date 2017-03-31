@@ -3,7 +3,7 @@
 #include <cusp/array1d.h>
 #include <cusp/blas/blas.h>
 #include <cusp/csr_matrix.h>
-#include <cusp/copy.h>
+#include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/transform.h>
 
@@ -36,16 +36,10 @@ void DoCpuOrGpuLevenbergMarquardtMinimizer(
     cusp::make_array1d_view(lambdas.cbegin(), lambdas.cend()),
     voxelPhysicalSize);
 
-  cusp::array1d<ValueType, MemorySpace> optParams(
-    tangentLinesPoints1.size() + tangentLinesPoints2.size());
+  cusp::array1d<ValueType, MemorySpace> optParams(tangentLinesPoints1.size() + tangentLinesPoints2.size());
 
-  cusp::copy(
-    cusp::make_array1d_view(tangentLinesPoints1.cbegin(), tangentLinesPoints1.cend()),
-    optParams.subarray(0, tangentLinesPoints1.size()));
-
-  cusp::copy(
-    cusp::make_array1d_view(tangentLinesPoints2.cbegin(), tangentLinesPoints2.cend()),
-    optParams.subarray(tangentLinesPoints1.size(), tangentLinesPoints2.size()));
+  thrust::copy(tangentLinesPoints1.cbegin(), tangentLinesPoints1.cend(), optParams.begin());
+  thrust::copy(tangentLinesPoints2.cbegin(), tangentLinesPoints2.cend(), optParams.begin() + tangentLinesPoints1.size());
 
   // Local variables
   ValueType damp = 0;
@@ -59,13 +53,8 @@ void DoCpuOrGpuLevenbergMarquardtMinimizer(
 
   LevenbergMarquardtMinimizer(costFunction, optParams, damp, dampmin, tolx, tolf, tolg, itn, maxNumberOfIterations);
 
-  cusp::copy(
-    optParams.subarray(0, tangentLinesPoints1.size()),
-    cusp::make_array1d_view(tangentLinesPoints1.begin(), tangentLinesPoints1.end()));
-
-  cusp::copy(
-    optParams.subarray(tangentLinesPoints1.size(), tangentLinesPoints2.size()),
-    cusp::make_array1d_view(tangentLinesPoints2.begin(), tangentLinesPoints2.end()));
+  thrust::copy(optParams.cbegin(), optParams.cbegin() + tangentLinesPoints1.size(), tangentLinesPoints1.begin());
+  thrust::copy(optParams.cbegin() + tangentLinesPoints1.size(), optParams.cend(), tangentLinesPoints2.begin());
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
