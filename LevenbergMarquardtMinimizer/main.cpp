@@ -2,7 +2,8 @@
 // PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 #include "FileReader.hpp"
 #include "FileWriter.hpp"
-#include "Minimize.hpp"
+#include "DoLevenbergMarquardtMinimizer.hpp"
+#include "DoProjectionOntoLine.hpp"
 #include <boost/log/trivial.hpp>
 #include <boost/program_options.hpp>
 #include <cuda_runtime.h>
@@ -21,6 +22,7 @@ void DoLevenbergMarquardtMinimizer(const std::string& inputFileName, const std::
   const std::string tangentLinesPoints1DataSetName = "tangentLinesPoints1";
   const std::string tangentLinesPoints2DataSetName = "tangentLinesPoints2";
   const std::string radiusesDataSetName = "radiuses";
+  const std::string objectnessMeasureDataSetName = "objectnessMeasure";
   const std::string positionsDataSetName = "positions";
 
   const std::string indices1DataSetName = "indices1";
@@ -32,6 +34,7 @@ void DoLevenbergMarquardtMinimizer(const std::string& inputFileName, const std::
   std::vector<ValueType> tangentLinesPoints1;
   std::vector<ValueType> tangentLinesPoints2;
   std::vector<ValueType> radiuses;
+  std::vector<ValueType> objectnessMeasure;
 
   std::vector<IndexType> indices1;
   std::vector<IndexType> indices2;
@@ -40,12 +43,21 @@ void DoLevenbergMarquardtMinimizer(const std::string& inputFileName, const std::
   inputFileReader.Read(tangentLinesPoints1DataSetName, tangentLinesPoints1);
   inputFileReader.Read(tangentLinesPoints2DataSetName, tangentLinesPoints2);
   inputFileReader.Read(radiusesDataSetName, radiuses);
+  inputFileReader.Read(objectnessMeasureDataSetName, objectnessMeasure);
 
   inputFileReader.Read(indices1DataSetName, indices1);
   inputFileReader.Read(indices2DataSetName, indices2);
 
+  BOOST_LOG_TRIVIAL(info) << "measurements.size = " << measurements.size();
+  BOOST_LOG_TRIVIAL(info) << "tangentLinesPoints1.size = " << tangentLinesPoints1.size();
+  BOOST_LOG_TRIVIAL(info) << "tangentLinesPoints2.size = " << tangentLinesPoints2.size();
+  BOOST_LOG_TRIVIAL(info) << "radiuses.size = " << radiuses.size();
+  BOOST_LOG_TRIVIAL(info) << "objectnessMeasure.size = " << objectnessMeasure.size();
+
+  BOOST_LOG_TRIVIAL(info) << "indices1.size = " << indices1.size();
+  BOOST_LOG_TRIVIAL(info) << "indices2.size = " << indices2.size();
+
   std::vector<ValueType> lambdas(indices1.size(), lambda);
-  std::vector<ValueType> positions(measurements.size());
 
   if (gpuDevice != -1)
   {
@@ -60,12 +72,36 @@ void DoLevenbergMarquardtMinimizer(const std::string& inputFileName, const std::
     BOOST_LOG_TRIVIAL(info) << "Maximum number of threads per block " << gpuDeviceProp.maxThreadsPerBlock;
     BOOST_LOG_TRIVIAL(info) << "Maximum resident threads per multiprocessor " << gpuDeviceProp.maxThreadsPerMultiProcessor;
 
-    //DoGpuLevenbergMarquardtMinimizer(measurements, tangentLinesPoints1, tangentLinesPoints2, radiuses, indices1, indices2, positions, lambdas, maxNumberOfIterations);
+    DoGpuLevenbergMarquardtMinimizer<NumDimensions>(
+      measurements,
+      tangentLinesPoints1,
+      tangentLinesPoints2,
+      radiuses,
+      indices1,
+      indices2,
+      lambdas,
+      maxNumberOfIterations);
   }
   else
   {
-    //DoCpuLevenbergMarquardtMinimizer(measurements, tangentLinesPoints1, tangentLinesPoints2, radiuses, indices1, indices2, positions, lambdas, maxNumberOfIterations);
+    DoCpuLevenbergMarquardtMinimizer<NumDimensions>(
+      measurements,
+      tangentLinesPoints1,
+      tangentLinesPoints2,
+      radiuses,
+      indices1,
+      indices2,
+      lambdas,
+      maxNumberOfIterations);
   }
+
+  std::vector<ValueType> positions;
+
+  DoCpuProjectionOntoLine<NumDimensions>(
+    measurements,
+    tangentLinesPoints1,
+    tangentLinesPoints2,
+    positions);
 
   FileWriter outputFileWriter(outputFileName);
 
@@ -73,6 +109,7 @@ void DoLevenbergMarquardtMinimizer(const std::string& inputFileName, const std::
   outputFileWriter.Write(tangentLinesPoints1DataSetName, tangentLinesPoints1);
   outputFileWriter.Write(tangentLinesPoints2DataSetName, tangentLinesPoints2);
   outputFileWriter.Write(radiusesDataSetName, radiuses);
+  outputFileWriter.Write(objectnessMeasureDataSetName, objectnessMeasure);
   outputFileWriter.Write(positionsDataSetName, positions);
 
   outputFileWriter.Write(indices1DataSetName, indices1);
@@ -83,11 +120,10 @@ int main(int argc, char *argv[])
 {
   namespace po = boost::program_options;
 
- 
   int maxNumberOfIterations = 1000;
   double lambda;
   std::string inputFileName;
-  std::string outputFileName; 
+  std::string outputFileName;
   int gpuDevice = -1;
 
   po::options_description desc;
