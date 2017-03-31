@@ -1,5 +1,6 @@
 #include "CostFunction.hpp"
 #include "LSQR.hpp"
+#include <boost/log/trivial.hpp>
 #include <cusp/array1d.h>
 #include <cusp/blas/blas.h>
 #include <cusp/multiply.h>
@@ -42,15 +43,15 @@ void LevenbergMarquardtMinimizer(
 
   ValueType normSqResidualx = cusp::blas::dot(residualx, residualx);
 
-  while (true)
+  for (;;)
   {
     ValueType rho;
     ValueType normSqResidualxpy;
 
     {
       // Local constants
-      const ValueType atol = 1e-5;
-      const ValueType btol = 1e-5;
+      const ValueType atol = 1e-3;
+      const ValueType btol = 1e-3;
       const ValueType conlim = 0;
       const int itnlim = 4 * jacobian.num_cols;
 
@@ -81,13 +82,13 @@ void LevenbergMarquardtMinimizer(
       if (false)
       {
         convergence = true;
-        std::cout << "x-convergence criterion is signalled" << std::endl;
+        BOOST_LOG_TRIVIAL(info) << "x-convergence criterion is signalled";
       }
 
       if ((normSqResidualx - normSqResidualxpy) / normSqResidualxpy <= tolf)
       {
         convergence = true;
-        std::cout << "Function convergence criterion is signalled" << std::endl;
+        BOOST_LOG_TRIVIAL(info) << "Function convergence criterion is signalled";
       }
 
       cusp::multiply(jacobiant, residualx, gradient);
@@ -95,7 +96,7 @@ void LevenbergMarquardtMinimizer(
       if (cusp::blas::nrm2(gradient) <= tolg)
       {
         convergence = true;
-        std::cout << "Gradient convergence criterion is signalled" << std::endl;
+        BOOST_LOG_TRIVIAL(info) << "Gradient convergence criterion is signalled";
       }
 
       if (convergence) break;
