@@ -45,6 +45,10 @@ cuda_add_executable(
   DistanceCostFunction.cuh
   DistanceCostFunction.hpp
   DistanceCostFunction.inl
+  DoLevenbergMarquardtMinimizer.hpp
+  DoLevenbergMarquardtMinimizer.cu
+  DoProjectionOntoLine.hpp
+  DoProjectionOntoLine.cu
   DotProduct.cuh
   DualNumber.cuh
   LevenbergMarquardtMinimizer.hpp
@@ -52,8 +56,6 @@ cuda_add_executable(
   LinearCombination.hpp
   LinearCombination.inl
   LSQR.hpp
-  Minimize.cu
-  Minimize.hpp
   ProjectionOntoLine.cuh
   ProjectionOntoLine.hpp
   ProjectionOntoLine.inl)
