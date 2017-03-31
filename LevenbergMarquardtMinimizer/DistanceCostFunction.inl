@@ -3,7 +3,7 @@
 #include <algorithm>
 
 template<typename ValueType, int NumDimensions>
-void cpuDistanceCostResidual(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pResidual, int residualVectorLength)
+void CpuDistanceCostResidual(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pResidual, double voxelPhysicalSize, int residualVectorLength)
 {
 #pragma omp parallel for
   for (int i = 0; i < residualVectorLength; ++i)
@@ -13,12 +13,12 @@ void cpuDistanceCostResidual(ValueType const* pMeasurements, ValueType const* pT
     auto const& t = reinterpret_cast<const ValueType(&)[NumDimensions]>(pTangentLinesPoints2[i * NumDimensions]);
     const ValueType weight = pWeights[i];
 
-    pResidual[i] = weight * DistanceCostFunctionAt(tildeP, s, t);
+    pResidual[i] = weight * DistanceCostFunctionAt(tildeP, s, t, voxelPhysicalSize);
   }
 }
 
 template<typename ValueType, int NumDimensions>
-void cpuDistanceCostJacobian(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pJacobian, int residualVectorLength)
+void CpuDistanceCostJacobian(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pJacobian, double voxelPhysicalSize, int residualVectorLength)
 {
   const int numParametersPerResidual = NumDimensions + NumDimensions;
 
@@ -44,7 +44,7 @@ void cpuDistanceCostJacobian(ValueType const* pMeasurements, ValueType const* pT
     {
       sBar[k].sPrime = 1;
 
-      gradient[k] = DistanceCostFunctionAt(tildeP, sBar, t).sPrime;
+      gradient[k] = DistanceCostFunctionAt(tildeP, sBar, t, voxelPhysicalSize).sPrime;
 
       sBar[k].sPrime = 0;
     }
@@ -59,7 +59,7 @@ void cpuDistanceCostJacobian(ValueType const* pMeasurements, ValueType const* pT
     {
       tBar[k].sPrime = 1;
 
-      gradient[k + NumDimensions] = DistanceCostFunctionAt(tildeP, s, tBar).sPrime;
+      gradient[k + NumDimensions] = DistanceCostFunctionAt(tildeP, s, tBar, voxelPhysicalSize).sPrime;
 
       tBar[k].sPrime = 0;
     }
@@ -74,7 +74,7 @@ void cpuDistanceCostJacobian(ValueType const* pMeasurements, ValueType const* pT
 }
 
 template<typename ValueType, int NumDimensions>
-__global__ void cudaDistanceCostResidual(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pResidual, int residualVectorLength)
+__global__ void DistanceCostResidualKernel(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pResidual, double voxelPhysicalSize, int residualVectorLength)
 {
   const int i = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -103,12 +103,12 @@ __global__ void cudaDistanceCostResidual(ValueType const* pMeasurements, ValueTy
 
     const ValueType weight = pWeights[i];
 
-    pResidual[i] = weight * DistanceCostFunctionAt(tildeP, s, t);
+    pResidual[i] = weight * DistanceCostFunctionAt(tildeP, s, t, voxelPhysicalSize);
   }
 }
 
 template<typename ValueType, int NumDimensions>
-__global__ void cudaDistanceCostJacobian(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pJacobian, int residualVectorLength)
+__global__ void DistanceCostJacobianKernel(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pJacobian, double voxelPhysicalSize, int residualVectorLength)
 {
   const int numParametersPerResidual = NumDimensions + NumDimensions;
 
@@ -151,7 +151,7 @@ __global__ void cudaDistanceCostJacobian(ValueType const* pMeasurements, ValueTy
       {
         sBar[k].sPrime = 1;
 
-        gradient[k] = DistanceCostFunctionAt(tildeP, sBar, t).sPrime;
+        gradient[k] = DistanceCostFunctionAt(tildeP, sBar, t, voxelPhysicalSize).sPrime;
 
         sBar[k].sPrime = 0;
       }
@@ -169,7 +169,7 @@ __global__ void cudaDistanceCostJacobian(ValueType const* pMeasurements, ValueTy
       {
         tBar[k].sPrime = 1;
 
-        gradient[k + NumDimensions] = DistanceCostFunctionAt(tildeP, s, tBar).sPrime;
+        gradient[k + NumDimensions] = DistanceCostFunctionAt(tildeP, s, tBar, voxelPhysicalSize).sPrime;
 
         tBar[k].sPrime = 0;
       }
@@ -185,7 +185,7 @@ __global__ void cudaDistanceCostJacobian(ValueType const* pMeasurements, ValueTy
 }
 
 template<typename ValueType, int NumDimensions>
-void gpuDistanceCostResidual(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pResidual, int residualVectorLength)
+void GpuDistanceCostResidual(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pResidual, double voxelPhysicalSize, int residualVectorLength)
 {
   const int numThreadsPerBlock = 192;
   const int maxNumBlocks = 65535;
@@ -198,7 +198,7 @@ void gpuDistanceCostResidual(ValueType const* pMeasurements, ValueType const* pT
     int numBlocks = std::min(numBlocksRequired, maxNumBlocks);
     int numResidualsProcessed = std::min(numBlocks * numResidualsPerBlock, numResidualsRemaining);
 
-    cudaDistanceCostResidual<ValueType, NumDimensions><<<numBlocks, numResidualsPerBlock>>>(pMeasurements, pTangentLinesPoints1, pTangentLinesPoints2, pWeights, pResidual, numResidualsProcessed);
+    DistanceCostResidualKernel<ValueType, NumDimensions><<<numBlocks, numResidualsPerBlock>>>(pMeasurements, pTangentLinesPoints1, pTangentLinesPoints2, pWeights, pResidual, voxelPhysicalSize, numResidualsProcessed);
 
     pMeasurements += NumDimensions * numResidualsProcessed;
     pTangentLinesPoints1 += NumDimensions * numResidualsProcessed;
@@ -211,7 +211,7 @@ void gpuDistanceCostResidual(ValueType const* pMeasurements, ValueType const* pT
 }
 
 template<typename ValueType, int NumDimensions>
-void gpuDistanceCostJacobian(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pJacobian, int residualVectorLength)
+void GpuDistanceCostJacobian(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pJacobian, double voxelPhysicalSize, int residualVectorLength)
 {
   const int numThreadsPerBlock = 128;
   const int maxNumBlocks = 65535;
@@ -224,7 +224,7 @@ void gpuDistanceCostJacobian(ValueType const* pMeasurements, ValueType const* pT
     int numBlocks = std::min(numBlocksRequired, maxNumBlocks);
     int numResidualsProcessed = std::min(numBlocks * numResidualsPerBlock, numResidualsRemaining);
 
-    cudaDistanceCostJacobian<ValueType, NumDimensions><<<numBlocks, numResidualsPerBlock>>>(pMeasurements, pTangentLinesPoints1, pTangentLinesPoints2, pWeights, pJacobian, numResidualsProcessed);
+    DistanceCostJacobianKernel<ValueType, NumDimensions><<<numBlocks, numResidualsPerBlock>>>(pMeasurements, pTangentLinesPoints1, pTangentLinesPoints2, pWeights, pJacobian, voxelPhysicalSize, numResidualsProcessed);
 
     pMeasurements += NumDimensions * numResidualsProcessed;
     pTangentLinesPoints1 += NumDimensions * numResidualsProcessed;

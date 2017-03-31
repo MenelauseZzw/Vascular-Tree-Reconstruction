@@ -16,7 +16,8 @@ void DoCpuOrGpuLevenbergMarquardtMinimizer(
   std::vector<IndexType> const& indices1,
   std::vector<IndexType> const& indices2,
   std::vector<ValueType> const& lambdas,
-  int maxNumberOfIterations)
+  int maxNumberOfIterations,
+  double voxelPhysicalSize)
 {
   typedef typename CostFunctionType::MemorySpace MemorySpace;
 
@@ -32,7 +33,8 @@ void DoCpuOrGpuLevenbergMarquardtMinimizer(
     cusp::make_array1d_view(indices1.cbegin(), indices1.cend()),
     cusp::make_array1d_view(indices2.cbegin(), indices2.cend()),
     cusp::make_array1d_view(invRadiuses.cbegin(), invRadiuses.cend()),
-    cusp::make_array1d_view(lambdas.cbegin(), lambdas.cend()));
+    cusp::make_array1d_view(lambdas.cbegin(), lambdas.cend()),
+    voxelPhysicalSize);
 
   cusp::array1d<ValueType, MemorySpace> optParams(
     tangentLinesPoints1.size() + tangentLinesPoints2.size());
@@ -75,7 +77,8 @@ void DoCpuLevenbergMarquardtMinimizer(
   std::vector<IndexType> const& indices1,
   std::vector<IndexType> const& indices2,
   std::vector<ValueType> const& lambdas,
-  int maxNumberOfIterations)
+  int maxNumberOfIterations,
+  double voxelPhysicalSize)
 {
   typedef CpuLinearCombination<NumDimensions, ValueType, IndexType> CostFunctionType;
 
@@ -87,7 +90,8 @@ void DoCpuLevenbergMarquardtMinimizer(
     indices1,
     indices2,
     lambdas,
-    maxNumberOfIterations);
+    maxNumberOfIterations,
+    voxelPhysicalSize);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
@@ -99,7 +103,8 @@ void DoGpuLevenbergMarquardtMinimizer(
   std::vector<IndexType> const& indices1,
   std::vector<IndexType> const& indices2,
   std::vector<ValueType> const& lambdas,
-  int maxNumberOfIterations)
+  int maxNumberOfIterations,
+  double voxelPhysicalSize)
 {
   typedef GpuLinearCombination<NumDimensions, ValueType, IndexType> CostFunctionType;
 
@@ -111,7 +116,8 @@ void DoGpuLevenbergMarquardtMinimizer(
     indices1,
     indices2,
     lambdas,
-    maxNumberOfIterations);
+    maxNumberOfIterations,
+    voxelPhysicalSize);
 }
 
 //Explicit instantiation
@@ -124,7 +130,8 @@ template void DoCpuLevenbergMarquardtMinimizer<NumDimensions>( \
   std::vector<IndexType> const&, \
   std::vector<IndexType> const&, \
   std::vector<ValueType> const&, \
-  int);
+  int, \
+  double);
 
 #define InstantiateDoGpuLevenbergMarquardtMinimizer(NumDimensions,ValueType, IndexType) \
 template void DoGpuLevenbergMarquardtMinimizer<NumDimensions>( \
@@ -135,7 +142,8 @@ template void DoGpuLevenbergMarquardtMinimizer<NumDimensions>( \
   std::vector<IndexType> const&, \
   std::vector<IndexType> const&, \
   std::vector<ValueType> const&, \
-  int);
+  int, \
+  double);
 
 InstantiateDoCpuLevenbergMarquardtMinimizer(3, double, int)
 InstantiateDoGpuLevenbergMarquardtMinimizer(3, double, int)

@@ -12,7 +12,8 @@ void DoCpuLevenbergMarquardtMinimizer(
   std::vector<IndexType> const& indices1,
   std::vector<IndexType> const& indices2,
   std::vector<ValueType> const& lambdas,
-  int maxNumberOfIterations);
+  int maxNumberOfIterations,
+  double voxelPhysicalSize);
 
 template<int NumDimensions, typename ValueType, typename IndexType>
 void DoGpuLevenbergMarquardtMinimizer(
@@ -23,6 +24,7 @@ void DoGpuLevenbergMarquardtMinimizer(
   std::vector<IndexType> const& indices1,
   std::vector<IndexType> const& indices2,
   std::vector<ValueType> const& lambdas,
-  int maxNumberOfIterations);
+  int maxNumberOfIterations,
+  double voxelPhysicalSize);
 
 #endif//DoLevenbergMarquardtMinimizer_hpp

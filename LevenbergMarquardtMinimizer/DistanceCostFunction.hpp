@@ -2,16 +2,16 @@
 #define DistanceCostFunction_hpp
 
 template<typename ValueType, int NumDimensions>
-void cpuDistanceCostResidual(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pResidual, int residualVectorLength);
+void CpuDistanceCostResidual(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pResidual, double voxelPhysicalSize, int residualVectorLength);
 
 template<typename ValueType, int NumDimensions>
-void gpuDistanceCostResidual(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pResidual, int residualVectorLength);
+void GpuDistanceCostResidual(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pResidual, double voxelPhysicalSize, int residualVectorLength);
 
 template<typename ValueType, int NumDimensions>
-void cpuDistanceCostJacobian(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pJacobian, int residualVectorLength);
+void CpuDistanceCostJacobian(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pJacobian, double voxelPhysicalSize, int residualVectorLength);
 
 template<typename ValueType, int NumDimensions>
-void gpuDistanceCostJacobian(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pJacobian, int residualVectorLength);
+void GpuDistanceCostJacobian(ValueType const* pMeasurements, ValueType const* pTangentLinesPoints1, ValueType const* pTangentLinesPoints2, ValueType const* pWeights, ValueType* pJacobian, double voxelPhysicalSize, int residualVectorLength);
 
 #include "DistanceCostFunction.inl"
 

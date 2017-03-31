@@ -119,6 +119,7 @@ void LinearCombination<NumDimensions, ValueType, IndexType, MemorySpace>::Comput
     thrust::raw_pointer_cast(&t[0]),
     thrust::raw_pointer_cast(&weights1[0]),
     thrust::raw_pointer_cast(&jacobian[0]),
+    voxelPhysicalSize,
     residualVectorLength1);
 
   ComputeJacobian2(
@@ -146,6 +147,7 @@ void LinearCombination<NumDimensions, ValueType, IndexType, MemorySpace>::Comput
     thrust::raw_pointer_cast(&t[0]),
     thrust::raw_pointer_cast(&weights1[0]),
     thrust::raw_pointer_cast(&residual[0]),
+    voxelPhysicalSize,
     residualVectorLength1);
 
   ComputeResidual2(
@@ -160,31 +162,31 @@ void LinearCombination<NumDimensions, ValueType, IndexType, MemorySpace>::Comput
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
-void CpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeResidual1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pResidual, int residualVectorLength) const
+void CpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeResidual1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pResidual, double voxelPhysicalSize, int residualVectorLength) const
 {
   BOOST_LOG_TRIVIAL(info) << "Computing residuals";
-  cpuDistanceCostResidual<ValueType, NumDimensions>(pTildeP, pS, pT, pWeights, pResidual, residualVectorLength);
+  CpuDistanceCostResidual<ValueType, NumDimensions>(pTildeP, pS, pT, pWeights, pResidual, voxelPhysicalSize, residualVectorLength);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
-void CpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeJacobian1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pJacobian, int residualVectorLength) const
+void CpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeJacobian1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pJacobian, double voxelPhysicalSize, int residualVectorLength) const
 {
   BOOST_LOG_TRIVIAL(info) << "Computing Jacobian matrix";
-  cpuDistanceCostJacobian<ValueType, NumDimensions>(pTildeP, pS, pT, pWeights, pJacobian, residualVectorLength);
+  CpuDistanceCostJacobian<ValueType, NumDimensions>(pTildeP, pS, pT, pWeights, pJacobian, voxelPhysicalSize, residualVectorLength);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
-void GpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeResidual1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pResidual, int residualVectorLength) const
+void GpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeResidual1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pResidual, double voxelPhysicalSize, int residualVectorLength) const
 {
   BOOST_LOG_TRIVIAL(info) << "Computing residuals";
-  gpuDistanceCostResidual<ValueType, NumDimensions>(pTildeP, pS, pT, pWeights, pResidual, residualVectorLength);
+  GpuDistanceCostResidual<ValueType, NumDimensions>(pTildeP, pS, pT, pWeights, pResidual, voxelPhysicalSize, residualVectorLength);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
-void GpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeJacobian1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pJacobian, int residualVectorLength) const
+void GpuLinearCombination<NumDimensions, ValueType, IndexType>::ComputeJacobian1(const ValueType* pTildeP, const ValueType* pS, const ValueType* pT, const ValueType* pWeights, ValueType* pJacobian, double voxelPhysicalSize, int residualVectorLength) const
 {
   BOOST_LOG_TRIVIAL(info) << "Computing Jacobian matrix";
-  gpuDistanceCostJacobian<ValueType, NumDimensions>(pTildeP, pS, pT, pWeights, pJacobian, residualVectorLength);
+  GpuDistanceCostJacobian<ValueType, NumDimensions>(pTildeP, pS, pT, pWeights, pJacobian, voxelPhysicalSize, residualVectorLength);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>

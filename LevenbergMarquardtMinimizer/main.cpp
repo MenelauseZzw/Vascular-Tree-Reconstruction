@@ -11,7 +11,7 @@
 #include <iostream>
 #include <vector>
 
-void DoLevenbergMarquardtMinimizer(const std::string& inputFileName, const std::string& outputFileName, double lambda, int maxNumberOfIterations, int gpuDevice)
+void DoLevenbergMarquardtMinimizer(const std::string& inputFileName, const std::string& outputFileName, double lambda, double voxelPhysicalSize, int maxNumberOfIterations, int gpuDevice)
 {
   const unsigned int NumDimensions = 3;
 
@@ -80,7 +80,8 @@ void DoLevenbergMarquardtMinimizer(const std::string& inputFileName, const std::
       indices1,
       indices2,
       lambdas,
-      maxNumberOfIterations);
+      maxNumberOfIterations,
+      voxelPhysicalSize);
   }
   else
   {
@@ -92,7 +93,8 @@ void DoLevenbergMarquardtMinimizer(const std::string& inputFileName, const std::
       indices1,
       indices2,
       lambdas,
-      maxNumberOfIterations);
+      maxNumberOfIterations,
+      voxelPhysicalSize);
   }
 
   std::vector<ValueType> positions;
@@ -122,6 +124,7 @@ int main(int argc, char *argv[])
 
   int maxNumberOfIterations = 1000;
   double lambda;
+  double voxelPhysicalSize;
   std::string inputFileName;
   std::string outputFileName;
   int gpuDevice = -1;
@@ -130,6 +133,7 @@ int main(int argc, char *argv[])
   desc.add_options()
     ("help", "print usage message")
     ("lambda", po::value(&lambda)->required(), "the value of regularization parameter")
+    ("voxelPhysicalSize", po::value(&voxelPhysicalSize)->required(), "the physical size of a voxel")
     ("gpuDevice", po::value(&gpuDevice), "gpu device should be used; otherwise, run on cpu")
     ("maxNumberOfIterations", po::value(&maxNumberOfIterations), "the upper limit on the number of iterations")
     ("inputFileName", po::value(&inputFileName)->required(), "the name of the input file")
@@ -147,7 +151,7 @@ int main(int argc, char *argv[])
 
   try
   {
-    DoLevenbergMarquardtMinimizer(inputFileName, outputFileName, lambda, maxNumberOfIterations, gpuDevice);
+    DoLevenbergMarquardtMinimizer(inputFileName, outputFileName, lambda, voxelPhysicalSize, maxNumberOfIterations, gpuDevice);
     return EXIT_SUCCESS;
   }
   catch (std::exception& e)
