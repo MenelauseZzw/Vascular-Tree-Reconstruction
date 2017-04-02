@@ -1,0 +1,144 @@
+% !TEX TS-program = pdflatex
+% !TEX encoding = UTF-8 Unicode
+
+% This is a simple template for a LaTeX document using the "article" class.
+% See "book", "report", "letter" for other types of document.
+
+\documentclass[11pt]{article} % use larger type; default would be 10pt
+
+\usepackage[utf8]{inputenc} % set input encoding (not needed with XeLaTeX)
+
+%%% Examples of Article customizations
+% These packages are optional, depending whether you want the features they provide.
+% See the LaTeX Companion or other references for full information.
+
+%%% PAGE DIMENSIONS
+\usepackage{geometry} % to change the page dimensions
+\geometry{a4paper} % or letterpaper (US) or a5paper or....
+% \geometry{margin=2in} % for example, change the margins to 2 inches all round
+% \geometry{landscape} % set up the page for landscape
+%   read geometry.pdf for detailed page layout information
+
+\usepackage{graphicx} % support the \includegraphics command and options
+
+% \usepackage[parfill]{parskip} % Activate to begin paragraphs with an empty line rather than an indent
+
+%%% PACKAGES
+\usepackage{amsmath,amsfonts,amssymb}
+\usepackage{booktabs} % for much better looking tables
+\usepackage{array} % for better arrays (eg matrices) in maths
+\usepackage{paralist} % very flexible & customisable lists (eg. enumerate/itemize, etc.)
+\usepackage{verbatim} % adds environment for commenting out blocks of text & for better verbatim
+\usepackage{subfig} % make it possible to include more than one captioned figure/table in a single float
+% These packages are all incorporated in the memoir class to one degree or another...
+
+%%% HEADERS & FOOTERS
+\usepackage{fancyhdr} % This should be set AFTER setting up the page geometry
+\pagestyle{fancy} % options: empty , plain , fancy
+\renewcommand{\headrulewidth}{0pt} % customise the layout...
+\lhead{}\chead{}\rhead{}
+\lfoot{}\cfoot{\thepage}\rfoot{}
+
+%%% SECTION TITLE APPEARANCE
+\usepackage{sectsty}
+\allsectionsfont{\sffamily\mdseries\upshape} % (See the fntguide.pdf for font help)
+% (This matches ConTeXt defaults)
+
+%%% ToC (table of contents) APPEARANCE
+\usepackage[nottoc,notlof,notlot]{tocbibind} % Put the bibliography in the ToC
+\usepackage[titles,subfigure]{tocloft} % Alter the style of the Table of Contents
+\usepackage{mathtools,xparse}
+\renewcommand{\cftsecfont}{\rmfamily\mdseries\upshape}
+\renewcommand{\cftsecpagefont}{\rmfamily\mdseries\upshape} % No bold!
+\DeclarePairedDelimiter{\norm}{\lVert}{\rVert}
+
+%%% END Article customizations
+
+%%% The "real" document content comes below...
+
+%\title{Brief Article}
+%\author{The Author}
+%\date{} % Activate to display a given date or no date (if empty),
+         % otherwise the current date is printed 
+
+\begin{document}
+\pagenumbering{gobble}%
+%\maketitle
+\begin{equation}
+p = (1 - \lambda) s + \lambda t
+\end{equation}
+
+\begin{equation}
+\textbf{J}(\lambda \textbf{f}) = \lambda \textbf{J}(\textbf{f}) + \textbf{f} \otimes \nabla\lambda
+\end{equation}
+
+\begin{equation}
+p = s - \lambda (s - t)
+\end{equation}
+
+\begin{equation}
+\textbf{J}(p) = \textbf{J}(s) - \textbf{J}(\lambda (s - t)) = \textbf{J}(s) - \lambda \textbf{J}(s - t) - (s - t) \otimes\nabla\lambda 
+\end{equation}
+
+\begin{equation}
+\nabla\Big(\frac{f}{g}\Big) = \frac{g \nabla f - f \nabla g}{g^{2}}
+\end{equation}
+
+\begin{equation}
+\lambda = \frac{\langle s - \tilde{p}, s - t \rangle}{\norm{s - t}^{2}} = \frac{\langle s, s - t \rangle}{\norm{s - t}^{2}} - \frac{\langle \tilde{p}, s - t \rangle}{\norm{s - t}^{2}}
+\end{equation}
+
+\begin{align}
+\nabla\lambda &= \nabla\frac{\langle s, s - t \rangle}{\norm{s - t}^{2}} - \nabla\frac{\langle \tilde{p}, s - t \rangle}{\norm{s - t}^{2}} = \frac{\norm{s - t}^{2} \nabla\langle s, s - t \rangle - \langle s, s - t \rangle \nabla\norm{s - t}^{2}}{\norm{s - t}^{4}} \\
+&- \frac{\norm{s - t}^{2} \nabla\langle \tilde{p}, s - t \rangle - \langle\tilde{p}, s - t \rangle \nabla\norm{s - t}^{2}}{\norm{s - t}^{4}} \\
+&=  \frac{\nabla\langle s, s - t \rangle}{\norm{s - t}^{2}} - \frac{\langle s - \tilde{p}, s - t \rangle \nabla\norm{s - t}^{2}}
+{\norm{s - t}^{2} \norm{s - t}^{2}} - \frac{\nabla\langle \tilde{p}, s - t \rangle}{\norm{s - t}^{2}}\\
+&=  \frac{\nabla\langle s, s - t \rangle - \lambda\nabla\norm{s - t}^{2} - \nabla\langle \tilde{p}, s - t \rangle}{\norm{s - t}^{2}}
+\end{align}
+
+\begin{equation}
+\nabla\langle \textbf{f}, \textbf{g} \rangle = \textbf{g}^{\textnormal{T}} \textbf{J}(\textbf{f}) + \textbf{f}^{\textnormal{T}} \textbf{J}(\textbf{g})
+\end{equation}
+
+\begin{equation}
+\nabla\langle s, s - t \rangle = (s - t)^{\textnormal{T}} \textbf{J}(s) + s ^{\textnormal{T}} \textbf{J}(s - t)
+\end{equation}
+
+\begin{equation}
+\nabla\langle \tilde{p}, s - t \rangle = (s - t)^{\textnormal{T}} \textbf{J}(\tilde{p}) + \tilde{p} ^{\textnormal{T}} \textbf{J}(s - t)
+\end{equation}
+
+\begin{equation}
+\nabla\norm{\textbf{h}}^{2} = 2 \textbf{h}^{\textnormal{T}} \textbf{J}(\textbf{h})
+\end{equation}
+
+\begin{equation}
+\nabla\norm{s - t}^{2} = 2 (s - t)^{\textnormal{T}} \textbf{J}(s - t)
+\end{equation}
+
+\begin{equation}
+\nabla\norm{\textbf{h}} = \frac{\textbf{h}^{\textnormal{T}} \textbf{J}(\textbf{h})}{\norm{\textbf{h}}}
+\end{equation}
+
+\begin{equation}
+E_{d}(\theta_i) = \norm{p_i - \tilde{p_i}}^{2}
+\end{equation}
+
+\begin{equation}
+\nabla\norm{p_i - \tilde{p_i}} = \frac{(p_i - \tilde{p_i})^{\textnormal{T}} \textbf{J}(p_i - \tilde{p_i})}{\norm{p_i - \tilde{p_i}}} = \frac{(p_i - \tilde{p_i})^{\textnormal{T}} \textbf{J}(p_i)}{\norm{p_i - \tilde{p_i}}}
+\end{equation}
+
+\begin{equation}
+E_{s}^{i}(\theta_i, \theta_j) = \frac{\norm{p_i - p_i'}^{2}}{\norm{p_i - p_j}^{2}}
+\end{equation}
+
+\begin{equation}
+E_{s}^{j}(\theta_i, \theta_j) = \frac{\norm{p_j - p_j'}^{2}}{\norm{p_i - p_j}^{2}}
+\end{equation}
+
+\begin{align}
+\nabla\frac{\norm{p_i - p_i'}}{\norm{p_i - p_j}} &= \frac{\norm{p_i - p_j}\nabla\norm{p_i - p_i'} - \norm{p_i - p_i'}\nabla\norm{p_i - p_j} }{\norm{p_i - p_j}^{2}}\\
+&= \frac{(p_i - p_i')^{\textnormal{T}}\textbf{J}(p_i - p_i')}{\norm{p_i - p_i'} \norm{p_i - p_j}} - \frac{\norm{p_i - p_i'}(p_i - p_j)^{\textnormal{T}}\textbf{J}(p_i - p_j)}{\norm{p_i - p_j}^{3}}
+\end{align}
+
+\end{document}
