@@ -9,27 +9,19 @@
 #include <boost/graph/filtered_graph.hpp>
 #include <boost/graph/visitors.hpp>
 #include <boost/format.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/program_options.hpp>
 #include <boost/unordered_map.hpp>
 #include <cassert>
 #include <Eigen/Dense>
 #include <flann/flann.hpp>
 #include <forward_list>
-#include <gflags/gflags.h>
-#include <glog/logging.h>
 #include <iostream>
 #include <limits>
 #include <sstream>
 #include <string>
 #include <tuple>
 #include <type_traits>
-
-DEFINE_string(source, "", "source filename");
-DEFINE_string(target, "", "target filename");
-DEFINE_string(sourcePrime, "", "sourcePrime filename mask");
-DEFINE_string(targetPrime, "", "targetPrime filename mask");
-DEFINE_bool(outputPrimeGraphs, false, "output sourcePrime and targetPrime graphs");
-DEFINE_int32(knn, 17, "number of nearest neighbors");
-DEFINE_int32(sourceRoot, 0, "root node index");
 
 #pragma region dp
 
@@ -227,8 +219,8 @@ template<
     sourceGraphRadiusesPrime[e] = sourceRadiusPrime;
   }
 
-  LOG(INFO) << "sourceGraph.|V| = " << num_vertices(sourceGraph);
-  LOG(INFO) << "sourceGraph.|E| = " << num_edges(sourceGraph);
+  BOOST_LOG_TRIVIAL(info) << "sourceGraph.|V| = " << num_vertices(sourceGraph);
+  BOOST_LOG_TRIVIAL(info) << "sourceGraph.|E| = " << num_edges(sourceGraph);
 
   return sourceGraph;
 }
@@ -268,8 +260,8 @@ template<size_t NumDimensions,
     add_edge(targetIndex1, targetIndex2, targetGraph);
   }
 
-  LOG(INFO) << "targetGraph.|V| = " << num_vertices(targetGraph);
-  LOG(INFO) << "targetGraph.|E| = " << num_edges(targetGraph);
+  BOOST_LOG_TRIVIAL(info) << "targetGraph.|V| = " << num_vertices(targetGraph);
+  BOOST_LOG_TRIVIAL(info) << "targetGraph.|E| = " << num_edges(targetGraph);
 
   return targetGraph;
 }
@@ -469,41 +461,41 @@ ValueType GenerateSourceToTargetOptLabels(
   const size_t numSourceNodes = num_vertices(sourceGraph);
   const size_t numTargetNodes = num_vertices(targetGraph);
 
-  const function<IndexType(IndexType)> getNumChildren = [&sourceGraph](IndexType sourceIndex)
+  const std::function<IndexType(IndexType)> getNumChildren = [&sourceGraph](IndexType sourceIndex)
   {
     return out_degree(sourceIndex, sourceGraph);
   };
 
-  const function<IndexType(IndexType, IndexType)> getNthChild = [&sourceGraph](IndexType curNode, IndexType childIndex)
+  const std::function<IndexType(IndexType, IndexType)> getNthChild = [&sourceGraph](IndexType curNode, IndexType childIndex)
   {
     SourceGraphAdjacencyIteratorType adjacencyIterator;
     tie(adjacencyIterator, tuples::ignore) = adjacent_vertices(curNode, sourceGraph);
     return *(adjacencyIterator + childIndex);
   };
 
-  const function<IndexType(IndexType)> getNumLabels = [&sourceToTargetLabels](IndexType curNode)
+  const std::function<IndexType(IndexType)> getNumLabels = [&sourceToTargetLabels](IndexType curNode)
   {
     return sourceToTargetLabels[curNode].size() + 1;
   };
 
   vector<IndexType> optLabels(numSourceNodes);
 
-  const function<IndexType(IndexType)> getOptLabel = [&optLabels](IndexType curNode)
+  const std::function<IndexType(IndexType)> getOptLabel = [&optLabels](IndexType curNode)
   {
     return optLabels[curNode];
   };
 
-  const function<void(IndexType, IndexType)> setOptlabel = [&optLabels](IndexType curNode, IndexType label)
+  const std::function<void(IndexType, IndexType)> setOptlabel = [&optLabels](IndexType curNode, IndexType label)
   {
     optLabels[curNode] = label;
   };
 
-  const function<ValueType(IndexType, IndexType)> func1 = [getNumLabels](IndexType curNode, IndexType curLabel)
+  const std::function<ValueType(IndexType, IndexType)> func1 = [getNumLabels](IndexType curNode, IndexType curLabel)
   {
     return (curLabel < getNumLabels(curNode) - 1) ? 0 : -numeric_limits<ValueType>::min();
   };
 
-  const function<ValueType(IndexType, IndexType, IndexType, IndexType)> func2 = [getNthChild, beta, &sourceToTargetDistances](IndexType curNode, IndexType curLabel, IndexType child, IndexType childLabel)
+  const std::function<ValueType(IndexType, IndexType, IndexType, IndexType)> func2 = [getNthChild, beta, &sourceToTargetDistances](IndexType curNode, IndexType curLabel, IndexType child, IndexType childLabel)
   {
     const IndexType childNode = getNthChild(curNode, child);
     const ValueType distance = sourceToTargetDistances[curNode][curLabel][child][childLabel];
@@ -717,6 +709,39 @@ ValueType TotalLength(const GraphType& graph)
 
 int main(int argc, char *argv[])
 {
+  namespace po = boost::program_options;
+
+  std::string sourceFileName;
+  std::string targetFileName;
+  std::string sourcePrimeFileNameMask;
+  std::string targetPrimeFileNameMask;
+
+  bool outputPrimeGraphs;
+  int knn = 17;
+  int sourceGraphRoot = 0;
+
+  po::options_description desc;
+
+  desc.add_options()
+    ("help", "print usage message")
+    ("source", po::value(&sourceFileName)->required(), "source filename")
+    ("target", po::value(&targetFileName)->required(), "target filename")
+    ("sourcePrime", po::value(&sourcePrimeFileNameMask), "sourcePrime filename mask")
+    ("targetPrime", po::value(&sourcePrimeFileNameMask), "targetPrime filename mask")
+    ("outputPrimeGraphs", "output sourcePrime and targetPrime graphs")
+    ("knn", po::value(&knn), "number of nearest neighbors")
+    ("sourceRoot", po::value(&sourceGraphRoot), "root node index");
+
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);
+
+  if (vm.count("help"))
+  {
+    desc.print(std::cout);
+    return EXIT_SUCCESS;
+  }
+
   using namespace std;
   using namespace boost;
   using namespace Eigen;
@@ -731,22 +756,11 @@ int main(int argc, char *argv[])
   typedef property<RadiusPrimeTag, ValueType> SourceGraphEdgePropertyType;
   typedef adjacency_list<vecS, vecS, directedS, SourceGraphNodePropertyType, SourceGraphEdgePropertyType> SourceGraphType;
 
-  google::InitGoogleLogging(argv[0]);
-  google::ParseCommandLineFlags(&argc, &argv, true);
-
-  const string& sourceFileName = FLAGS_source;
-  const string& targetFileName = FLAGS_target;
-  const string& sourcePrimeFileNameMask = FLAGS_sourcePrime;
-  const string& targetPrimeFileNameMask = FLAGS_targetPrime;
-  const bool outputPrimeGraphs = FLAGS_outputPrimeGraphs;
-  const IndexType knn = FLAGS_knn;
-  const IndexType sourceGraphRoot = FLAGS_sourceRoot;
-
-  LOG(INFO) << "source filename = \"" << sourceFileName << "\"";
-  LOG(INFO) << "target filename = \"" << targetFileName << "\"";
-  LOG(INFO) << "sourcePrime filename mask = \"" << sourcePrimeFileNameMask << "\"";
-  LOG(INFO) << "targetPrime filename mask = \"" << targetPrimeFileNameMask << "\"";
-  LOG(INFO) << "number of nearest neighbors = " << knn;
+  BOOST_LOG_TRIVIAL(info) << "source filename = \"" << sourceFileName << "\"";
+  BOOST_LOG_TRIVIAL(info) << "target filename = \"" << targetFileName << "\"";
+  BOOST_LOG_TRIVIAL(info) << "sourcePrime filename mask = \"" << sourcePrimeFileNameMask << "\"";
+  BOOST_LOG_TRIVIAL(info) << "targetPrime filename mask = \"" << targetPrimeFileNameMask << "\"";
+  BOOST_LOG_TRIVIAL(info) << "number of nearest neighbors = " << knn;
 
   const string positionsDataSetName = "positions";
   const string measurementsDataSetName = "measurements";
@@ -803,7 +817,7 @@ int main(int argc, char *argv[])
 
   constexpr int numBetas = 1000;
 
-  const function<ValueType(int)> getKthBeta = [numBetas](int zeroBasedIndex)
+  const std::function<ValueType(int)> getKthBeta = [numBetas](int zeroBasedIndex)
   {
     return (zeroBasedIndex + ValueType(1)) / numBetas;
   };
@@ -853,7 +867,7 @@ int main(int argc, char *argv[])
   {
     for (ValueType pct = 10; pct < 100; pct += 10)
     {
-      LOG(INFO) << "source-graphs-length-ratio = " << pct << "%";
+      BOOST_LOG_TRIVIAL(info) << "source-graphs-length-ratio = " << pct << "%";
 
       const ValueType ratio = pct / 100;
 
@@ -881,9 +895,9 @@ int main(int argc, char *argv[])
 
         const string sourcePrimeFileName = sourcePrimeFormatter.str();
 
-        LOG(INFO) << "sourcePrimeFileName = " << sourcePrimeFileName;
-        LOG(INFO) << "sourcePrimeIndices1.size = " << sourcePrimeIndices1.size();
-        LOG(INFO) << "sourcePrimeIndices2.size = " << sourcePrimeIndices2.size();
+        BOOST_LOG_TRIVIAL(info) << "sourcePrimeFileName = " << sourcePrimeFileName;
+        BOOST_LOG_TRIVIAL(info) << "sourcePrimeIndices1.size = " << sourcePrimeIndices1.size();
+        BOOST_LOG_TRIVIAL(info) << "sourcePrimeIndices2.size = " << sourcePrimeIndices2.size();
 
         const auto targetPrimeGraph = GenerateTargetPrimeGraph(sourceGraph, targetGraph, sourceToTargetOptLabels);
 
@@ -896,9 +910,9 @@ int main(int argc, char *argv[])
 
         const string targetPrimeFileName = targetPrimeFormatter.str();
 
-        LOG(INFO) << "targetPrimeFileName = " << targetPrimeFileName;
-        LOG(INFO) << "targetPrimeIndices1.size = " << targetPrimeIndices1.size();
-        LOG(INFO) << "targetPrimeIndices2.size = " << targetPrimeIndices2.size();
+        BOOST_LOG_TRIVIAL(info) << "targetPrimeFileName = " << targetPrimeFileName;
+        BOOST_LOG_TRIVIAL(info) << "targetPrimeIndices1.size = " << targetPrimeIndices1.size();
+        BOOST_LOG_TRIVIAL(info) << "targetPrimeIndices2.size = " << targetPrimeIndices2.size();
 
         FileWriter sourcePrimeGraphFileWriter(sourcePrimeFileName);
         FileWriter targetPrimeGraphFileWriter(targetPrimeFileName);

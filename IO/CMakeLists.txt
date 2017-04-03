@@ -1,11 +1,5 @@
-cmake_minimum_required(VERSION 2.8.11)
 project(IO)
 
-if (UNIX)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
-endif()
-
-find_package(HDF5 NAMES hdf5 COMPONENTS CXX static)
 include_directories(${HDF5_INCLUDE_DIR})
 
 if (WIN32)
@@ -14,7 +8,7 @@ if (WIN32)
 endif()
 
 add_library(
-  ${PROJECT_NAME} SHARED
+  IO SHARED
   FileReader.cpp
   FileReader.hpp
   FileReaderImpl.hpp
@@ -23,12 +17,17 @@ add_library(
   FileWriterImpl.hpp
   H5Helper.hpp)
 
+target_include_directories(
+  IO PUBLIC 
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}> 
+  $<INSTALL_INTERFACE:Include>)
+
 target_link_libraries(
-  ${PROJECT_NAME}
+  IO PRIVATE 
   ${HDF5_CXX_STATIC_LIBRARY})
 
 install(
-  TARGETS ${PROJECT_NAME} 
+  TARGETS IO
   RUNTIME DESTINATION Bin
   ARCHIVE DESTINATION Lib
   LIBRARY DESTINATION Lib)
