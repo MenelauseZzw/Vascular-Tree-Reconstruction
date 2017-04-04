@@ -13,7 +13,7 @@
 #include <vector>
 
 template<typename ValueType, typename PositionType>
-ValueType GenerateEuclideanDistance(
+ValueType ComputeEuclideanDistance(
   const PositionType& node1,
   const PositionType& node2,
   const PositionType& tangentLine1Point1,
@@ -135,7 +135,7 @@ void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::
   std::vector<IndexType> indices2;
 
   GenerateMinimumSpanningTreeWith<NumDimensions>(
-    (DistanceFunctionType)GenerateEuclideanDistance<ValueType, PositionType>,
+    (DistanceFunctionType)ComputeEuclideanDistance<ValueType, PositionType>,
     positions,
     tangentLinesPoints1,
     tangentLinesPoints2,
