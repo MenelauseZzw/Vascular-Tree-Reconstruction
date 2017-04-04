@@ -29,6 +29,7 @@ endif()
 
 add_subdirectory(CropImageFilter)
 add_subdirectory(FrechetDistance)
+add_subdirectory(GenerateMinimumSpanningTree)
 add_subdirectory(GenerateNeighborhoodGraph)
 add_subdirectory(IO)
 add_subdirectory(LevenbergMarquardtMinimizer)
