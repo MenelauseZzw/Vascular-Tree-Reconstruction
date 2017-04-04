@@ -51,12 +51,21 @@ ValueType ComputeArcLength(const PositionType& point1, const PositionType& tange
 }
 
 template<typename ValueType, typename PositionType>
-ValueType ComputeArcLengthsDistance(const PositionType& point1, const PositionType& point2, const PositionType& tangentLine1Point1, const PositionType& tangentLine1Point2, const PositionType& tangentLine2Point1, const PositionType& tangentLine2Point2, ValueType radius1, ValueType radius2)
+ValueType ComputeArcLengthsSumDistance(const PositionType& point1, const PositionType& point2, const PositionType& tangentLine1Point1, const PositionType& tangentLine1Point2, const PositionType& tangentLine2Point1, const PositionType& tangentLine2Point2, ValueType radius1, ValueType radius2)
 {
   const ValueType arc1Length = ComputeArcLength<ValueType>(point1, tangentLine1Point1, tangentLine1Point2, point2);
   const ValueType arc2Length = ComputeArcLength<ValueType>(point2, tangentLine2Point1, tangentLine2Point2, point1);
 
-  return arc1Length + arc2Length;//TODO: consider min(arc1Length,arc2Length)
+  return arc1Length + arc2Length;
+}
+
+template<typename ValueType, typename PositionType>
+ValueType ComputeArcLengthsMinDistance(const PositionType& point1, const PositionType& point2, const PositionType& tangentLine1Point1, const PositionType& tangentLine1Point2, const PositionType& tangentLine2Point1, const PositionType& tangentLine2Point2, ValueType radius1, ValueType radius2)
+{
+  const ValueType arc1Length = ComputeArcLength<ValueType>(point1, tangentLine1Point1, tangentLine1Point2, point2);
+  const ValueType arc2Length = ComputeArcLength<ValueType>(point2, tangentLine2Point1, tangentLine2Point2, point1);
+
+  return std::min(arc1Length, arc2Length);
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType, typename PositionType>
@@ -125,7 +134,14 @@ void GenerateMinimumSpanningTreeWith(
   }
 }
 
-void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::string& outputFileName)
+enum class DistanceOptions
+{
+  Euclidean = 1,
+  ArcLengthsSum = 2,
+  ArcLengthsMin = 3
+};
+
+void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::string& outputFileName, DistanceOptions distanceOption)
 {
   const int NumDimensions = 3;
 
@@ -167,8 +183,28 @@ void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::
   std::vector<IndexType> indices1;
   std::vector<IndexType> indices2;
 
+  DistanceFunctionType distanceFunc;
+
+  switch (distanceOption)
+  {
+  case DistanceOptions::Euclidean:
+    distanceFunc = ComputeEuclideanDistance<ValueType, PositionType>;
+    break;
+
+  case DistanceOptions::ArcLengthsSum:
+    distanceFunc = ComputeArcLengthsSumDistance<ValueType, PositionType>;
+    break;
+
+  case DistanceOptions::ArcLengthsMin:
+    distanceFunc = ComputeArcLengthsMinDistance<ValueType, PositionType>;
+    break;
+
+  default:
+    throw std::invalid_argument("distanceOption is invalid");
+  }
+
   GenerateMinimumSpanningTreeWith<NumDimensions>(
-    (DistanceFunctionType)ComputeEuclideanDistance<ValueType, PositionType>,
+    distanceFunc,
     positions,
     tangentLinesPoints1,
     tangentLinesPoints2,
@@ -199,12 +235,15 @@ int main(int argc, char *argv[])
   std::string inputFileName;
   std::string outputFileName;
 
+  int optionNum;
+
   po::options_description desc;
 
   desc.add_options()
     ("help", "print usage message")
     ("inputFileName", po::value(&inputFileName)->required(), "the name of the input file")
-    ("outputFileName", po::value(&outputFileName)->required(), "the name of the output file");
+    ("outputFileName", po::value(&outputFileName)->required(), "the name of the output file")
+    ("optionNum", po::value(&optionNum)->required(), "the option number of distance function between two points");
 
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -218,7 +257,7 @@ int main(int argc, char *argv[])
 
   try
   {
-    DoGenerateMinimumSpanningTree(inputFileName, outputFileName);
+    DoGenerateMinimumSpanningTree(inputFileName, outputFileName, (DistanceOptions)optionNum);
     return EXIT_SUCCESS;
   }
   catch (std::exception& e)
