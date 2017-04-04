@@ -8,6 +8,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMake/")
 
 if (UNIX)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
+
+  set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/Lib")
+  set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 endif()
 
 set(Boost_USE_STATIC_LIBS    ON) # only find static libs
