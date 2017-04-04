@@ -3,9 +3,12 @@
 #==========================================================================
 project(FrechetDistance)
 
+find_package(Eigen REQUIRED)
+find_package(Flann REQUIRED)
+
 include_directories(
   ${Boost_INCLUDE_DIRS} 
-  ${EIGEN3_INCLUDE_DIRS} 
+  ${EIGEN_INCLUDE_DIRS} 
   ${FLANN_INCLUDE_DIRS})
 
 add_executable(

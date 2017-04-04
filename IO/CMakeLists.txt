@@ -1,5 +1,7 @@
 project(IO)
 
+find_package(HDF5 REQUIRED NAMES hdf5 COMPONENTS CXX static)
+
 include_directories(${HDF5_INCLUDE_DIR})
 
 if (WIN32)
@@ -23,8 +25,8 @@ target_include_directories(
   $<INSTALL_INTERFACE:Include>)
 
 target_link_libraries(
-  IO PRIVATE 
-  ${HDF5_CXX_STATIC_LIBRARY})
+  IO 
+  PRIVATE ${HDF5_CXX_STATIC_LIBRARY})
 
 install(
   TARGETS IO

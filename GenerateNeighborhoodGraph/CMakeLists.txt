@@ -1,5 +1,7 @@
 project(GenerateNeighborhoodGraph)
 
+find_package(ITK REQUIRED)
+
 include(${ITK_USE_FILE})
 include_directories(${Boost_INCLUDE_DIRS})
 
