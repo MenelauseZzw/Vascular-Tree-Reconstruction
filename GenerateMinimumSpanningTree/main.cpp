@@ -14,8 +14,8 @@
 
 template<typename ValueType, typename PositionType>
 ValueType ComputeEuclideanDistance(
-  const PositionType& node1,
-  const PositionType& node2,
+  const PositionType& point1,
+  const PositionType& point2,
   const PositionType& tangentLine1Point1,
   const PositionType& tangentLine1Point2,
   const PositionType& tangentLine2Point1,
@@ -23,7 +23,40 @@ ValueType ComputeEuclideanDistance(
   ValueType radius1,
   ValueType radius2)
 {
-  return (node1 - node2).norm();
+  return (point1 - point2).norm();
+}
+
+template<typename ValueType, typename PositionType>
+void ComputeArcCenterAndRadius(const PositionType& point1, const PositionType& tangentLine1Point1, const PositionType& tangentLine1Point2, const PositionType& point2, PositionType& center, ValueType& radius)
+{
+  using namespace std;
+
+  const PositionType tangentLine1 = tangentLine1Point2 - tangentLine1Point1;
+  const PositionType baseLine = point2 - point1;
+  const PositionType radialLine1 = baseLine * tangentLine1.squaredNorm() - tangentLine1 * tangentLine1.dot(baseLine);//radialLine1 = tangentLine1 x (baseLine x tangentLine1) = baseLine * ||tangentLine1||^2 - tangentLine1 * <tangentLine1, baseLine>
+  const ValueType t = 0.5 * baseLine.squaredNorm() / baseLine.dot(radialLine1);//x(t) = point1 + t * radialLine1: radius = ||point1 - center(t)||^2 = ||point2 - center(t)||^2 => t = (1/2) * ||baseLine||^2 / <baseLine, radialLine1>
+
+  center = point1 + t * radialLine1;
+  radius = abs(t) * radialLine1.norm();
+}
+
+template<typename ValueType, typename PositionType>
+ValueType ComputeArcLength(const PositionType& point1, const PositionType& tangentLine1Point1, const PositionType& tangentLine1Point2, const PositionType& point2)
+{
+  PositionType arcCenter;
+  ValueType arcRadius;
+
+  ComputeArcCenterAndRadius(point1, tangentLine1Point1, tangentLine1Point2, point2, arcCenter, arcRadius);
+  return arcRadius * acos((point1 - arcCenter).dot(point2 - arcCenter) / (arcRadius * arcRadius));
+}
+
+template<typename ValueType, typename PositionType>
+ValueType ComputeArcLengthsDistance(const PositionType& point1, const PositionType& point2, const PositionType& tangentLine1Point1, const PositionType& tangentLine1Point2, const PositionType& tangentLine2Point1, const PositionType& tangentLine2Point2, ValueType radius1, ValueType radius2)
+{
+  const ValueType arc1Length = ComputeArcLength<ValueType>(point1, tangentLine1Point1, tangentLine1Point2, point2);
+  const ValueType arc2Length = ComputeArcLength<ValueType>(point2, tangentLine2Point1, tangentLine2Point2, point1);
+
+  return arc1Length + arc2Length;//TODO: consider min(arc1Length,arc2Length)
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType, typename PositionType>
@@ -62,17 +95,17 @@ void GenerateMinimumSpanningTreeWith(
     {
       tie(e, tuples::ignore) = add_edge(index1, index2, completeGraph);
 
-      const auto& node1 = positions_.row(index1);
+      const auto& point1 = positions_.row(index1);
       const auto& tangentLine1Point1 = tangentLinesPoints1_.row(index1);
       const auto& tangentLine1Point2 = tangentLinesPoints2_.row(index1);
       const ValueType radius1 = radiuses[index1];
 
-      const auto& node2 = positions_.row(index2);
+      const auto& point2 = positions_.row(index2);
       const auto& tangentLine2Point1 = tangentLinesPoints1_.row(index2);
       const auto& tangentLine2Point2 = tangentLinesPoints2_.row(index2);
       const ValueType radius2 = radiuses[index2];
 
-      const ValueType distance = distanceFunc(node1, node2, tangentLine1Point1, tangentLine1Point2, tangentLine2Point1, tangentLine2Point2, radius1, radius2);
+      const ValueType distance = distanceFunc(point1, point2, tangentLine1Point1, tangentLine1Point2, tangentLine2Point1, tangentLine2Point2, radius1, radius2);
       weightmap[e] = distance;
     }
   }
