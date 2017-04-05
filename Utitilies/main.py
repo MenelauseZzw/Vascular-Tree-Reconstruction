@@ -1538,6 +1538,30 @@ def doCreateFrangiDistanceComparisonChart(args):
     filename = os.path.join(dirname, filename)
     plt.savefig(filename)
 
+def doCreateTreeStructureH5File(args):
+    dirname     = args.dirname
+    voxelWidth  = args.voxelWidth
+    
+    filename = os.path.join(dirname, 'tree_structure.xml')
+    dataset  = IO.readGxlFile(filename)
+     
+    positions = dataset['positions']
+    indices1  = dataset['indices1']   
+    indices2  = dataset['indices2']   
+    radiuses  = dataset['radiusPrime']
+    
+    positions = voxelWidth * positions
+
+    dataset = dict()
+
+    dataset['positions'] = positions
+    dataset['indices1']  = indices1
+    dataset['indices2']  = indices2
+    dataset['radiuses']  = radiuses
+
+    filename = os.path.join(dirname, 'tree_structure.h5')
+    IO.writeH5File(filename, dataset)
+
 if __name__ == '__main__':
     # create the top-level parser
     argparser = argparse.ArgumentParser()
@@ -1730,6 +1754,12 @@ if __name__ == '__main__':
     subparser.add_argument('--arg')
     subparser.add_argument('--val')
     subparser.set_defaults(func=doCreateFrangiDistanceComparisonChart)
+
+    # create the parser for the "doCreateTreeStructureH5File" command
+    subparser = subparsers.add_parser('doCreateTreeStructureH5File')
+    subparser.add_argument('dirname')
+    subparser.add_argument('voxelWidth', type=float)
+    subparser.set_defaults(func=doCreateTreeStructureH5File)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
