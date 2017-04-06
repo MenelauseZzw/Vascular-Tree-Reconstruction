@@ -208,7 +208,7 @@ template<
   using namespace Eigen;
 
   typedef adjacency_list<vecS, vecS, undirectedS> UndirectedGraphType;
-  typedef typename graph_traits<SourceGraphType>::edge_descriptor SourceGraphEdgeType;
+  typedef typename graph_traits<SourceGraphType>::edge_descriptor SourceGraphEdgeDescriptor;
 
   const size_t numSourceNodes = radiuses.size();
   const size_t numSourceEdges = indices1.size();
@@ -241,7 +241,7 @@ template<
     const IndexType sourceIndex2 = indices2[i];
     const ValueType radius = radiuses[i];
 
-    SourceGraphEdgeType e;
+    SourceGraphEdgeDescriptor e;
 
     if (sourceIndex1 == predecessors[sourceIndex2])
     {
