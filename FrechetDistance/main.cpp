@@ -739,9 +739,6 @@ void DoFrechetDistance(std::string const& sourceFileName, std::string const& tar
   BOOST_LOG_TRIVIAL(info) << "number of nearest neighbors (k) = " << numberOfNearestNeighbors;
   BOOST_LOG_TRIVIAL(info) << "voxel physical size = " << voxelPhysicalSize;
 
-  //BOOST_LOG_TRIVIAL(info) << "sourcePrime filename mask = \"" << sourcePrimeFileNameMask << "\"";
-  //BOOST_LOG_TRIVIAL(info) << "targetPrime filename mask = \"" << targetPrimeFileNameMask << "\"";
-
   const std::string positionsDataSetName = "positions";
   const std::string measurementsDataSetName = "measurements";
   const std::string indices1DataSetName = "indices1";
@@ -764,21 +761,13 @@ void DoFrechetDistance(std::string const& sourceFileName, std::string const& tar
 
   FileReader targetFileReader(targetFileName);
 
-  //vector<ValueType> targetMeasurements;
   std::vector<ValueType> targetPositions;
   std::vector<IndexType> targetIndices1;
   std::vector<IndexType> targetIndices2;
-  //vector<ValueType> targetTangentLinesPoints1;
-  //vector<ValueType> targetTangentLinesPoints2;
-  //vector<ValueType> targetRadiuses;
 
   targetFileReader.Read(positionsDataSetName, targetPositions);
-  //targetFileReader.Read(measurementsDataSetName, targetMeasurements);
   targetFileReader.Read(indices1DataSetName, targetIndices1);
   targetFileReader.Read(indices2DataSetName, targetIndices2);
-  //targetFileReader.Read(tangentLinesPoints1DataSetName, targetTangentLinesPoints1);
-  //targetFileReader.Read(tangentLinesPoints2DataSetName, targetTangentLinesPoints2);
-  //targetFileReader.Read(radiusesDataSetName, targetRadiuses);
 
   std::fstream outputFile(outputFileName, std::ios::out);
 
@@ -872,76 +861,6 @@ void DoFrechetDistance(std::string const& sourceFileName, std::string const& tar
       << targetGraphsLengthsRatio << ','
       << costFunctionValue << std::endl;
   }
-
-  //if (outputPrimeGraphs)
-  //{
-  //  for (ValueType pct = 10; pct < 100; pct += 10)
-  //  {
-  //    BOOST_LOG_TRIVIAL(info) << "source-graphs-length-ratio = " << pct << "%";
-
-  //    const ValueType ratio = pct / 100;
-
-  //    const auto iter = lower_bound(sourceGraphsLengthRatios.cbegin(), sourceGraphsLengthRatios.cend(), ratio);
-
-  //    if (iter != sourceGraphsLengthRatios.cend())
-  //    {
-  //      const int k = distance(sourceGraphsLengthRatios.cbegin(), iter);
-
-  //      const ValueType kthBeta = getKthBeta(k);
-  //      betas[k] = kthBeta;
-
-  //      vector<IndexType> sourceToTargetOptLabels;
-  //      sourceToTargetGraphsDistances[k] = GenerateSourceToTargetOptLabels(sourceGraph, targetGraph, knnLabels, sourceToTargetDistances, sourceGraphRoot, kthBeta, sourceToTargetOptLabels);
-
-  //      const auto sourcePrimeGraph = GenerateSourcePrimeGraph(sourceGraph, sourceToTargetOptLabels);
-
-  //      vector<IndexType> sourcePrimeIndices1;
-  //      vector<IndexType> sourcePrimeIndices2;
-  //      vector<ValueType> sourcePrimeRadiusesPrime;
-  //      GenerateSourceGraphDataSet(sourcePrimeGraph, sourcePrimeIndices1, sourcePrimeIndices2, sourcePrimeRadiusesPrime);
-
-  //      format sourcePrimeFormatter(sourcePrimeFileNameMask);
-  //      sourcePrimeFormatter % pct;
-
-  //      const string sourcePrimeFileName = sourcePrimeFormatter.str();
-
-  //      BOOST_LOG_TRIVIAL(info) << "sourcePrimeFileName = " << sourcePrimeFileName;
-  //      BOOST_LOG_TRIVIAL(info) << "sourcePrimeIndices1.size = " << sourcePrimeIndices1.size();
-  //      BOOST_LOG_TRIVIAL(info) << "sourcePrimeIndices2.size = " << sourcePrimeIndices2.size();
-
-  //      const auto targetPrimeGraph = GenerateTargetPrimeGraph(sourceGraph, targetGraph, sourceToTargetOptLabels);
-
-  //      vector<IndexType> targetPrimeIndices1;
-  //      vector<IndexType> targetPrimeIndices2;
-  //      GenerateTargetGraphDataSet(targetPrimeGraph, targetPrimeIndices1, targetPrimeIndices2);
-
-  //      format targetPrimeFormatter(targetPrimeFileNameMask);
-  //      targetPrimeFormatter % pct;
-
-  //      const string targetPrimeFileName = targetPrimeFormatter.str();
-
-  //      BOOST_LOG_TRIVIAL(info) << "targetPrimeFileName = " << targetPrimeFileName;
-  //      BOOST_LOG_TRIVIAL(info) << "targetPrimeIndices1.size = " << targetPrimeIndices1.size();
-  //      BOOST_LOG_TRIVIAL(info) << "targetPrimeIndices2.size = " << targetPrimeIndices2.size();
-
-  //      FileWriter sourcePrimeGraphFileWriter(sourcePrimeFileName);
-  //      FileWriter targetPrimeGraphFileWriter(targetPrimeFileName);
-
-  //      sourcePrimeGraphFileWriter.Write(positionsDataSetName, sourcePositions);
-  //      sourcePrimeGraphFileWriter.Write(indices1DataSetName, sourcePrimeIndices1);
-  //      sourcePrimeGraphFileWriter.Write(indices2DataSetName, sourcePrimeIndices2);
-  //      sourcePrimeGraphFileWriter.Write(radiusesDataSetName, sourcePrimeRadiusesPrime);
-
-  //      targetPrimeGraphFileWriter.Write(positionsDataSetName, targetPositions);
-  //      //targetPrimeGraphFileWriter.Write(measurementsDataSetName, targetMeasurements);
-  //      targetPrimeGraphFileWriter.Write(indices1DataSetName, targetPrimeIndices1);
-  //      targetPrimeGraphFileWriter.Write(indices2DataSetName, targetPrimeIndices2);
-  //      //targetPrimeGraphFileWriter.Write(tangentLinesPoints1DataSetName, targetTangentLinesPoints1);
-  //      //targetPrimeGraphFileWriter.Write(tangentLinesPoints2DataSetName, targetTangentLinesPoints2);
-  //      //targetPrimeGraphFileWriter.Write(radiusesDataSetName, targetRadiuses);
-  //    }
-  //  }
-  //}
 }
 
 int main(int argc, char *argv[])
@@ -957,10 +876,6 @@ int main(int argc, char *argv[])
   double parValueMaximum = 1;
   double parValueMinimum = 0;
 
-  //std::string sourcePrimeFileNameMask;
-  //std::string targetPrimeFileNameMask;
-
-  //bool outputPrimeGraphs = false;
   int numberOfNearestNeighbors = 17;
   int sourceGraphRoot = 0;
 
@@ -975,9 +890,6 @@ int main(int argc, char *argv[])
     ("numberOfParValues", po::value(&numberOfParValues), "the number of parameter values")
     ("parValueMaximum", po::value(&parValueMaximum), "the maximum value that the parameter should have")
     ("parValueMinimum", po::value(&parValueMinimum), "the minimum value that the parameter should have")
-    //("sourcePrime", po::value(&sourcePrimeFileNameMask), "sourcePrime filename mask")
-    //("targetPrime", po::value(&targetPrimeFileNameMask), "targetPrime filename mask")
-    //("outputPrimeGraphs", "output sourcePrime and targetPrime graphs")
     ("numberOfNearestNeighbors", po::value(&numberOfNearestNeighbors), "number of nearest neighbors")
     ("sourceGraphRoot", po::value(&sourceGraphRoot), "root node index");
 
