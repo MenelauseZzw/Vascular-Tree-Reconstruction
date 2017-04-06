@@ -38,7 +38,7 @@ double dp(
   using std::for_each;
   using std::vector;
 
-  const int invalidLabel{ -1 };
+  constexpr int InvalidLabel = -1;
 
   vector<int> nodesInLevelOrder;
 
@@ -71,14 +71,14 @@ double dp(
       {
         const int child = getNthChild(curNode, i);
 
-        int optChildLabel = invalidLabel;
+        int optChildLabel = InvalidLabel;
         double optChildLabelCost = 0;
 
         for (int childLabel = 0; childLabel != getNumLabels(child); ++childLabel)
         {
           const double cost = getCost2(curNode, curLabel, i, childLabel) + optLabelsCosts[child][childLabel];
 
-          if (optChildLabel == invalidLabel || cost < optChildLabelCost)
+          if (optChildLabel == InvalidLabel || cost < optChildLabelCost)
           {
             optChildLabel = childLabel;
             optChildLabelCost = cost;
@@ -93,14 +93,14 @@ double dp(
     }
   });
 
-  int optRootLabel = invalidLabel;
+  int optRootLabel = InvalidLabel;
   double optRootLabelCost = 0;
 
   for (int rootLabel = 0; rootLabel != getNumLabels(rootNode); ++rootLabel)
   {
     const double cost = optLabelsCosts[rootNode][rootLabel];
 
-    if (optRootLabel == invalidLabel || cost < optRootLabelCost)
+    if (optRootLabel == InvalidLabel || cost < optRootLabelCost)
     {
       optRootLabel = rootLabel;
       optRootLabelCost = cost;
@@ -122,25 +122,31 @@ double dp(
 
 #pragma endregion
 
-struct PositionTag
+template<typename PositionType>
+struct SourceGraphNode
 {
-  typedef boost::vertex_property_tag kind;
+  PositionType Position;
 };
 
-struct TargetIndexTag
+template<typename ValueType>
+struct SourceGraphEdge
 {
-  typedef boost::vertex_property_tag kind;
+  ValueType Radius;
 };
 
-struct RadiusPrimeTag
+template<typename PositionType>
+struct TargetGraphNode
 {
-  typedef boost::edge_property_tag kind;
+  PositionType Position;
 };
 
-template<size_t NumDimensions, typename ValueType, typename IndexType>
-void GenerateSourceToTargetKnnLabels(const std::vector<ValueType>& sourcePositions, const std::vector<ValueType>& targetPositions, std::vector<std::vector<IndexType>>& sourceToTargetLabels, size_t knn)
+template<int NumDimensions, typename ValueType, typename IndexType>
+void GenerateSourceToTargetKnnLabels(
+  const std::vector<ValueType>& sourcePositions, 
+  const std::vector<ValueType>& targetPositions, 
+  std::vector<std::vector<IndexType>>& sourceToTargetLabels, 
+  int numberOfLabels)
 {
-  using namespace std;
   using namespace flann;
 
   const Matrix<ValueType> sourceNodePositions(const_cast<ValueType*>(sourcePositions.data()), sourcePositions.size() / NumDimensions, NumDimensions);
@@ -149,20 +155,51 @@ void GenerateSourceToTargetKnnLabels(const std::vector<ValueType>& sourcePositio
   Index<L2<ValueType>> index(targetNodePositions, KDTreeIndexParams(1));
   index.buildIndex();
 
-  vector<vector<ValueType>> sourceToTargetDistances;
-  index.knnSearch(sourceNodePositions, sourceToTargetLabels, sourceToTargetDistances, knn, SearchParams(-1));
+  std::vector<std::vector<ValueType>> sourceToTargetDistances;
+  index.knnSearch(sourceNodePositions, sourceToTargetLabels, sourceToTargetDistances, numberOfLabels, SearchParams(-1));
 }
 
+template<typename ValueType, typename GraphType>
+ValueType ComputeEuclideanLengthOfGraph(const GraphType& g)
+{
+  using namespace std;
+  using namespace boost;
+
+  typedef typename graph_traits<GraphType>::edge_iterator GraphEdgeIteratorType;
+
+  ValueType euclideanLength = 0;
+
+  auto es = boost::edges(g);
+
+  for (auto eit = es.first; eit != es.second; ++eit)
+  {
+    const auto index1 = source(*eit, g);
+    const auto index2 = target(*eit, g);
+
+    const auto& point1 = g[index1].Position;
+    const auto& point2 = g[index2].Position;
+
+    euclideanLength += (point1 - point2).norm();
+  }
+
+  return euclideanLength;
+}
+
+
 template<
-  size_t NumDimensions,
+  int NumDimensions,
   typename ValueType,
   typename IndexType,
-  typename PositionType = Eigen::Matrix<ValueType, 1U, NumDimensions>,
-  typename SourceGraphNodePropertyType = boost::property<PositionTag, PositionType>,
-  typename SourceGraphEdgePropertyType = boost::property<RadiusPrimeTag, ValueType>,
-  typename SourceGraphType = boost::adjacency_list < boost::vecS, boost::vecS, boost::directedS, SourceGraphNodePropertyType, SourceGraphEdgePropertyType >>
+  typename PositionType = Eigen::Matrix<ValueType, 1, NumDimensions>,
+  typename SourceGraphNodeType = SourceGraphNode<PositionType>,
+  typename SourceGraphEdgeType = SourceGraphEdge<ValueType>,
+  typename SourceGraphType = boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS, SourceGraphNodeType, SourceGraphEdgeType>>
   SourceGraphType GenerateSourceGraph(
-    const std::vector<ValueType>& sourcePositions, const std::vector<IndexType>& sourceIndices1, const std::vector<IndexType>& sourceIndices2, const std::vector<ValueType>& sourceRadiusesPrime, IndexType sourceGraphRoot)
+    const std::vector<ValueType>& positions, 
+    const std::vector<IndexType>& indices1, 
+    const std::vector<IndexType>& indices2, 
+    const std::vector<ValueType>& radiuses, 
+    IndexType graphRoot)
 {
   using namespace std;
   using namespace boost;
@@ -171,39 +208,36 @@ template<
   typedef adjacency_list<vecS, vecS, undirectedS> UndirectedGraphType;
   typedef typename graph_traits<SourceGraphType>::edge_descriptor SourceGraphEdgeType;
 
-  const size_t numSourceNodes = sourcePositions.size() / NumDimensions;
-  const size_t numSourceEdges = sourceIndices1.size();
+  const size_t numSourceNodes = radiuses.size();
+  const size_t numSourceEdges = indices1.size();
 
-  UndirectedGraphType tmpGraph(numSourceNodes);
+  UndirectedGraphType originalGraph(numSourceNodes);
 
   for (size_t i = 0; i < numSourceEdges; ++i)
   {
-    const IndexType sourceIndex1 = sourceIndices1[i];
-    const IndexType sourceIndex2 = sourceIndices2[i];
+    const IndexType sourceIndex1 = indices1[i];
+    const IndexType sourceIndex2 = indices2[i];
 
-    add_edge(sourceIndex1, sourceIndex2, tmpGraph);
+    add_edge(sourceIndex1, sourceIndex2, originalGraph);
   }
 
   vector<IndexType> predecessors(numSourceNodes);
-  depth_first_search(tmpGraph, visitor(make_dfs_visitor(record_predecessors(&predecessors[0], on_tree_edge()))).root_vertex(sourceGraphRoot));
+  depth_first_search(originalGraph, visitor(make_dfs_visitor(record_predecessors(&predecessors[0], on_tree_edge()))).root_vertex(graphRoot));
 
   SourceGraphType sourceGraph(numSourceNodes);
 
-  auto sourceGraphPositions = get(PositionTag{}, sourceGraph);
-  auto sourceGraphRadiusesPrime = get(RadiusPrimeTag{}, sourceGraph);
-
-  const ValueType* pSourcePositions = &sourcePositions[0];
+  const ValueType* pSourcePositions = &positions[0];
 
   for (IndexType sourceIndex = 0; sourceIndex < numSourceNodes; ++sourceIndex, pSourcePositions += NumDimensions)
   {
-    sourceGraphPositions[sourceIndex] = Map<const PositionType>(pSourcePositions, NumDimensions);
+    sourceGraph[sourceIndex].Position = Map<const PositionType>(pSourcePositions, NumDimensions);
   }
 
   for (size_t i = 0; i < numSourceEdges; ++i)
   {
-    const IndexType sourceIndex1 = sourceIndices1[i];
-    const IndexType sourceIndex2 = sourceIndices2[i];
-    const ValueType sourceRadiusPrime = sourceRadiusesPrime[i];
+    const IndexType sourceIndex1 = indices1[i];
+    const IndexType sourceIndex2 = indices2[i];
+    const ValueType radius = radiuses[i];
 
     SourceGraphEdgeType e;
 
@@ -216,11 +250,12 @@ template<
       tie(e, tuples::ignore) = add_edge(sourceIndex2, sourceIndex1, sourceGraph);
     }
 
-    sourceGraphRadiusesPrime[e] = sourceRadiusPrime;
+    sourceGraph[e].Radius = radius;
   }
 
-  BOOST_LOG_TRIVIAL(info) << "sourceGraph.|V| = " << num_vertices(sourceGraph);
-  BOOST_LOG_TRIVIAL(info) << "sourceGraph.|E| = " << num_edges(sourceGraph);
+  BOOST_LOG_TRIVIAL(info) << "sourceGraph.|V|    = " << num_vertices(sourceGraph);
+  BOOST_LOG_TRIVIAL(info) << "sourceGraph.|E|    = " << num_edges(sourceGraph);
+  BOOST_LOG_TRIVIAL(info) << "sourceGraph.length = " << ComputeEuclideanLengthOfGraph<ValueType>(sourceGraph);
 
   return sourceGraph;
 }
@@ -229,51 +264,52 @@ template<size_t NumDimensions,
   typename ValueType,
   typename IndexType,
   typename PositionType = Eigen::Matrix<ValueType, 1U, NumDimensions>,
-  typename TargetGraphNodePropertyType = boost::property<PositionTag, PositionType>,
-  typename TargetGraphType = boost::adjacency_list < boost::vecS, boost::vecS, boost::undirectedS, TargetGraphNodePropertyType >>
+  typename TargetGraphNodeType = TargetGraphNode<PositionType>,
+  typename TargetGraphType = boost::adjacency_list < boost::vecS, boost::vecS, boost::undirectedS, TargetGraphNodeType>>
   TargetGraphType GenerateTargetGraph(
-    const std::vector<ValueType>& targetPositions, const std::vector<IndexType>& targetIndices1, const std::vector<IndexType>& targetIndices2)
+    const std::vector<ValueType>& positions, 
+    const std::vector<IndexType>& indices1, 
+    const std::vector<IndexType>& indices2)
 {
   using namespace std;
   using namespace boost;
   using namespace Eigen;
 
-  const size_t numTargetNodes = targetPositions.size() / NumDimensions;
-  const size_t numTargetEdges = targetIndices1.size();
+  const size_t numTargetNodes = positions.size() / NumDimensions;
+  const size_t numTargetEdges = indices1.size();
 
   TargetGraphType targetGraph(numTargetNodes);
 
-  auto targetGraphPositions = get(PositionTag{}, targetGraph);
-
-  const ValueType* pTargetPositions = &targetPositions[0];
+  const ValueType* pTargetPositions = &positions[0];
 
   for (IndexType targetIndex = 0; targetIndex < numTargetNodes; ++targetIndex, pTargetPositions += NumDimensions)
   {
-    targetGraphPositions[targetIndex] = Map<const PositionType>(pTargetPositions, NumDimensions);
+    targetGraph[targetIndex].Position = Map<const PositionType>(pTargetPositions, NumDimensions);
   }
 
-  for (size_t i = 0; i < targetIndices1.size(); ++i)
+  for (size_t i = 0; i < indices1.size(); ++i)
   {
-    const IndexType targetIndex1 = targetIndices1[i];
-    const IndexType targetIndex2 = targetIndices2[i];
+    const IndexType targetIndex1 = indices1[i];
+    const IndexType targetIndex2 = indices2[i];
 
     add_edge(targetIndex1, targetIndex2, targetGraph);
   }
 
   BOOST_LOG_TRIVIAL(info) << "targetGraph.|V| = " << num_vertices(targetGraph);
   BOOST_LOG_TRIVIAL(info) << "targetGraph.|E| = " << num_edges(targetGraph);
+  BOOST_LOG_TRIVIAL(info) << "targetGraph.|E| = " << ComputeEuclideanLengthOfGraph<ValueType>(targetGraph);
 
   return targetGraph;
 }
 
 template<typename ValueType, typename IndexType, typename PositionMap, typename PositionType>
-void GeneratePolyLine(const PositionMap& positionMap, IndexType nodeIndex1, IndexType nodeIndex2, ValueType eps, std::vector<PositionType>& polyLine)
+void GeneratePolyLinePoints(const PositionMap& positionMap, IndexType nodeIndex1, IndexType nodeIndex2, ValueType eps, std::vector<PositionType>& polyLine)
 {
   using namespace std;
   using namespace boost;
 
-  const auto& node1 = positionMap[nodeIndex1];
-  const auto& node2 = positionMap[nodeIndex2];
+  const auto& node1 = positionMap[nodeIndex1].Position;
+  const auto& node2 = positionMap[nodeIndex2].Position;
 
   const ValueType distance = (node1 - node2).norm();
 
@@ -297,16 +333,16 @@ void GeneratePolyLine(const PositionMap& positionMap, IndexType nodeIndex1, Inde
 }
 
 template<typename ValueType, typename IndexType, typename PositionMap, typename PositionType>
-void GeneratePolyLine(const PositionMap& positionMap, IndexType nodeIndex1, IndexType nodeIndex2, const std::vector<IndexType>& predecessors, ValueType eps, std::vector<PositionType>& polyLine)
+void GeneratePolyLinePoints(const PositionMap& positionMap, IndexType nodeIndex1, IndexType nodeIndex2, const std::vector<IndexType>& predecessors, ValueType eps, std::vector<PositionType>& polyLine)
 {
   for (IndexType index2 = nodeIndex2; index2 != nodeIndex1; index2 = predecessors[index2])
   {
     const IndexType index1 = predecessors[index2];
-    GeneratePolyLine(positionMap, index1, index2, eps, polyLine);
+    GeneratePolyLinePoints(positionMap, index1, index2, eps, polyLine);
     polyLine.pop_back();
   }
 
-  const auto& node1 = positionMap[nodeIndex1];
+  const auto& node1 = positionMap[nodeIndex1].Position;
   polyLine.push_back(node1);
 }
 
@@ -349,19 +385,16 @@ void GenerateSourceToTargetDistances(const SourceGraphType& sourceGraph, const T
 
   typedef Matrix<ValueType, 1U, NumDimensions> PositionType;
 
-  const ValueType eps = 0.05;//frechetDistance < discreteFrechetDistance < frechetDistance + eps
+  const ValueType voxelPhysicalSize = 0.046;
+  const ValueType eps = voxelPhysicalSize / 10;//frechetDistance < discreteFrechetDistance < frechetDistance + eps
 
-  const auto sourceGraphRadiusesPrime = get(RadiusPrimeTag{}, sourceGraph);
   const size_t numSourceNodes = num_vertices(sourceGraph);
   const size_t numTargetNodes = num_vertices(targetGraph);
   sourceToTargetDistances.resize(numSourceNodes);
 
-  const auto sourceGraphPositions = get(PositionTag{}, sourceGraph);
-  const auto targetGraphPositions = get(PositionTag{}, targetGraph);
-
   for (IndexType sourceIndex1 = 0; sourceIndex1 < numSourceNodes; ++sourceIndex1)
   {
-    const PositionType& sourceNode1 = sourceGraphPositions[sourceIndex1];
+    const PositionType& sourceNode1 = sourceGraph[sourceIndex1].Position;
 
     const auto& sourceToTargetLabels1 = sourceToTargetLabels[sourceIndex1];
     const IndexType numSourceLabels1 = sourceToTargetLabels1.size() + 1;//plus an ``outlier`` label
@@ -378,9 +411,9 @@ void GenerateSourceToTargetDistances(const SourceGraphType& sourceGraph, const T
       const auto e = *childIterator;
 
       const IndexType sourceIndex2 = target(e, sourceGraph);
-      const PositionType& sourceNode2 = sourceGraphPositions[sourceIndex2];
+      const PositionType& sourceNode2 = sourceGraph[sourceIndex2].Position;
 
-      const ValueType sourceRadiusPrime = sourceGraphRadiusesPrime[e];
+      const ValueType sourceRadius = sourceGraph[e].Radius;
 
       const auto& sourceToTargetLabels2 = sourceToTargetLabels[sourceIndex2];
       const IndexType numSourceLabels2 = sourceToTargetLabels2.size() + 1;//plus an ``outlier`` label
@@ -418,18 +451,18 @@ void GenerateSourceToTargetDistances(const SourceGraphType& sourceGraph, const T
             }
             else if (targetDistances[targetIndex2] > 0)//there is a path between nodes ``targetIndex1`` and ``targetIndex2``
             {
-              vector<PositionType> sourcePolyLine;
-              GeneratePolyLine(sourceGraphPositions, sourceIndex1, sourceIndex2, eps, sourcePolyLine);
+              vector<PositionType> sourcePolyLinePoints;
+              GeneratePolyLinePoints(sourceGraph, sourceIndex1, sourceIndex2, eps, sourcePolyLinePoints);
 
-              vector<PositionType> targetPolyLine;
-              GeneratePolyLine(targetGraphPositions, targetIndex1, targetIndex2, targetPredecessors, eps, targetPolyLine);
+              vector<PositionType> targetPolyLinePoints;
+              GeneratePolyLinePoints(targetGraph, targetIndex1, targetIndex2, targetPredecessors, eps, targetPolyLinePoints);
 
-              const ValueType frechetDistance = DiscreteFrechetDistance<ValueType>(sourcePolyLine.size(), targetPolyLine.size(), [&](size_t sourceIndex, size_t targetIndex)
+              const ValueType frechetDistance = DiscreteFrechetDistance<ValueType>(sourcePolyLinePoints.size(), targetPolyLinePoints.size(), [&](size_t sourceIndex, size_t targetIndex)
               {
-                return (sourcePolyLine[sourceIndex] - targetPolyLine[targetIndex]).norm();
+                return (sourcePolyLinePoints[sourceIndex] - targetPolyLinePoints[targetIndex]).norm();
               });
 
-              sourceToTargetDistance = frechetDistance / sourceRadiusPrime;
+              sourceToTargetDistance = frechetDistance / sourceRadius;
             }
             else//there is no a path between nodes ``targetIndex1`` and ``targetIndex2``
             {
@@ -492,7 +525,7 @@ ValueType GenerateSourceToTargetOptLabels(
 
   const std::function<ValueType(IndexType, IndexType)> func1 = [getNumLabels](IndexType curNode, IndexType curLabel)
   {
-    return (curLabel < getNumLabels(curNode) - 1) ? 0 : -numeric_limits<ValueType>::min();
+    return curLabel != getNumLabels(curNode) ? 0 : numeric_limits<ValueType>::lowest();
   };
 
   const std::function<ValueType(IndexType, IndexType, IndexType, IndexType)> func2 = [getNthChild, beta, &sourceToTargetDistances](IndexType curNode, IndexType curLabel, IndexType child, IndexType childLabel)
@@ -637,15 +670,13 @@ void GenerateSourceGraphDataSet(const SourceGraphType& sourceGraph, std::vector<
   SourceGraphEdgeIteratorType sourceEdgeIterator, sourceEdgeIteratorEnd;
   tie(sourceEdgeIterator, sourceEdgeIteratorEnd) = edges(sourceGraph);
 
-  const auto sourceGraphRadiusesPrime = get(RadiusPrimeTag{}, sourceGraph);
-
   for (; sourceEdgeIterator != sourceEdgeIteratorEnd; ++sourceEdgeIterator)
   {
     const auto e = *sourceEdgeIterator;
 
     const IndexType sourceIndex1 = source(e, sourceGraph);
     const IndexType sourceIndex2 = target(e, sourceGraph);
-    const ValueType sourceRadiusPrime = sourceGraphRadiusesPrime[e];
+    const ValueType sourceRadiusPrime = sourceGraph[e].Radius;
 
     sourceIndices1.push_back(sourceIndex1);
     sourceIndices2.push_back(sourceIndex2);
@@ -676,37 +707,6 @@ void GenerateTargetGraphDataSet(const TargetGraphType& targetGraph, std::vector<
   }
 }
 
-template<typename ValueType, typename GraphType>
-ValueType TotalLength(const GraphType& graph)
-{
-  using namespace std;
-  using namespace boost;
-
-  typedef typename graph_traits<GraphType>::edge_iterator GraphEdgeIteratorType;
-
-  const auto nodePositions = get(PositionTag{}, graph);
-
-  GraphEdgeIteratorType edgeIterator, edgeIteratorEnd;
-  tie(edgeIterator, edgeIteratorEnd) = edges(graph);
-
-  ValueType totalLength = 0;
-
-  for (; edgeIterator != edgeIteratorEnd; ++edgeIterator)
-  {
-    const auto e = *edgeIterator;
-
-    const auto index1 = source(e, graph);
-    const auto index2 = target(e, graph);
-
-    const auto node1 = nodePositions[index1];
-    const auto node2 = nodePositions[index2];
-
-    totalLength += (node1 - node2).norm();
-  }
-
-  return totalLength;
-}
-
 int main(int argc, char *argv[])
 {
   namespace po = boost::program_options;
@@ -716,18 +716,18 @@ int main(int argc, char *argv[])
   std::string sourcePrimeFileNameMask;
   std::string targetPrimeFileNameMask;
 
-  bool outputPrimeGraphs;
-  int knn = 17;
+  bool outputPrimeGraphs = false;
+  int knn = 7;
   int sourceGraphRoot = 0;
 
   po::options_description desc;
 
   desc.add_options()
     ("help", "print usage message")
-    ("source", po::value(&sourceFileName)->required(), "source filename")
-    ("target", po::value(&targetFileName)->required(), "target filename")
+    ("sourceFileName", po::value(&sourceFileName)->required(), "source filename")
+    ("targetFileName", po::value(&targetFileName)->required(), "target filename")
     ("sourcePrime", po::value(&sourcePrimeFileNameMask), "sourcePrime filename mask")
-    ("targetPrime", po::value(&sourcePrimeFileNameMask), "targetPrime filename mask")
+    ("targetPrime", po::value(&targetPrimeFileNameMask), "targetPrime filename mask")
     ("outputPrimeGraphs", "output sourcePrime and targetPrime graphs")
     ("knn", po::value(&knn), "number of nearest neighbors")
     ("sourceRoot", po::value(&sourceGraphRoot), "root node index");
@@ -752,9 +752,10 @@ int main(int argc, char *argv[])
   typedef int IndexType;
 
   typedef Matrix<ValueType, 1U, NumDimensions> PositionType;
-  typedef property<PositionTag, PositionType> SourceGraphNodePropertyType;
-  typedef property<RadiusPrimeTag, ValueType> SourceGraphEdgePropertyType;
-  typedef adjacency_list<vecS, vecS, directedS, SourceGraphNodePropertyType, SourceGraphEdgePropertyType> SourceGraphType;
+
+  typedef SourceGraphNode<PositionType> SourceGraphNodeType;
+  typedef SourceGraphEdge<ValueType> SourceGraphEdgeType;
+  typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS, SourceGraphNodeType, SourceGraphEdgeType> SourceGraphType;
 
   BOOST_LOG_TRIVIAL(info) << "source filename = \"" << sourceFileName << "\"";
   BOOST_LOG_TRIVIAL(info) << "target filename = \"" << targetFileName << "\"";
@@ -769,39 +770,38 @@ int main(int argc, char *argv[])
   const string tangentLinesPoints1DataSetName = "tangentLinesPoints1";
   const string tangentLinesPoints2DataSetName = "tangentLinesPoints2";
   const string radiusesDataSetName = "radiuses";
-  const string radiusesPrimeDataSetName = "radiuses'";
 
   FileReader sourceFileReader(sourceFileName);
 
   vector<ValueType> sourcePositions;
   vector<IndexType> sourceIndices1;
   vector<IndexType> sourceIndices2;
-  vector<ValueType> sourceRadiusesPrime;
+  vector<ValueType> sourceRadiuses;
 
   sourceFileReader.Read(positionsDataSetName, sourcePositions);
   sourceFileReader.Read(indices1DataSetName, sourceIndices1);
   sourceFileReader.Read(indices2DataSetName, sourceIndices2);
-  sourceFileReader.Read(radiusesPrimeDataSetName, sourceRadiusesPrime);
+  sourceFileReader.Read(radiusesDataSetName, sourceRadiuses);
 
   FileReader targetFileReader(targetFileName);
 
-  vector<ValueType> targetMeasurements;
+  //vector<ValueType> targetMeasurements;
   vector<ValueType> targetPositions;
   vector<IndexType> targetIndices1;
   vector<IndexType> targetIndices2;
-  vector<ValueType> targetTangentLinesPoints1;
-  vector<ValueType> targetTangentLinesPoints2;
-  vector<ValueType> targetRadiuses;
+  //vector<ValueType> targetTangentLinesPoints1;
+  //vector<ValueType> targetTangentLinesPoints2;
+  //vector<ValueType> targetRadiuses;
 
   targetFileReader.Read(positionsDataSetName, targetPositions);
-  targetFileReader.Read(measurementsDataSetName, targetMeasurements);
+  //targetFileReader.Read(measurementsDataSetName, targetMeasurements);
   targetFileReader.Read(indices1DataSetName, targetIndices1);
   targetFileReader.Read(indices2DataSetName, targetIndices2);
-  targetFileReader.Read(tangentLinesPoints1DataSetName, targetTangentLinesPoints1);
-  targetFileReader.Read(tangentLinesPoints2DataSetName, targetTangentLinesPoints2);
-  targetFileReader.Read(radiusesDataSetName, targetRadiuses);
+  //targetFileReader.Read(tangentLinesPoints1DataSetName, targetTangentLinesPoints1);
+  //targetFileReader.Read(tangentLinesPoints2DataSetName, targetTangentLinesPoints2);
+  //targetFileReader.Read(radiusesDataSetName, targetRadiuses);
 
-  const auto sourceGraph = GenerateSourceGraph<NumDimensions>(sourcePositions, sourceIndices1, sourceIndices2, sourceRadiusesPrime, sourceGraphRoot);
+  const auto sourceGraph = GenerateSourceGraph<NumDimensions>(sourcePositions, sourceIndices1, sourceIndices2, sourceRadiuses, sourceGraphRoot);
   const auto targetGraph = GenerateTargetGraph<NumDimensions>(targetPositions, targetIndices1, targetIndices2);
 
   vector<vector<IndexType>> knnLabels;
@@ -812,14 +812,15 @@ int main(int argc, char *argv[])
 
   GenerateSourceToTargetDistances<NumDimensions>(sourceGraph, targetGraph, knnLabels, sourceToTargetDistances);
 
-  const ValueType sourceGraphLength = TotalLength<ValueType>(sourceGraph);
-  const ValueType targetGraphLength = TotalLength<ValueType>(targetGraph);
+  const ValueType sourceGraphLength = ComputeEuclideanLengthOfGraph<ValueType>(sourceGraph);
+  const ValueType targetGraphLength = ComputeEuclideanLengthOfGraph<ValueType>(targetGraph);
 
   constexpr int numBetas = 1000;
+  constexpr ValueType maxBetaValue = 50;
 
-  const std::function<ValueType(int)> getKthBeta = [numBetas](int zeroBasedIndex)
+  const std::function<ValueType(int)> getKthBeta = [numBetas,maxBetaValue](int zeroBasedIndex)
   {
-    return (zeroBasedIndex + ValueType(1)) / numBetas;
+    return maxBetaValue * (zeroBasedIndex + ValueType(1)) / numBetas;
   };
 
   vector<ValueType> betas(numBetas);
@@ -827,9 +828,9 @@ int main(int argc, char *argv[])
   vector<ValueType> sourceGraphsLengthRatios(numBetas);
   vector<ValueType> targetGraphsLengthRatios(numBetas);
 
-#ifndef _MSC_VER
+//#ifndef _MSC_VER
 #pragma omp parallel for
-#endif
+//#endif
   for (int k = 0; k < numBetas; ++k)
   {
     const ValueType kthBeta = getKthBeta(k);
@@ -839,11 +840,11 @@ int main(int argc, char *argv[])
     sourceToTargetGraphsDistances[k] = GenerateSourceToTargetOptLabels(sourceGraph, targetGraph, knnLabels, sourceToTargetDistances, sourceGraphRoot, kthBeta, sourceToTargetOptLabels);
 
     const auto sourcePrimeGraph = GenerateSourcePrimeGraph(sourceGraph, sourceToTargetOptLabels);
-    const ValueType sourcePrimeGraphLength = TotalLength<ValueType>(sourcePrimeGraph);
+    const ValueType sourcePrimeGraphLength = ComputeEuclideanLengthOfGraph<ValueType>(sourcePrimeGraph);
     sourceGraphsLengthRatios[k] = sourcePrimeGraphLength / sourceGraphLength;
 
     const auto targetPrimeGraph = GenerateTargetPrimeGraph(sourceGraph, targetGraph, sourceToTargetOptLabels);
-    const ValueType targetPrimeGraphLength = TotalLength<ValueType>(targetPrimeGraph);
+    const ValueType targetPrimeGraphLength = ComputeEuclideanLengthOfGraph<ValueType>(targetPrimeGraph);
     targetGraphsLengthRatios[k] = targetPrimeGraphLength / targetGraphLength;
   }
 
@@ -920,15 +921,15 @@ int main(int argc, char *argv[])
         sourcePrimeGraphFileWriter.Write(positionsDataSetName, sourcePositions);
         sourcePrimeGraphFileWriter.Write(indices1DataSetName, sourcePrimeIndices1);
         sourcePrimeGraphFileWriter.Write(indices2DataSetName, sourcePrimeIndices2);
-        sourcePrimeGraphFileWriter.Write(radiusesPrimeDataSetName, sourcePrimeRadiusesPrime);
+        sourcePrimeGraphFileWriter.Write(radiusesDataSetName, sourcePrimeRadiusesPrime);
 
         targetPrimeGraphFileWriter.Write(positionsDataSetName, targetPositions);
-        targetPrimeGraphFileWriter.Write(measurementsDataSetName, targetMeasurements);
+        //targetPrimeGraphFileWriter.Write(measurementsDataSetName, targetMeasurements);
         targetPrimeGraphFileWriter.Write(indices1DataSetName, targetPrimeIndices1);
         targetPrimeGraphFileWriter.Write(indices2DataSetName, targetPrimeIndices2);
-        targetPrimeGraphFileWriter.Write(tangentLinesPoints1DataSetName, targetTangentLinesPoints1);
-        targetPrimeGraphFileWriter.Write(tangentLinesPoints2DataSetName, targetTangentLinesPoints2);
-        targetPrimeGraphFileWriter.Write(radiusesDataSetName, targetRadiuses);
+        //targetPrimeGraphFileWriter.Write(tangentLinesPoints1DataSetName, targetTangentLinesPoints1);
+        //targetPrimeGraphFileWriter.Write(tangentLinesPoints2DataSetName, targetTangentLinesPoints2);
+        //targetPrimeGraphFileWriter.Write(radiusesDataSetName, targetRadiuses);
       }
     }
   }
