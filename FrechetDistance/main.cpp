@@ -1,7 +1,6 @@
 #define BOOST_NO_CXX11_RVALUE_REFERENCES //http://linux.debian.devel.mentors.narkive.com/3WPG83eZ/use-of-deleted-function-boost-detail-stored-edge-property
 #define BOOST_NO_CXX11_DEFAULTED_FUNCTIONS
 #include "FileReader.hpp"
-#include "FileWriter.hpp"
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/breadth_first_search.hpp>
 #include <boost/graph/depth_first_search.hpp>
@@ -12,12 +11,14 @@
 #include <boost/log/trivial.hpp>
 #include <boost/program_options.hpp>
 #include <boost/unordered_map.hpp>
-#include <cassert>
 #include <Eigen/Dense>
+#include <exception>
 #include <flann/flann.hpp>
 #include <forward_list>
+#include <fstream>
 #include <iostream>
 #include <limits>
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <tuple>
@@ -141,22 +142,24 @@ struct TargetGraphNode
 };
 
 template<int NumDimensions, typename ValueType, typename IndexType>
-void GenerateSourceToTargetKnnLabels(
-  const std::vector<ValueType>& sourcePositions, 
-  const std::vector<ValueType>& targetPositions, 
-  std::vector<std::vector<IndexType>>& sourceToTargetLabels, 
+void ComputeSourceToTargetKnnLabels(
+  const std::vector<ValueType>& sourcePositions,
+  const std::vector<ValueType>& targetPositions,
+  std::vector<std::vector<IndexType>>& sourceToTargetLabels,
   int numberOfLabels)
 {
   using namespace flann;
 
-  const Matrix<ValueType> sourceNodePositions(const_cast<ValueType*>(sourcePositions.data()), sourcePositions.size() / NumDimensions, NumDimensions);
-  const Matrix<ValueType> targetNodePositions(const_cast<ValueType*>(targetPositions.data()), targetPositions.size() / NumDimensions, NumDimensions);
+  const Matrix<ValueType> sourcePoints(const_cast<ValueType*>(sourcePositions.data()), sourcePositions.size() / NumDimensions, NumDimensions);
+  const Matrix<ValueType> targetPoints(const_cast<ValueType*>(targetPositions.data()), targetPositions.size() / NumDimensions, NumDimensions);
 
-  Index<L2<ValueType>> index(targetNodePositions, KDTreeIndexParams(1));
+  BOOST_LOG_TRIVIAL(info) << "Computing labels lp(sourceGraph.V) = targetGraph.V using k-nn algorithm";
+
+  Index<L2<ValueType>> index(targetPoints, KDTreeIndexParams(1));
   index.buildIndex();
 
   std::vector<std::vector<ValueType>> sourceToTargetDistances;
-  index.knnSearch(sourceNodePositions, sourceToTargetLabels, sourceToTargetDistances, numberOfLabels, SearchParams(-1));
+  index.knnSearch(sourcePoints, sourceToTargetLabels, sourceToTargetDistances, numberOfLabels, SearchParams(-1));
 }
 
 template<typename ValueType, typename GraphType>
@@ -185,7 +188,6 @@ ValueType ComputeEuclideanLengthOfGraph(const GraphType& g)
   return euclideanLength;
 }
 
-
 template<
   int NumDimensions,
   typename ValueType,
@@ -195,10 +197,10 @@ template<
   typename SourceGraphEdgeType = SourceGraphEdge<ValueType>,
   typename SourceGraphType = boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS, SourceGraphNodeType, SourceGraphEdgeType>>
   SourceGraphType GenerateSourceGraph(
-    const std::vector<ValueType>& positions, 
-    const std::vector<IndexType>& indices1, 
-    const std::vector<IndexType>& indices2, 
-    const std::vector<ValueType>& radiuses, 
+    const std::vector<ValueType>& positions,
+    const std::vector<IndexType>& indices1,
+    const std::vector<IndexType>& indices2,
+    const std::vector<ValueType>& radiuses,
     IndexType graphRoot)
 {
   using namespace std;
@@ -255,7 +257,6 @@ template<
 
   BOOST_LOG_TRIVIAL(info) << "sourceGraph.|V|    = " << num_vertices(sourceGraph);
   BOOST_LOG_TRIVIAL(info) << "sourceGraph.|E|    = " << num_edges(sourceGraph);
-  BOOST_LOG_TRIVIAL(info) << "sourceGraph.length = " << ComputeEuclideanLengthOfGraph<ValueType>(sourceGraph);
 
   return sourceGraph;
 }
@@ -267,8 +268,8 @@ template<size_t NumDimensions,
   typename TargetGraphNodeType = TargetGraphNode<PositionType>,
   typename TargetGraphType = boost::adjacency_list < boost::vecS, boost::vecS, boost::undirectedS, TargetGraphNodeType>>
   TargetGraphType GenerateTargetGraph(
-    const std::vector<ValueType>& positions, 
-    const std::vector<IndexType>& indices1, 
+    const std::vector<ValueType>& positions,
+    const std::vector<IndexType>& indices1,
     const std::vector<IndexType>& indices2)
 {
   using namespace std;
@@ -295,27 +296,31 @@ template<size_t NumDimensions,
     add_edge(targetIndex1, targetIndex2, targetGraph);
   }
 
-  BOOST_LOG_TRIVIAL(info) << "targetGraph.|V| = " << num_vertices(targetGraph);
-  BOOST_LOG_TRIVIAL(info) << "targetGraph.|E| = " << num_edges(targetGraph);
-  BOOST_LOG_TRIVIAL(info) << "targetGraph.|E| = " << ComputeEuclideanLengthOfGraph<ValueType>(targetGraph);
+  BOOST_LOG_TRIVIAL(info) << "targetGraph.|V|    = " << num_vertices(targetGraph);
+  BOOST_LOG_TRIVIAL(info) << "targetGraph.|E|    = " << num_edges(targetGraph);
 
   return targetGraph;
 }
 
-template<typename ValueType, typename IndexType, typename PositionMap, typename PositionType>
-void GeneratePolyLinePoints(const PositionMap& positionMap, IndexType nodeIndex1, IndexType nodeIndex2, ValueType eps, std::vector<PositionType>& polyLine)
+template<typename ValueType, typename IndexType, typename GraphType, typename PositionType>
+void GeneratePolyLinePoints(
+  const GraphType& g,
+  IndexType index1,
+  IndexType index2,
+  ValueType eps,
+  std::vector<PositionType>& polyLinePoints)
 {
   using namespace std;
   using namespace boost;
 
-  const auto& node1 = positionMap[nodeIndex1].Position;
-  const auto& node2 = positionMap[nodeIndex2].Position;
+  const auto& point1 = g[index1].Position;
+  const auto& point2 = g[index2].Position;
 
-  const ValueType distance = (node1 - node2).norm();
+  const ValueType distance = (point1 - point2).norm();
 
   if (distance < eps)
   {
-    polyLine.push_back(node2);
+    polyLinePoints.push_back(point2);
   }
   else
   {
@@ -324,25 +329,25 @@ void GeneratePolyLinePoints(const PositionMap& positionMap, IndexType nodeIndex1
     for (IndexType k = 0; k < numIntervals; ++k)
     {
       const ValueType alpha = (ValueType)k / numIntervals;
-      const auto x = (1 - alpha) * node2 + alpha * node1;
-      polyLine.push_back(x);
+      const auto x = (1 - alpha) * point2 + alpha * point1;
+      polyLinePoints.push_back(x);
     }
   }
 
-  polyLine.push_back(node1);
+  polyLinePoints.push_back(point1);
 }
 
-template<typename ValueType, typename IndexType, typename PositionMap, typename PositionType>
-void GeneratePolyLinePoints(const PositionMap& positionMap, IndexType nodeIndex1, IndexType nodeIndex2, const std::vector<IndexType>& predecessors, ValueType eps, std::vector<PositionType>& polyLine)
+template<typename ValueType, typename IndexType, typename GraphType, typename PositionType>
+void GeneratePolyLinePoints(const GraphType& g, IndexType nodeIndex1, IndexType nodeIndex2, const std::vector<IndexType>& predecessors, ValueType eps, std::vector<PositionType>& polyLine)
 {
   for (IndexType index2 = nodeIndex2; index2 != nodeIndex1; index2 = predecessors[index2])
   {
     const IndexType index1 = predecessors[index2];
-    GeneratePolyLinePoints(positionMap, index1, index2, eps, polyLine);
+    GeneratePolyLinePoints(g, index1, index2, eps, polyLine);
     polyLine.pop_back();
   }
 
-  const auto& node1 = positionMap[nodeIndex1].Position;
+  const auto& node1 = g[nodeIndex1].Position;
   polyLine.push_back(node1);
 }
 
@@ -376,25 +381,31 @@ ValueType DiscreteFrechetDistance(size_t p, size_t q, const std::function<ValueT
   return ca[p - 1][q - 1];
 }
 
-template<size_t NumDimensions, typename ValueType, typename IndexType, typename SourceGraphType, typename TargetGraphType>
-void GenerateSourceToTargetDistances(const SourceGraphType& sourceGraph, const TargetGraphType& targetGraph, const std::vector<std::vector<IndexType>>& sourceToTargetLabels, std::vector<std::vector<std::vector<std::vector<ValueType>>>>& sourceToTargetDistances)
+template<int NumDimensions, typename ValueType, typename IndexType, typename SourceGraphType, typename TargetGraphType>
+void GenerateSourceToTargetDistances(
+  const SourceGraphType& sourceGraph,
+  const TargetGraphType& targetGraph,
+  const std::vector<std::vector<IndexType>>& sourceToTargetLabels,
+  std::vector<std::vector<std::vector<std::vector<ValueType>>>>& sourceToTargetDistances,
+  double voxelPhysicalSize)
 {
   using namespace std;
   using namespace boost;
   using namespace Eigen;
 
-  typedef Matrix<ValueType, 1U, NumDimensions> PositionType;
+  typedef Matrix<ValueType, 1, NumDimensions> PositionType;
 
-  const ValueType voxelPhysicalSize = 0.046;
   const ValueType eps = voxelPhysicalSize / 10;//frechetDistance < discreteFrechetDistance < frechetDistance + eps
 
   const size_t numSourceNodes = num_vertices(sourceGraph);
   const size_t numTargetNodes = num_vertices(targetGraph);
   sourceToTargetDistances.resize(numSourceNodes);
 
+  BOOST_LOG_TRIVIAL(info) << "Computing Frechet distance between (u,v) in sourceGraph.E and (lp(u),lp(v)) in targetGraph.E";
+
   for (IndexType sourceIndex1 = 0; sourceIndex1 < numSourceNodes; ++sourceIndex1)
   {
-    const PositionType& sourceNode1 = sourceGraph[sourceIndex1].Position;
+    const PositionType& sourcePoint1 = sourceGraph[sourceIndex1].Position;
 
     const auto& sourceToTargetLabels1 = sourceToTargetLabels[sourceIndex1];
     const IndexType numSourceLabels1 = sourceToTargetLabels1.size() + 1;//plus an ``outlier`` label
@@ -411,14 +422,14 @@ void GenerateSourceToTargetDistances(const SourceGraphType& sourceGraph, const T
       const auto e = *childIterator;
 
       const IndexType sourceIndex2 = target(e, sourceGraph);
-      const PositionType& sourceNode2 = sourceGraph[sourceIndex2].Position;
+      const PositionType& sourcePoint2 = sourceGraph[sourceIndex2].Position;
 
       const ValueType sourceRadius = sourceGraph[e].Radius;
 
       const auto& sourceToTargetLabels2 = sourceToTargetLabels[sourceIndex2];
       const IndexType numSourceLabels2 = sourceToTargetLabels2.size() + 1;//plus an ``outlier`` label
 
-      const ValueType sourceDistance = (sourceNode1 - sourceNode2).norm();
+      const ValueType distanceBetweenSourcePoints = (sourcePoint1 - sourcePoint2).norm();
 
       for (IndexType sourceLabel1 = 0; sourceLabel1 < numSourceLabels1; ++sourceLabel1)
       {
@@ -466,15 +477,15 @@ void GenerateSourceToTargetDistances(const SourceGraphType& sourceGraph, const T
             }
             else//there is no a path between nodes ``targetIndex1`` and ``targetIndex2``
             {
-              sourceToTargetDistance = -sourceDistance;
+              sourceToTargetDistance = -distanceBetweenSourcePoints;
             }
           }
 
-          sourceToTargetDistances[sourceIndex1][sourceLabel1][childIndex][numSourceLabels2 - 1] = -sourceDistance;
+          sourceToTargetDistances[sourceIndex1][sourceLabel1][childIndex][numSourceLabels2 - 1] = -distanceBetweenSourcePoints;
         }
         else//sourceLabel1 = numSourceLabels1 - 1
         {
-          sourceToTargetDistances[sourceIndex1][sourceLabel1][childIndex].assign(numSourceLabels2, -sourceDistance);
+          sourceToTargetDistances[sourceIndex1][sourceLabel1][childIndex].assign(numSourceLabels2, -distanceBetweenSourcePoints);
         }
       }
     }
@@ -482,8 +493,15 @@ void GenerateSourceToTargetDistances(const SourceGraphType& sourceGraph, const T
 }
 
 template<typename ValueType, typename IndexType, typename SourceGraphType, typename TargetGraphType>
-ValueType GenerateSourceToTargetOptLabels(
-  const SourceGraphType& sourceGraph, const TargetGraphType& targetGraph, const std::vector<std::vector<IndexType>>& sourceToTargetLabels, const std::vector<std::vector<std::vector<std::vector<ValueType>>>>& sourceToTargetDistances, IndexType sourceGraphRoot, ValueType beta, std::vector<IndexType>& sourceToTargetOptLabels)
+ValueType ComputeSourceToTargetOptLabels(
+  const SourceGraphType& sourceGraph,
+  const TargetGraphType& targetGraph,
+  const std::vector<std::vector<IndexType>>& sourceToTargetLabels,
+  const std::vector<std::vector<std::vector<std::vector<ValueType>>>>& sourceToTargetDistances,
+  IndexType sourceGraphRoot,
+  ValueType parValue,
+  std::vector<IndexType>& sourceToTargetOptLabels,
+  std::vector<ValueType>& sourceToTargetGraphsPositiveDistances)
 {
   using namespace std;
   using namespace boost;
@@ -525,15 +543,15 @@ ValueType GenerateSourceToTargetOptLabels(
 
   const std::function<ValueType(IndexType, IndexType)> func1 = [getNumLabels](IndexType curNode, IndexType curLabel)
   {
-    return curLabel != getNumLabels(curNode) ? 0 : numeric_limits<ValueType>::lowest();
+    return curLabel != getNumLabels(curNode) ? 0 : -numeric_limits<ValueType>::min();
   };
 
-  const std::function<ValueType(IndexType, IndexType, IndexType, IndexType)> func2 = [getNthChild, beta, &sourceToTargetDistances](IndexType curNode, IndexType curLabel, IndexType child, IndexType childLabel)
+  const std::function<ValueType(IndexType, IndexType, IndexType, IndexType)> func2 = [getNthChild, parValue, &sourceToTargetDistances](IndexType curNode, IndexType curLabel, IndexType child, IndexType childLabel)
   {
     const IndexType childNode = getNthChild(curNode, child);
     const ValueType distance = sourceToTargetDistances[curNode][curLabel][child][childLabel];
 
-    return (distance < 0) ? (-distance * beta) : distance;
+    return (distance < 0) ? (-distance * parValue) : distance;
   };
 
   const ValueType costDP = dp(
@@ -556,7 +574,7 @@ ValueType GenerateSourceToTargetOptLabels(
     }
   }
 
-  ValueType sourceToTargetGraphsDistance = 0;
+  sourceToTargetGraphsPositiveDistances.clear();
 
   for (IndexType curNode = 0; curNode < numSourceNodes; ++curNode)
   {
@@ -570,15 +588,16 @@ ValueType GenerateSourceToTargetOptLabels(
       SourceGraphEdgeType e;
       tie(e, tuples::ignore) = edge(curNode, childNode, sourceGraph);
 
-      const ValueType distance = sourceToTargetDistances[curNode][curLabel][child][childLabel];
-      if (distance > 0)
+      const ValueType sourceToTargetGraphsDistance = sourceToTargetDistances[curNode][curLabel][child][childLabel];
+
+      if (sourceToTargetGraphsDistance > 0)
       {
-        sourceToTargetGraphsDistance += distance;
+        sourceToTargetGraphsPositiveDistances.push_back(sourceToTargetGraphsDistance);
       }
     }
   }
 
-  return sourceToTargetGraphsDistance;
+  return costDP;
 }
 
 template<typename SourceGraphType, typename IndexType,
@@ -707,76 +726,36 @@ void GenerateTargetGraphDataSet(const TargetGraphType& targetGraph, std::vector<
   }
 }
 
-int main(int argc, char *argv[])
+void DoFrechetDistance(std::string const& sourceFileName, std::string const& targetFileName, std::string const& outputFileName, int numberOfNearestNeighbors, int sourceGraphRoot, double voxelPhysicalSize, int numberOfParValues, double parValueMinimum, double parValueMaximum)
 {
-  namespace po = boost::program_options;
-
-  std::string sourceFileName;
-  std::string targetFileName;
-  std::string sourcePrimeFileNameMask;
-  std::string targetPrimeFileNameMask;
-
-  bool outputPrimeGraphs = false;
-  int knn = 7;
-  int sourceGraphRoot = 0;
-
-  po::options_description desc;
-
-  desc.add_options()
-    ("help", "print usage message")
-    ("sourceFileName", po::value(&sourceFileName)->required(), "source filename")
-    ("targetFileName", po::value(&targetFileName)->required(), "target filename")
-    ("sourcePrime", po::value(&sourcePrimeFileNameMask), "sourcePrime filename mask")
-    ("targetPrime", po::value(&targetPrimeFileNameMask), "targetPrime filename mask")
-    ("outputPrimeGraphs", "output sourcePrime and targetPrime graphs")
-    ("knn", po::value(&knn), "number of nearest neighbors")
-    ("sourceRoot", po::value(&sourceGraphRoot), "root node index");
-
-  po::variables_map vm;
-  po::store(po::parse_command_line(argc, argv, desc), vm);
-  po::notify(vm);
-
-  if (vm.count("help"))
-  {
-    desc.print(std::cout);
-    return EXIT_SUCCESS;
-  }
-
-  using namespace std;
-  using namespace boost;
-  using namespace Eigen;
-
-  constexpr size_t NumDimensions = 3U;
+  constexpr int NumDimensions = 3;
 
   typedef double ValueType;
   typedef int IndexType;
 
-  typedef Matrix<ValueType, 1U, NumDimensions> PositionType;
-
-  typedef SourceGraphNode<PositionType> SourceGraphNodeType;
-  typedef SourceGraphEdge<ValueType> SourceGraphEdgeType;
-  typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS, SourceGraphNodeType, SourceGraphEdgeType> SourceGraphType;
-
   BOOST_LOG_TRIVIAL(info) << "source filename = \"" << sourceFileName << "\"";
   BOOST_LOG_TRIVIAL(info) << "target filename = \"" << targetFileName << "\"";
-  BOOST_LOG_TRIVIAL(info) << "sourcePrime filename mask = \"" << sourcePrimeFileNameMask << "\"";
-  BOOST_LOG_TRIVIAL(info) << "targetPrime filename mask = \"" << targetPrimeFileNameMask << "\"";
-  BOOST_LOG_TRIVIAL(info) << "number of nearest neighbors = " << knn;
+  BOOST_LOG_TRIVIAL(info) << "output filename = \"" << outputFileName << "\"";
+  BOOST_LOG_TRIVIAL(info) << "number of nearest neighbors (k) = " << numberOfNearestNeighbors;
+  BOOST_LOG_TRIVIAL(info) << "voxel physical size = " << voxelPhysicalSize;
 
-  const string positionsDataSetName = "positions";
-  const string measurementsDataSetName = "measurements";
-  const string indices1DataSetName = "indices1";
-  const string indices2DataSetName = "indices2";
-  const string tangentLinesPoints1DataSetName = "tangentLinesPoints1";
-  const string tangentLinesPoints2DataSetName = "tangentLinesPoints2";
-  const string radiusesDataSetName = "radiuses";
+  //BOOST_LOG_TRIVIAL(info) << "sourcePrime filename mask = \"" << sourcePrimeFileNameMask << "\"";
+  //BOOST_LOG_TRIVIAL(info) << "targetPrime filename mask = \"" << targetPrimeFileNameMask << "\"";
+
+  const std::string positionsDataSetName = "positions";
+  const std::string measurementsDataSetName = "measurements";
+  const std::string indices1DataSetName = "indices1";
+  const std::string indices2DataSetName = "indices2";
+  const std::string tangentLinesPoints1DataSetName = "tangentLinesPoints1";
+  const std::string tangentLinesPoints2DataSetName = "tangentLinesPoints2";
+  const std::string radiusesDataSetName = "radiuses";
 
   FileReader sourceFileReader(sourceFileName);
 
-  vector<ValueType> sourcePositions;
-  vector<IndexType> sourceIndices1;
-  vector<IndexType> sourceIndices2;
-  vector<ValueType> sourceRadiuses;
+  std::vector<ValueType> sourcePositions;
+  std::vector<IndexType> sourceIndices1;
+  std::vector<IndexType> sourceIndices2;
+  std::vector<ValueType> sourceRadiuses;
 
   sourceFileReader.Read(positionsDataSetName, sourcePositions);
   sourceFileReader.Read(indices1DataSetName, sourceIndices1);
@@ -786,9 +765,9 @@ int main(int argc, char *argv[])
   FileReader targetFileReader(targetFileName);
 
   //vector<ValueType> targetMeasurements;
-  vector<ValueType> targetPositions;
-  vector<IndexType> targetIndices1;
-  vector<IndexType> targetIndices2;
+  std::vector<ValueType> targetPositions;
+  std::vector<IndexType> targetIndices1;
+  std::vector<IndexType> targetIndices2;
   //vector<ValueType> targetTangentLinesPoints1;
   //vector<ValueType> targetTangentLinesPoints2;
   //vector<ValueType> targetRadiuses;
@@ -801,136 +780,225 @@ int main(int argc, char *argv[])
   //targetFileReader.Read(tangentLinesPoints2DataSetName, targetTangentLinesPoints2);
   //targetFileReader.Read(radiusesDataSetName, targetRadiuses);
 
+  std::fstream outputFile(outputFileName, std::ios::out);
+
   const auto sourceGraph = GenerateSourceGraph<NumDimensions>(sourcePositions, sourceIndices1, sourceIndices2, sourceRadiuses, sourceGraphRoot);
-  const auto targetGraph = GenerateTargetGraph<NumDimensions>(targetPositions, targetIndices1, targetIndices2);
-
-  vector<vector<IndexType>> knnLabels;
-
-  GenerateSourceToTargetKnnLabels<NumDimensions>(sourcePositions, targetPositions, knnLabels, knn);
-
-  vector<vector<vector<vector<ValueType>>>> sourceToTargetDistances;
-
-  GenerateSourceToTargetDistances<NumDimensions>(sourceGraph, targetGraph, knnLabels, sourceToTargetDistances);
-
   const ValueType sourceGraphLength = ComputeEuclideanLengthOfGraph<ValueType>(sourceGraph);
+  BOOST_LOG_TRIVIAL(info) << "sourceGraph.length = " << sourceGraphLength;
+
+  const auto targetGraph = GenerateTargetGraph<NumDimensions>(targetPositions, targetIndices1, targetIndices2);
   const ValueType targetGraphLength = ComputeEuclideanLengthOfGraph<ValueType>(targetGraph);
+  BOOST_LOG_TRIVIAL(info) << "targetGraph.length = " << targetGraphLength;
 
-  constexpr int numBetas = 1000;
-  constexpr ValueType maxBetaValue = 50;
+  std::vector<std::vector<IndexType>> knnLabels;
+  ComputeSourceToTargetKnnLabels<NumDimensions>(sourcePositions, targetPositions, knnLabels, numberOfNearestNeighbors);
 
-  const std::function<ValueType(int)> getKthBeta = [numBetas,maxBetaValue](int zeroBasedIndex)
-  {
-    return maxBetaValue * (zeroBasedIndex + ValueType(1)) / numBetas;
-  };
+  std::vector<std::vector<std::vector<std::vector<ValueType>>>> sourceToTargetDistances;
+  GenerateSourceToTargetDistances<NumDimensions>(sourceGraph, targetGraph, knnLabels, sourceToTargetDistances, voxelPhysicalSize);
 
-  vector<ValueType> betas(numBetas);
-  vector<ValueType> sourceToTargetGraphsDistances(numBetas);
-  vector<ValueType> sourceGraphsLengthRatios(numBetas);
-  vector<ValueType> targetGraphsLengthRatios(numBetas);
+  std::vector<ValueType> parValues(numberOfParValues);
+  std::vector<ValueType> sourceToTargetGraphsMaxDistances(numberOfParValues);
+  std::vector<ValueType> sourceToTargetGraphsSumDistances(numberOfParValues);
+  std::vector<ValueType> sourceToTargetGraphsAveDistances(numberOfParValues);
+  std::vector<ValueType> costFunctionValues(numberOfParValues);
+  std::vector<ValueType> sourceGraphsLengthsRatios(numberOfParValues);
+  std::vector<ValueType> targetGraphsLengthsRatios(numberOfParValues);
 
-//#ifndef _MSC_VER
+  const ValueType parValueStep = (parValueMaximum - parValueMinimum) / (numberOfParValues - 1);
+
 #pragma omp parallel for
-//#endif
-  for (int k = 0; k < numBetas; ++k)
+  for (int k = 0; k < numberOfParValues; ++k)
   {
-    const ValueType kthBeta = getKthBeta(k);
-    betas[k] = kthBeta;
+    const ValueType kthParValues = parValueMinimum + k * parValueStep;
 
-    vector<IndexType> sourceToTargetOptLabels;
-    sourceToTargetGraphsDistances[k] = GenerateSourceToTargetOptLabels(sourceGraph, targetGraph, knnLabels, sourceToTargetDistances, sourceGraphRoot, kthBeta, sourceToTargetOptLabels);
+    parValues[k] = kthParValues;
 
-    const auto sourcePrimeGraph = GenerateSourcePrimeGraph(sourceGraph, sourceToTargetOptLabels);
-    const ValueType sourcePrimeGraphLength = ComputeEuclideanLengthOfGraph<ValueType>(sourcePrimeGraph);
-    sourceGraphsLengthRatios[k] = sourcePrimeGraphLength / sourceGraphLength;
+    std::vector<ValueType> sourceToTargetGraphsPositiveDistances;
 
-    const auto targetPrimeGraph = GenerateTargetPrimeGraph(sourceGraph, targetGraph, sourceToTargetOptLabels);
-    const ValueType targetPrimeGraphLength = ComputeEuclideanLengthOfGraph<ValueType>(targetPrimeGraph);
-    targetGraphsLengthRatios[k] = targetPrimeGraphLength / targetGraphLength;
-  }
+    std::vector<IndexType> sourceToTargetOptLabels;
+    costFunctionValues[k] = ComputeSourceToTargetOptLabels(
+      sourceGraph,
+      targetGraph,
+      knnLabels,
+      sourceToTargetDistances,
+      sourceGraphRoot,
+      kthParValues,
+      sourceToTargetOptLabels,
+      sourceToTargetGraphsPositiveDistances);
 
-  cout << "kth-beta,source-to-target-graphs-distance,source-graphs-length-ratio,target-graphs-length-ratio" << endl;
-
-  for (int k = 0; k < numBetas; ++k)
-  {
-    const ValueType kthBeta = betas[k];
-    const ValueType sourceToTargetGraphsDistance = sourceToTargetGraphsDistances[k];
-    const ValueType sourceGraphsLengthRatio = sourceGraphsLengthRatios[k];
-    const ValueType targetGraphsLengthRatio = targetGraphsLengthRatios[k];
-
-    cout << fixed << setprecision(3)
-      << kthBeta << ',' << setprecision(5)
-      << sourceToTargetGraphsDistance << ','
-      << sourceGraphsLengthRatio << ','
-      << targetGraphsLengthRatio << endl;
-  }
-
-  if (outputPrimeGraphs)
-  {
-    for (ValueType pct = 10; pct < 100; pct += 10)
+    if (sourceToTargetGraphsPositiveDistances.empty())
     {
-      BOOST_LOG_TRIVIAL(info) << "source-graphs-length-ratio = " << pct << "%";
+      sourceToTargetGraphsMaxDistances[k] = 0;
+      sourceToTargetGraphsSumDistances[k] = 0;
+      sourceToTargetGraphsAveDistances[k] = 0;
 
-      const ValueType ratio = pct / 100;
-
-      const auto iter = lower_bound(sourceGraphsLengthRatios.cbegin(), sourceGraphsLengthRatios.cend(), ratio);
-
-      if (iter != sourceGraphsLengthRatios.cend())
-      {
-        const int k = distance(sourceGraphsLengthRatios.cbegin(), iter);
-
-        const ValueType kthBeta = getKthBeta(k);
-        betas[k] = kthBeta;
-
-        vector<IndexType> sourceToTargetOptLabels;
-        sourceToTargetGraphsDistances[k] = GenerateSourceToTargetOptLabels(sourceGraph, targetGraph, knnLabels, sourceToTargetDistances, sourceGraphRoot, kthBeta, sourceToTargetOptLabels);
-
-        const auto sourcePrimeGraph = GenerateSourcePrimeGraph(sourceGraph, sourceToTargetOptLabels);
-
-        vector<IndexType> sourcePrimeIndices1;
-        vector<IndexType> sourcePrimeIndices2;
-        vector<ValueType> sourcePrimeRadiusesPrime;
-        GenerateSourceGraphDataSet(sourcePrimeGraph, sourcePrimeIndices1, sourcePrimeIndices2, sourcePrimeRadiusesPrime);
-
-        format sourcePrimeFormatter(sourcePrimeFileNameMask);
-        sourcePrimeFormatter % pct;
-
-        const string sourcePrimeFileName = sourcePrimeFormatter.str();
-
-        BOOST_LOG_TRIVIAL(info) << "sourcePrimeFileName = " << sourcePrimeFileName;
-        BOOST_LOG_TRIVIAL(info) << "sourcePrimeIndices1.size = " << sourcePrimeIndices1.size();
-        BOOST_LOG_TRIVIAL(info) << "sourcePrimeIndices2.size = " << sourcePrimeIndices2.size();
-
-        const auto targetPrimeGraph = GenerateTargetPrimeGraph(sourceGraph, targetGraph, sourceToTargetOptLabels);
-
-        vector<IndexType> targetPrimeIndices1;
-        vector<IndexType> targetPrimeIndices2;
-        GenerateTargetGraphDataSet(targetPrimeGraph, targetPrimeIndices1, targetPrimeIndices2);
-
-        format targetPrimeFormatter(targetPrimeFileNameMask);
-        targetPrimeFormatter % pct;
-
-        const string targetPrimeFileName = targetPrimeFormatter.str();
-
-        BOOST_LOG_TRIVIAL(info) << "targetPrimeFileName = " << targetPrimeFileName;
-        BOOST_LOG_TRIVIAL(info) << "targetPrimeIndices1.size = " << targetPrimeIndices1.size();
-        BOOST_LOG_TRIVIAL(info) << "targetPrimeIndices2.size = " << targetPrimeIndices2.size();
-
-        FileWriter sourcePrimeGraphFileWriter(sourcePrimeFileName);
-        FileWriter targetPrimeGraphFileWriter(targetPrimeFileName);
-
-        sourcePrimeGraphFileWriter.Write(positionsDataSetName, sourcePositions);
-        sourcePrimeGraphFileWriter.Write(indices1DataSetName, sourcePrimeIndices1);
-        sourcePrimeGraphFileWriter.Write(indices2DataSetName, sourcePrimeIndices2);
-        sourcePrimeGraphFileWriter.Write(radiusesDataSetName, sourcePrimeRadiusesPrime);
-
-        targetPrimeGraphFileWriter.Write(positionsDataSetName, targetPositions);
-        //targetPrimeGraphFileWriter.Write(measurementsDataSetName, targetMeasurements);
-        targetPrimeGraphFileWriter.Write(indices1DataSetName, targetPrimeIndices1);
-        targetPrimeGraphFileWriter.Write(indices2DataSetName, targetPrimeIndices2);
-        //targetPrimeGraphFileWriter.Write(tangentLinesPoints1DataSetName, targetTangentLinesPoints1);
-        //targetPrimeGraphFileWriter.Write(tangentLinesPoints2DataSetName, targetTangentLinesPoints2);
-        //targetPrimeGraphFileWriter.Write(radiusesDataSetName, targetRadiuses);
-      }
+      sourceGraphsLengthsRatios[k] = 0;
+      targetGraphsLengthsRatios[k] = 0;
     }
+    else
+    {
+      sourceToTargetGraphsMaxDistances[k] = *std::max_element(sourceToTargetGraphsPositiveDistances.cbegin(), sourceToTargetGraphsPositiveDistances.cend());
+      sourceToTargetGraphsSumDistances[k] = std::accumulate(sourceToTargetGraphsPositiveDistances.cbegin(), sourceToTargetGraphsPositiveDistances.cend(), ValueType(0));
+      sourceToTargetGraphsAveDistances[k] = sourceToTargetGraphsSumDistances[k] / sourceToTargetGraphsPositiveDistances.size();
+
+      const auto sourcePrimeGraph = GenerateSourcePrimeGraph(sourceGraph, sourceToTargetOptLabels);
+      const ValueType sourcePrimeGraphLength = ComputeEuclideanLengthOfGraph<ValueType>(sourcePrimeGraph);
+      sourceGraphsLengthsRatios[k] = sourcePrimeGraphLength / sourceGraphLength;
+
+      const auto targetPrimeGraph = GenerateTargetPrimeGraph(sourceGraph, targetGraph, sourceToTargetOptLabels);
+      const ValueType targetPrimeGraphLength = ComputeEuclideanLengthOfGraph<ValueType>(targetPrimeGraph);
+      targetGraphsLengthsRatios[k] = targetPrimeGraphLength / targetGraphLength;
+    }
+  }
+
+  outputFile << "ParValue,SourceToTargetGraphsAveDistance,SourceToTargetGraphsMaxDistance,SourceToTargetGraphsSumDistance,SourceGraphsLengthsRatio,TargetGraphsLengthsRatio,CostFunctionValue" << std::endl;
+
+  for (int k = 0; k < numberOfParValues; ++k)
+  {
+    const ValueType kthParValues = parValues[k];
+    const ValueType sourceToTargetGraphsMaxDistance = sourceToTargetGraphsMaxDistances[k];
+    const ValueType sourceToTargetGraphsSumDistance = sourceToTargetGraphsSumDistances[k];
+    const ValueType sourceToTargetGraphsAveDistance = sourceToTargetGraphsAveDistances[k];
+    const ValueType sourceGraphsLengthsRatio = sourceGraphsLengthsRatios[k];
+    const ValueType targetGraphsLengthsRatio = targetGraphsLengthsRatios[k];
+    const ValueType costFunctionValue = costFunctionValues[k];
+
+    outputFile << std::fixed << std::setprecision(3)
+      << kthParValues << ',' << std::setprecision(5)
+      << sourceToTargetGraphsAveDistance << ','
+      << sourceToTargetGraphsMaxDistance << ','
+      << sourceToTargetGraphsSumDistance << ','
+      << sourceGraphsLengthsRatio << ','
+      << targetGraphsLengthsRatio << ','
+      << costFunctionValue << std::endl;
+  }
+
+  //if (outputPrimeGraphs)
+  //{
+  //  for (ValueType pct = 10; pct < 100; pct += 10)
+  //  {
+  //    BOOST_LOG_TRIVIAL(info) << "source-graphs-length-ratio = " << pct << "%";
+
+  //    const ValueType ratio = pct / 100;
+
+  //    const auto iter = lower_bound(sourceGraphsLengthRatios.cbegin(), sourceGraphsLengthRatios.cend(), ratio);
+
+  //    if (iter != sourceGraphsLengthRatios.cend())
+  //    {
+  //      const int k = distance(sourceGraphsLengthRatios.cbegin(), iter);
+
+  //      const ValueType kthBeta = getKthBeta(k);
+  //      betas[k] = kthBeta;
+
+  //      vector<IndexType> sourceToTargetOptLabels;
+  //      sourceToTargetGraphsDistances[k] = GenerateSourceToTargetOptLabels(sourceGraph, targetGraph, knnLabels, sourceToTargetDistances, sourceGraphRoot, kthBeta, sourceToTargetOptLabels);
+
+  //      const auto sourcePrimeGraph = GenerateSourcePrimeGraph(sourceGraph, sourceToTargetOptLabels);
+
+  //      vector<IndexType> sourcePrimeIndices1;
+  //      vector<IndexType> sourcePrimeIndices2;
+  //      vector<ValueType> sourcePrimeRadiusesPrime;
+  //      GenerateSourceGraphDataSet(sourcePrimeGraph, sourcePrimeIndices1, sourcePrimeIndices2, sourcePrimeRadiusesPrime);
+
+  //      format sourcePrimeFormatter(sourcePrimeFileNameMask);
+  //      sourcePrimeFormatter % pct;
+
+  //      const string sourcePrimeFileName = sourcePrimeFormatter.str();
+
+  //      BOOST_LOG_TRIVIAL(info) << "sourcePrimeFileName = " << sourcePrimeFileName;
+  //      BOOST_LOG_TRIVIAL(info) << "sourcePrimeIndices1.size = " << sourcePrimeIndices1.size();
+  //      BOOST_LOG_TRIVIAL(info) << "sourcePrimeIndices2.size = " << sourcePrimeIndices2.size();
+
+  //      const auto targetPrimeGraph = GenerateTargetPrimeGraph(sourceGraph, targetGraph, sourceToTargetOptLabels);
+
+  //      vector<IndexType> targetPrimeIndices1;
+  //      vector<IndexType> targetPrimeIndices2;
+  //      GenerateTargetGraphDataSet(targetPrimeGraph, targetPrimeIndices1, targetPrimeIndices2);
+
+  //      format targetPrimeFormatter(targetPrimeFileNameMask);
+  //      targetPrimeFormatter % pct;
+
+  //      const string targetPrimeFileName = targetPrimeFormatter.str();
+
+  //      BOOST_LOG_TRIVIAL(info) << "targetPrimeFileName = " << targetPrimeFileName;
+  //      BOOST_LOG_TRIVIAL(info) << "targetPrimeIndices1.size = " << targetPrimeIndices1.size();
+  //      BOOST_LOG_TRIVIAL(info) << "targetPrimeIndices2.size = " << targetPrimeIndices2.size();
+
+  //      FileWriter sourcePrimeGraphFileWriter(sourcePrimeFileName);
+  //      FileWriter targetPrimeGraphFileWriter(targetPrimeFileName);
+
+  //      sourcePrimeGraphFileWriter.Write(positionsDataSetName, sourcePositions);
+  //      sourcePrimeGraphFileWriter.Write(indices1DataSetName, sourcePrimeIndices1);
+  //      sourcePrimeGraphFileWriter.Write(indices2DataSetName, sourcePrimeIndices2);
+  //      sourcePrimeGraphFileWriter.Write(radiusesDataSetName, sourcePrimeRadiusesPrime);
+
+  //      targetPrimeGraphFileWriter.Write(positionsDataSetName, targetPositions);
+  //      //targetPrimeGraphFileWriter.Write(measurementsDataSetName, targetMeasurements);
+  //      targetPrimeGraphFileWriter.Write(indices1DataSetName, targetPrimeIndices1);
+  //      targetPrimeGraphFileWriter.Write(indices2DataSetName, targetPrimeIndices2);
+  //      //targetPrimeGraphFileWriter.Write(tangentLinesPoints1DataSetName, targetTangentLinesPoints1);
+  //      //targetPrimeGraphFileWriter.Write(tangentLinesPoints2DataSetName, targetTangentLinesPoints2);
+  //      //targetPrimeGraphFileWriter.Write(radiusesDataSetName, targetRadiuses);
+  //    }
+  //  }
+  //}
+}
+
+int main(int argc, char *argv[])
+{
+  namespace po = boost::program_options;
+
+  std::string sourceFileName;
+  std::string targetFileName;
+  std::string outputFileName;
+  double voxelPhysicalSize;
+
+  int numberOfParValues = 100;
+  double parValueMaximum = 1;
+  double parValueMinimum = 0;
+
+  //std::string sourcePrimeFileNameMask;
+  //std::string targetPrimeFileNameMask;
+
+  //bool outputPrimeGraphs = false;
+  int numberOfNearestNeighbors = 17;
+  int sourceGraphRoot = 0;
+
+  po::options_description desc;
+
+  desc.add_options()
+    ("help", "print usage message")
+    ("sourceFileName", po::value(&sourceFileName)->required(), "the name of source file")
+    ("targetFileName", po::value(&targetFileName)->required(), "the name of target file")
+    ("outputFileName", po::value(&outputFileName)->required(), "the name of output file")
+    ("voxelPhysicalSize", po::value(&voxelPhysicalSize)->required(), "the physical size of a voxel")
+    ("numberOfParValues", po::value(&numberOfParValues), "the number of parameter values")
+    ("parValueMaximum", po::value(&parValueMaximum), "the maximum value that the parameter should have")
+    ("parValueMinimum", po::value(&parValueMinimum), "the minimum value that the parameter should have")
+    //("sourcePrime", po::value(&sourcePrimeFileNameMask), "sourcePrime filename mask")
+    //("targetPrime", po::value(&targetPrimeFileNameMask), "targetPrime filename mask")
+    //("outputPrimeGraphs", "output sourcePrime and targetPrime graphs")
+    ("numberOfNearestNeighbors", po::value(&numberOfNearestNeighbors), "number of nearest neighbors")
+    ("sourceGraphRoot", po::value(&sourceGraphRoot), "root node index");
+
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);
+
+  if (vm.count("help"))
+  {
+    desc.print(std::cout);
+    return EXIT_SUCCESS;
+  }
+
+  try
+  {
+    DoFrechetDistance(sourceFileName, targetFileName, outputFileName, numberOfNearestNeighbors, sourceGraphRoot, voxelPhysicalSize, numberOfParValues, parValueMinimum, parValueMaximum);
+    return EXIT_SUCCESS;
+  }
+  catch (std::exception& e)
+  {
+    std::cerr << e.what() << std::endl;
+    return EXIT_FAILURE;
   }
 }
