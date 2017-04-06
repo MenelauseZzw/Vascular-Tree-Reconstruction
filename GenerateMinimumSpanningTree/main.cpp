@@ -68,6 +68,56 @@ ValueType ComputeArcLengthsMinDistance(const PositionType& point1, const Positio
   return std::min(arc1Length, arc2Length);
 }
 
+template<int NumDimensions, typename ValueType, typename IndexType>
+void GenerateEuclideanMinimumSpanningTree(const std::vector<ValueType>& positions, std::vector<IndexType>& indices1, std::vector<IndexType>& indices2)
+{
+  using namespace std;
+  using namespace boost;
+  using namespace Eigen;
+
+  typedef adjacency_list<vecS, vecS, undirectedS, no_property, property<edge_weight_t, ValueType>> GraphType;
+  typedef typename graph_traits<GraphType>::edge_descriptor GraphEdgeType;
+
+  typedef Matrix<ValueType, Dynamic, NumDimensions, RowMajor> MatrixType;
+
+  const size_t numberOfPoints = positions.size() / NumDimensions;
+
+  Map<const MatrixType> points(positions.data(), numberOfPoints, NumDimensions);
+
+  GraphType completeGraph(numberOfPoints);
+  auto weightmap = get(edge_weight, completeGraph);
+
+  for (IndexType index1 = 0; index1 < numberOfPoints; ++index1)
+  {
+    for (IndexType index2 = index1 + 1; index2 < numberOfPoints; ++index2)
+    {
+      GraphEdgeType e;
+
+      tie(e, tuples::ignore) = add_edge(index1, index2, completeGraph);
+
+      const auto& point1 = points.row(index1);
+      const auto& point2 = points.row(index2);
+      const ValueType distance = (point1 - point2).norm();
+
+      weightmap[e] = distance;
+    }
+  }
+
+  std::vector<GraphEdgeType> spanningTree;
+  spanningTree.reserve(numberOfPoints - 1);
+
+  kruskal_minimum_spanning_tree(completeGraph, std::back_inserter(spanningTree));
+
+  for (const GraphEdgeType& e : spanningTree)
+  {
+    const IndexType index1 = source(e, completeGraph);
+    const IndexType index2 = target(e, completeGraph);
+
+    indices1.push_back(index1);
+    indices2.push_back(index2);
+  }
+}
+
 template<int NumDimensions, typename ValueType, typename IndexType, typename PositionType>
 void GenerateMinimumSpanningTreeWith(
   const std::function<ValueType(const PositionType&, const PositionType&, const PositionType&, const PositionType&, const PositionType&, const PositionType&, ValueType, ValueType)>& distanceFunc,
@@ -141,6 +191,45 @@ enum class DistanceOptions
   ArcLengthsMin = 3
 };
 
+void DoGenerateMinimumSpanningTreeSimple(const std::string& inputFileName, const std::string& outputFileName)
+{
+  const int NumDimensions = 3;
+
+  typedef double ValueType;
+  typedef int IndexType;
+
+  typedef Eigen::Matrix<ValueType, 1, NumDimensions> PositionType;
+
+  const std::string positionsDataSetName = "positions";
+
+  const std::string indices1DataSetName = "indices1";
+  const std::string indices2DataSetName = "indices2";
+
+  BOOST_LOG_TRIVIAL(info) << "input filename = \"" << inputFileName << "\"";
+  BOOST_LOG_TRIVIAL(info) << "output filename = \"" << outputFileName << "\"";
+
+  FileReader inputFileReader(inputFileName);
+
+  std::vector<ValueType> positions;
+
+  inputFileReader.Read(positionsDataSetName, positions);
+
+  std::vector<IndexType> indices1;
+  std::vector<IndexType> indices2;
+
+  GenerateEuclideanMinimumSpanningTree<NumDimensions>(positions, indices1, indices2);
+
+  BOOST_LOG_TRIVIAL(info) << "indices1.size = " << indices1.size();
+  BOOST_LOG_TRIVIAL(info) << "indices2.size = " << indices2.size();
+
+  FileWriter outputFileWriter(outputFileName);
+
+  outputFileWriter.Write(positionsDataSetName, positions);
+
+  outputFileWriter.Write(indices1DataSetName, indices1);
+  outputFileWriter.Write(indices2DataSetName, indices2);
+}
+
 void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::string& outputFileName, DistanceOptions distanceOption)
 {
   const int NumDimensions = 3;
@@ -183,34 +272,44 @@ void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::
   std::vector<IndexType> indices1;
   std::vector<IndexType> indices2;
 
-  DistanceFunctionType distanceFunc;
-
   switch (distanceOption)
   {
   case DistanceOptions::Euclidean:
-    distanceFunc = ComputeEuclideanDistance<ValueType, PositionType>;
+    GenerateMinimumSpanningTreeWith<NumDimensions>(
+      (DistanceFunctionType)ComputeEuclideanDistance<ValueType, PositionType>,
+      positions,
+      tangentLinesPoints1,
+      tangentLinesPoints2,
+      radiuses,
+      indices1,
+      indices2);
     break;
 
   case DistanceOptions::ArcLengthsSum:
-    distanceFunc = ComputeArcLengthsSumDistance<ValueType, PositionType>;
+    GenerateMinimumSpanningTreeWith<NumDimensions>(
+      (DistanceFunctionType)ComputeArcLengthsSumDistance<ValueType, PositionType>,
+      positions,
+      tangentLinesPoints1,
+      tangentLinesPoints2,
+      radiuses,
+      indices1,
+      indices2);
     break;
 
   case DistanceOptions::ArcLengthsMin:
-    distanceFunc = ComputeArcLengthsMinDistance<ValueType, PositionType>;
+    GenerateMinimumSpanningTreeWith<NumDimensions>(
+      (DistanceFunctionType)ComputeArcLengthsMinDistance<ValueType, PositionType>,
+      positions,
+      tangentLinesPoints1,
+      tangentLinesPoints2,
+      radiuses,
+      indices1,
+      indices2);
     break;
 
   default:
     throw std::invalid_argument("distanceOption is invalid");
   }
-
-  GenerateMinimumSpanningTreeWith<NumDimensions>(
-    distanceFunc,
-    positions,
-    tangentLinesPoints1,
-    tangentLinesPoints2,
-    radiuses,
-    indices1,
-    indices2);
 
   BOOST_LOG_TRIVIAL(info) << "indices1.size = " << indices1.size();
   BOOST_LOG_TRIVIAL(info) << "indices2.size = " << indices2.size();
@@ -235,7 +334,8 @@ int main(int argc, char *argv[])
   std::string inputFileName;
   std::string outputFileName;
 
-  int optionNum;
+  bool simpleMode = false;
+  int optionNum = (int)DistanceOptions::Euclidean;
 
   po::options_description desc;
 
@@ -243,7 +343,8 @@ int main(int argc, char *argv[])
     ("help", "print usage message")
     ("inputFileName", po::value(&inputFileName)->required(), "the name of the input file")
     ("outputFileName", po::value(&outputFileName)->required(), "the name of the output file")
-    ("optionNum", po::value(&optionNum)->required(), "the option number of distance function between two points");
+    ("simple", po::value(&simpleMode), "compute Euclidean minimum spanning tree using '/positions'-dataset")
+    ("optionNum", po::value(&optionNum), "the option number of distance function between two points");
 
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -253,6 +354,20 @@ int main(int argc, char *argv[])
   {
     desc.print(std::cout);
     return EXIT_SUCCESS;
+  }
+
+  if (simpleMode)
+  {
+    try
+    {
+      DoGenerateMinimumSpanningTreeSimple(inputFileName, outputFileName);
+      return EXIT_SUCCESS;
+    }
+    catch (std::exception& e)
+    {
+      std::cerr << e.what() << std::endl;
+      return EXIT_FAILURE;
+    }
   }
 
   try
