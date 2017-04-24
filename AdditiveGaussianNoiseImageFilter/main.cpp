@@ -25,8 +25,6 @@ void DoAdditiveGaussianNoiseImageFilter(
   BOOST_LOG_TRIVIAL(info) << "standardDeviation = " << standardDeviation;
 
   typedef itk::Image<ValueType, NumDimensions> ImageType;
-  typedef itk::Index<NumDimensions> IndexType;
-  typedef typename ImageType::SizeType SizeType;
 
   typedef itk::AdditiveGaussianNoiseImageFilter<ImageType, ImageType> AdditiveGaussianNoiseImageFilterType;
   typedef itk::SquaredDifferenceImageFilter<ImageType, ImageType, ImageType> SquaredDifferenceImageFilterType;
