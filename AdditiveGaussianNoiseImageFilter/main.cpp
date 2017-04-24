@@ -64,13 +64,13 @@ void DoAdditiveGaussianNoiseImageFilter(
   statisticsImageFilter->SetInput(squaredDifferenceImageFilter->GetOutput());
   statisticsImageFilter->Update();
 
-  const ValueType meanSquareError = statisticsImageFilter->GetMean();
+  const double meanSquareError = statisticsImageFilter->GetMean();
 
   statisticsImageFilter->SetInput(outputImage);
   statisticsImageFilter->Update();
 
-  const ValueType maxValue = statisticsImageFilter->GetMaximum();
-  const ValueType peakSignalToNoiseRatioDecibel = 10 * log10(maxValue * maxValue / meanSquareError);
+  const double maxValue = statisticsImageFilter->GetMaximum();
+  const double peakSignalToNoiseRatioDecibel = 10 * log10(maxValue * maxValue / meanSquareError);
 
   typedef itk::MetaDataDictionary MetaDataDictionaryType;
 
