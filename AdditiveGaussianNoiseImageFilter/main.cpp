@@ -15,7 +15,7 @@ void DoAdditiveGaussianNoiseImageFilter(
   const std::string& inputFileName,
   const std::string& outputFileName, double mean, double standardDeviation)
 {
-  typedef double ValueType;
+  typedef short ValueType;
   constexpr unsigned int NumDimensions = 3;
 
   BOOST_LOG_TRIVIAL(info) << "input filename = \"" << inputFileName << "\"";
