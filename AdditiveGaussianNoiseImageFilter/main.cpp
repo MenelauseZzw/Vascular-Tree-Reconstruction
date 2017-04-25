@@ -66,7 +66,7 @@ void DoAdditiveGaussianNoiseImageFilter(
 
   const double meanSquareError = statisticsImageFilter->GetMean();
 
-  statisticsImageFilter->SetInput(outputImage);
+  statisticsImageFilter->SetInput(inputImage);
   statisticsImageFilter->Update();
 
   const double maxValue = statisticsImageFilter->GetMaximum();
