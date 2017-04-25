@@ -1199,6 +1199,7 @@ def createProjectionsOntoGroundTruthTree(sOrig, tOrig, pOrig, closestIndices=Non
         closestIndices = np.argmin(dist, axis=0)
     else:
         np.argmin(dist, axis=0, out=closestIndices)
+
     # closestPoints[k] is the closest to p[k] point belonging to the interval between points
     # s[closestIndices[k]] and t[closestIndices[k]]
     closestPoints = np.array([(sOrig[closestIndices[I]] if sDist[closestIndices[I]][I] < tDist[closestIndices[I]][I] else tOrig[closestIndices[I]]) \
@@ -1322,17 +1323,23 @@ def doAnalyzeNonMaximumSuppressionVolumeCsv(args):
 def doCreateDistanceToClosestPointsCsv(args):
     dirname          = args.dirname
     basename         = args.basename
+    voxelWidth       = args.voxelWidth
     pointsArrName    = args.points
     doOutputHeader   = args.doOutputHeader
     prependHeaderStr = args.prependHeaderStr
     prependRowStr    = args.prependRowStr
+    minRadiusIncl    = args.minRadiusIncl
+    maxRadiusExcl    = args.maxRadiusExcl
 
     filename       = os.path.join(dirname, 'tree_structure.xml')
     dataset        = IO.readGxlFile(filename)
 
     positions      = dataset['positions']
+    positions      = voxelWidth * positions
+
     indices1       = dataset['indices1']
     indices2       = dataset['indices2']
+    radiuses       = dataset['radiusPrime']
 
     sOrig          = positions[indices1]
     tOrig          = positions[indices2]
@@ -1343,12 +1350,16 @@ def doCreateDistanceToClosestPointsCsv(args):
     points         = dataset[pointsArrName]
     numberOfPoints = len(points)
 
-    closestPoints  = createProjectionsOntoGroundTruthTree(sOrig, tOrig, points)
+    closestIndices  = np.empty((numberOfPoints,), dtype='int32')
+    closestPoints   = createProjectionsOntoGroundTruthTree(sOrig, tOrig, points, closestIndices)
+    closestRadiuses = radiuses[closestIndices]
 
-    distancesSq    = np.sum(np.square(closestPoints - points), axis=1)
-    distances      = np.sqrt(distancesSq)
+    distancesSq = np.sum(np.square(closestPoints - points), axis=1)
+    ignor       = np.logical_or(closestRadiuses < minRadiusIncl, closestRadiuses >= maxRadiusExcl)
+    distancesSq = distancesSq[~ignor]
+    distances   = np.sqrt(distancesSq)
 
-    num = len(points)
+    num = len(distances)
     sum = np.sum(distances)
     ssd = np.sum(distancesSq)
     ave = sum / num # ave = np.mean(distances)
@@ -1721,10 +1732,13 @@ if __name__ == '__main__':
     subparser = subparsers.add_parser('doCreateDistanceToClosestPointsCsv')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
+    subparser.add_argument('voxelWidth', type=float)
     subparser.add_argument('--points', default='positions')
     subparser.add_argument('--doOutputHeader', default=False, action='store_true')
     subparser.add_argument('--prependHeaderStr', default="")
     subparser.add_argument('--prependRowStr', default="")
+    subparser.add_argument('--minRadiusIncl', default=0, type=float)
+    subparser.add_argument('--maxRadiusExcl', default=np.inf, type=float)
     subparser.set_defaults(func=doCreateDistanceToClosestPointsCsv)
 
     # create the parser for the "doCreateCoDirectionalityWithClosestPointsCsv" command
