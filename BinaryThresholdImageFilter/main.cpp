@@ -29,8 +29,6 @@ void DoBinaryThresholdImageFilter(
   BOOST_LOG_TRIVIAL(info) << "upper threshold = " << upperThreshold;
   BOOST_LOG_TRIVIAL(info) << "extract component index = " << extractComponentIndex;
 
-  constexpr unsigned int VectorDimension = 1 + NumDimensions + 1; // each output value consists of measure(1), eigenVector(n) and scale(1)
-
   typedef itk::VectorImage<ValueType, NumDimensions> VectorImageType;
   typedef itk::VectorImageToImageAdaptor<ValueType, NumDimensions> VectorImageToImageAdaptorType;
   typedef itk::Image<unsigned char, NumDimensions> BinaryImageType;
