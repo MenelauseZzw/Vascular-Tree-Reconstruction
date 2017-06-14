@@ -1,4 +1,4 @@
-project(CropImageFilter)
+project(BinaryThresholdImageFilter)
 
 find_package(ITK REQUIRED)
 
