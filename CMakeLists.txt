@@ -28,6 +28,7 @@ endif()
 
 add_subdirectory(AdditiveGaussianNoiseImageFilter)
 add_subdirectory(BinaryThresholdImageFilter)
+add_subdirectory(ConvertBinaryMaskVolumeToH5File)
 add_subdirectory(CropImageFilter)
 add_subdirectory(DistanceMapImageFilter)
 add_subdirectory(FrechetDistance)
