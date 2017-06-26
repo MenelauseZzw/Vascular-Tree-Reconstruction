@@ -11,6 +11,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 #import maxflow
 import os.path
+import re
 import numpy as np
 import numpy.linalg as linalg
 import scipy.integrate as integrate
@@ -1573,6 +1574,71 @@ def doCreateTreeStructureH5File(args):
     filename = os.path.join(dirname, 'tree_structure.h5')
     IO.writeH5File(filename, dataset)
 
+def doConvertTubeTKFileToH5File(args):
+    dirname    = args.dirname
+    basename   = args.basename
+    voxelWidth = args.voxelWidth
+
+    filename = os.path.join(dirname, basename)
+    allPoints = []    
+
+    with open(filename, 'r') as file:
+        str = file.read()
+        pattern = re.compile("NPoints = (?P<NPoints>\d+)\nPoints = \n(?P<Points>(\d.*\n?)+)\n")
+
+        for m in re.finditer(pattern, str):
+            NPoints = int(m.group('NPoints'))
+            Points  = m.group('Points').split('\n')
+            assert NPoints == len(Points)
+            allPoints.extend(Points)
+
+    pattern = re.compile("^(?P<x>{fpn})\s(?P<y>{fpn})\s(?P<z>{fpn})\s(?P<r>{fpn})\s.*\s(?P<tx>{fpn})\s(?P<ty>{fpn})\s(?P<tz>{fpn})\s(?P<a1>{fpn})\s(?P<a2>{fpn})\s(?P<a3>{fpn})\s(?P<red>\d+)\s(?P<green>\d+)\s(?P<blue>\d+)\s(?P<alpha>\d+)\s(?P<id>\d+)\s$".format(fpn="[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?"))
+
+    positions = []
+    radiuses = []
+    tangentLinesPoints1 = []
+    tangentLinesPoints2 = []
+
+    for str in allPoints:
+        m = re.match(pattern, str)
+
+        x = float(m.group('x')) * voxelWidth
+        y = float(m.group('y')) * voxelWidth
+        z = float(m.group('z')) * voxelWidth
+        r = float(m.group('r')) * voxelWidth
+
+        tx = float(m.group('tx')) * voxelWidth
+        ty = float(m.group('ty')) * voxelWidth
+        tz = float(m.group('tz')) * voxelWidth
+
+        id = int(m.group('id'))
+
+        positions.append(x)
+        positions.append(y)
+        positions.append(z)
+
+        radiuses.append(r)
+        
+        tangentLinesPoints1.append(x + tx)
+        tangentLinesPoints1.append(y + ty)
+        tangentLinesPoints1.append(z + tz)
+
+        tangentLinesPoints2.append(x - tx)
+        tangentLinesPoints2.append(y - ty)
+        tangentLinesPoints2.append(z - tz)
+
+    filename, _ = os.path.splitext(filename)
+    filename    = filename + '.h5'
+
+    dataset = dict()
+
+    dataset['positions']           =  np.array(positions, dtype=np.double)
+    dataset['radiuses']            =  np.array(radiuses, dtype=np.double)
+    dataset['tangentLinesPoints1'] =  np.array(tangentLinesPoints1, dtype=np.double)
+    dataset['tangentLinesPoints2'] =  np.array(tangentLinesPoints2, dtype=np.double)
+    
+    IO.writeH5File(filename, dataset)
+
 if __name__ == '__main__':
     # create the top-level parser
     argparser = argparse.ArgumentParser()
@@ -1774,6 +1840,13 @@ if __name__ == '__main__':
     subparser.add_argument('dirname')
     subparser.add_argument('voxelWidth', type=float)
     subparser.set_defaults(func=doCreateTreeStructureH5File)
+
+    # create the parser for the "doConvertTubeTKFileToH5File" command
+    subparser = subparsers.add_parser('doConvertTubeTKFileToH5File')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.add_argument('voxelWidth', type=float)
+    subparser.set_defaults(func=doConvertTubeTKFileToH5File)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
