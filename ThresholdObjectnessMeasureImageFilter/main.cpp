@@ -31,60 +31,6 @@ void DoThresholdObjectnessMeasureImageFilter(
   BOOST_LOG_TRIVIAL(info) << "upper threshold = " << upperThreshold;
   BOOST_LOG_TRIVIAL(info) << "outside value = " << outsideValue;
 
- /* typedef itk::VectorImage<ValueType, NumDimensions> VectorImageType;
-  typedef itk::VectorImageToImageAdaptor<ValueType, NumDimensions> VectorImageToImageAdaptorType;
-  typedef itk::Image<ValueType, NumDimensions> OutputImageType;
-  typedef itk::ThresholdImageFilter<OutputImageType> ThresholdImageFilterType;
-
-  typedef itk::ImageFileReader<VectorImageType> FileReaderType;
-  typedef itk::ImageFileWriter<OutputImageType> FileWriterType;
-
-  FileReaderType::Pointer imageReader =
-    FileReaderType::New();
-
-  imageReader->SetFileName(inputFileName);
-
-  VectorImageType::Pointer inputImage =
-    imageReader->GetOutput();
-
-  VectorImageToImageAdaptorType::Pointer imageAdapter =
-    VectorImageToImageAdaptorType::New();
-
-  imageAdapter->SetImage(inputImage);
-  imageAdapter->SetExtractComponentIndex(0);
-  imageAdapter->Update();
-
-  BOOST_LOG_TRIVIAL(info) << "number of components per pixel = " << inputImage->GetNumberOfComponentsPerPixel();
-
-  ThresholdImageFilterType::Pointer thresholdImageFilter =
-    ThresholdImageFilterType::New();
-
-  thresholdImageFilter->SetInput(imageAdapter);
-  thresholdImageFilter->SetOutsideValue(outsideValue);
-  thresholdImageFilter->SetLower(lowerThreshold);
-  thresholdImageFilter->SetUpper(upperThreshold);
-  thresholdImageFilter->Update();
-
-  OutputImageType::Pointer outputImage =
-    thresholdImageFilter->GetOutput();
-
-  typedef itk::MetaDataDictionary MetaDataDictionaryType;
-
-  MetaDataDictionaryType outMetaData;
-
-  EncapsulateMetaData(outMetaData, "(LowerThreshold)", lowerThreshold);
-  EncapsulateMetaData(outMetaData, "(UpperThreshold)", upperThreshold);
-
-  outputImage->SetMetaDataDictionary(outMetaData);
-*/
-  //FileWriterType::Pointer imageWriter =
-  //  FileWriterType::New();
-
-  //imageWriter->SetFileName(outputFileName);
-  //imageWriter->SetInput(outputImage);
-  //imageWriter->UseCompressionOff();
-  //imageWriter->Write();
-
   typedef itk::Index<NumDimensions> IndexType;
 
   typedef itk::VectorImage<ValueType, NumDimensions> VectorImageType;
