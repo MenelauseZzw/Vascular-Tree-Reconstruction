@@ -1641,6 +1641,20 @@ def doConvertTubeTKFileToH5File(args):
 
     IO.writeH5File(filename, dataset)
 
+def doComputeLengthOfMinimumSpanningTree(args):
+    dirname  = args.dirname
+    basename = args.basename
+
+    filename = os.path.join(dirname, basename)
+    dataset  = IO.readH5File(filename)
+
+    positions = dataset['positions']
+    indices1  = dataset['indices1']
+    indices2  = dataset['indices2']
+
+    lengthOfMinimumSpanningTree = linalg.norm(positions[indices1] - positions[indices2], axis=1).sum()
+    print lengthOfMinimumSpanningTree
+
 if __name__ == '__main__':
     # create the top-level parser
     argparser = argparse.ArgumentParser()
@@ -1849,6 +1863,12 @@ if __name__ == '__main__':
     subparser.add_argument('basename')
     subparser.add_argument('voxelWidth', type=float)
     subparser.set_defaults(func=doConvertTubeTKFileToH5File)
+
+    # create the parser for the "doComputeLengthOfMinimumSpanningTree" command
+    subparser = subparsers.add_parser('doComputeLengthOfMinimumSpanningTree')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.set_defaults(func=doComputeLengthOfMinimumSpanningTree)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
