@@ -1618,7 +1618,7 @@ def doConvertTubeTKFileToH5File(args):
         positions.append(z)
 
         radiuses.append(r)
-        
+
         tangentLinesPoints1.append(x + tx)
         tangentLinesPoints1.append(y + ty)
         tangentLinesPoints1.append(z + tz)
@@ -1632,11 +1632,13 @@ def doConvertTubeTKFileToH5File(args):
 
     dataset = dict()
 
-    dataset['positions']           =  np.array(positions, dtype=np.double)
-    dataset['radiuses']            =  np.array(radiuses, dtype=np.double)
-    dataset['tangentLinesPoints1'] =  np.array(tangentLinesPoints1, dtype=np.double)
-    dataset['tangentLinesPoints2'] =  np.array(tangentLinesPoints2, dtype=np.double)
-    
+    dataset['positions']           = np.array(positions, dtype=np.double)
+    dataset['radiuses']            = np.array(radiuses, dtype=np.double)
+    dataset['tangentLinesPoints1'] = np.array(tangentLinesPoints1, dtype=np.double)
+    dataset['tangentLinesPoints2'] = np.array(tangentLinesPoints2, dtype=np.double)
+    dataset['measurements']        = np.array([], dtype=np.double)
+    dataset['objectnessMeasure']   = np.array([], dtype=np.double)
+
     IO.writeH5File(filename, dataset)
 
 if __name__ == '__main__':
