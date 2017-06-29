@@ -47,19 +47,16 @@ void DoConvertTubeTKFileToH5File(
   std::vector<ValueType> tangentLinesPoints2;
   std::vector<ValueType> radiuses;
 
-  for (unsigned int i = 0; i < scene->GetNumberOfObjects(); ++i)
+  for (SpatialObjectType* spatialObject : *scene->GetObjects())
   {
-    VesselTubeSpatialObjectType* spatialObject =
-      dynamic_cast<VesselTubeSpatialObjectType*>(scene->GetObjectById(i + 1));
-
-    if (spatialObject != nullptr)
+    if (VesselTubeSpatialObjectType* tubeObject = dynamic_cast<VesselTubeSpatialObjectType*>(spatialObject))
     {
-      spatialObject->ComputeObjectToWorldTransform();
+      tubeObject->ComputeObjectToWorldTransform();
 
-      for (VesselTubeSpatialObjectPointType const& objectPoint : spatialObject->GetPoints())
+      for (VesselTubeSpatialObjectPointType const& objectPoint : tubeObject->GetPoints())
       {
         TransformType::Pointer indexToWorldTransform =
-          spatialObject->GetIndexToWorldTransform();
+          tubeObject->GetIndexToWorldTransform();
 
         const auto p = indexToWorldTransform->TransformPoint(objectPoint.GetPosition());
         const auto s = indexToWorldTransform->TransformPoint(objectPoint.GetPosition() + objectPoint.GetTangent());
@@ -73,11 +70,6 @@ void DoConvertTubeTKFileToH5File(
       }
     }
   }
-
-
-
-
-
 
   FileWriter outputFileWriter(outputFileName);
 
