@@ -21,7 +21,6 @@ void DoGenerateSeedListFile(
   constexpr unsigned int NumDimensions = 3;
 
   constexpr unsigned int ObjectnessMeasureValueComponentIndex = 0;
-  constexpr unsigned int ObjectnessMeasureTangentsComponentIndex = 1;
   constexpr unsigned int SigmaValueComponentIndex = 1 + NumDimensions;
 
   BOOST_LOG_TRIVIAL(info) << "input filename = \"" << inputFileName << "\"";
