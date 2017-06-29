@@ -1,4 +1,4 @@
-project(CropImageFilter)
+project(AdditiveGaussianNoiseImageFilter)
 
 find_package(ITK REQUIRED)
 
