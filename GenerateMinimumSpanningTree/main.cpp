@@ -8,6 +8,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <exception>
+#include <flann/flann.hpp>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -118,6 +119,49 @@ void GenerateEuclideanMinimumSpanningTree(const std::vector<ValueType>& position
   }
 }
 
+template<typename ValueType, typename IndexType>
+void GenerateKnnGraph(
+  int knn,
+  const std::vector<ValueType>& positions,
+  const std::vector<ValueType>& tangentLinesPoints1,
+  const std::vector<ValueType>& tangentLinesPoints2,
+  std::vector<IndexType>& indices1,
+  std::vector<IndexType>& indices2,
+  int numDimensions)
+{
+  using namespace flann;
+  using namespace std;
+
+  const Matrix<ValueType> dataset(const_cast<ValueType*>(positions.data()), positions.size() / numDimensions, numDimensions);
+
+  Index<L2<ValueType>> index(dataset, flann::KDTreeIndexParams(1));
+  index.buildIndex();
+
+  vector<IndexType> indicesData(dataset.rows * (knn + 1));
+  Matrix<IndexType> indices(&indicesData[0], dataset.rows, knn + 1);
+
+  vector<ValueType> distancesData(dataset.rows * (knn + 1));
+  Matrix<ValueType> distances(&distancesData[0], dataset.rows, knn + 1);
+
+  index.knnSearch(dataset, indices, distances, knn + 1, flann::SearchParams(-1));
+
+  indices1.reserve(indices.rows * indices.cols);
+  indices2.reserve(indices1.size());
+
+  for (IndexType index1 = 0; index1 != dataset.rows; ++index1)
+  {
+    for (IndexType i = 0; i != knn + 1; ++i)
+    {
+      const IndexType index2 = indices[index1][i];
+      if (index1 == index2) continue;
+      if (index2 == -1) break;
+
+      indices1.push_back(index1);
+      indices2.push_back(index2);
+    }
+  }
+}
+
 template<int NumDimensions, typename ValueType, typename IndexType, typename PositionType>
 void GenerateMinimumSpanningTreeWith(
   const std::function<ValueType(const PositionType&, const PositionType&, const PositionType&, const PositionType&, const PositionType&, const PositionType&, ValueType, ValueType)>& distanceFunc,
@@ -126,7 +170,8 @@ void GenerateMinimumSpanningTreeWith(
   const std::vector<ValueType>& tangentLinesPoints2,
   const std::vector<ValueType>& radiuses,
   std::vector<IndexType>& indices1,
-  std::vector<IndexType>& indices2)
+  std::vector<IndexType>& indices2,
+  int knn)
 {
   using namespace std;
   using namespace boost;
@@ -144,40 +189,53 @@ void GenerateMinimumSpanningTreeWith(
   Map<const MatrixType> tangentLinesPoints1_(tangentLinesPoints1.data(), numberOfPoints, NumDimensions);
   Map<const MatrixType> tangentLinesPoints2_(tangentLinesPoints2.data(), numberOfPoints, NumDimensions);
 
-  GraphType completeGraph(numberOfPoints);
-  WeightMapType weightmap = get(edge_weight, completeGraph);
+  GraphType knnGraph(numberOfPoints);
+  WeightMapType weightmap = get(edge_weight, knnGraph);
+
+  GenerateKnnGraph(
+    knn,
+    positions,
+    tangentLinesPoints1,
+    tangentLinesPoints2,
+    indices1,
+    indices2,
+    NumDimensions);
 
   GraphEdgeType e;
-  for (IndexType index1 = 0; index1 < numberOfPoints; ++index1)
+
+  for (size_t i = 0; i < indices1.size(); ++i)
   {
-    for (IndexType index2 = index1 + 1; index2 < numberOfPoints; ++index2)
-    {
-      tie(e, tuples::ignore) = add_edge(index1, index2, completeGraph);
+    const IndexType index1 = indices1[i];
+    const IndexType index2 = indices2[i];
 
-      const auto& point1 = positions_.row(index1);
-      const auto& tangentLine1Point1 = tangentLinesPoints1_.row(index1);
-      const auto& tangentLine1Point2 = tangentLinesPoints2_.row(index1);
-      const ValueType radius1 = radiuses[index1];
+    tie(e, tuples::ignore) = add_edge(index1, index2, knnGraph);
 
-      const auto& point2 = positions_.row(index2);
-      const auto& tangentLine2Point1 = tangentLinesPoints1_.row(index2);
-      const auto& tangentLine2Point2 = tangentLinesPoints2_.row(index2);
-      const ValueType radius2 = radiuses[index2];
+    const auto& point1 = positions_.row(index1);
+    const auto& tangentLine1Point1 = tangentLinesPoints1_.row(index1);
+    const auto& tangentLine1Point2 = tangentLinesPoints2_.row(index1);
+    const ValueType radius1 = radiuses[index1];
 
-      const ValueType distance = distanceFunc(point1, point2, tangentLine1Point1, tangentLine1Point2, tangentLine2Point1, tangentLine2Point2, radius1, radius2);
-      weightmap[e] = distance;
-    }
+    const auto& point2 = positions_.row(index2);
+    const auto& tangentLine2Point1 = tangentLinesPoints1_.row(index2);
+    const auto& tangentLine2Point2 = tangentLinesPoints2_.row(index2);
+    const ValueType radius2 = radiuses[index2];
+
+    const ValueType distance = distanceFunc(point1, point2, tangentLine1Point1, tangentLine1Point2, tangentLine2Point1, tangentLine2Point2, radius1, radius2);
+    weightmap[e] = distance;
   }
 
   std::vector<GraphEdgeType> spanningTree;
   spanningTree.reserve(numberOfPoints - 1);
 
-  kruskal_minimum_spanning_tree(completeGraph, std::back_inserter(spanningTree));
+  kruskal_minimum_spanning_tree(knnGraph, std::back_inserter(spanningTree));
+
+  indices1.clear();
+  indices2.clear();
 
   for (const GraphEdgeType& e : spanningTree)
   {
-    const IndexType index1 = source(e, completeGraph);
-    const IndexType index2 = target(e, completeGraph);
+    const IndexType index1 = source(e, knnGraph);
+    const IndexType index2 = target(e, knnGraph);
 
     indices1.push_back(index1);
     indices2.push_back(index2);
@@ -230,7 +288,7 @@ void DoGenerateMinimumSpanningTreeSimple(const std::string& inputFileName, const
   outputFileWriter.Write(indices2DataSetName, indices2);
 }
 
-void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::string& outputFileName, DistanceOptions distanceOption)
+void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::string& outputFileName, DistanceOptions distanceOption, int knn)
 {
   const int NumDimensions = 3;
 
@@ -282,7 +340,8 @@ void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::
       tangentLinesPoints2,
       radiuses,
       indices1,
-      indices2);
+      indices2,
+      knn);
     break;
 
   case DistanceOptions::ArcLengthsSum:
@@ -293,7 +352,8 @@ void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::
       tangentLinesPoints2,
       radiuses,
       indices1,
-      indices2);
+      indices2,
+      knn);
     break;
 
   case DistanceOptions::ArcLengthsMin:
@@ -304,13 +364,15 @@ void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::
       tangentLinesPoints2,
       radiuses,
       indices1,
-      indices2);
+      indices2,
+      knn);
     break;
 
   default:
     throw std::invalid_argument("distanceOption is invalid");
   }
 
+  BOOST_LOG_TRIVIAL(info) << "knn = " << knn;
   BOOST_LOG_TRIVIAL(info) << "indices1.size = " << indices1.size();
   BOOST_LOG_TRIVIAL(info) << "indices2.size = " << indices2.size();
 
@@ -336,6 +398,7 @@ int main(int argc, char *argv[])
 
   bool simpleMode = false;
   int optionNum = (int)DistanceOptions::Euclidean;
+  int knn = 17;
 
   po::options_description desc;
 
@@ -344,7 +407,8 @@ int main(int argc, char *argv[])
     ("inputFileName", po::value(&inputFileName)->required(), "the name of the input file")
     ("outputFileName", po::value(&outputFileName)->required(), "the name of the output file")
     ("simple", po::value(&simpleMode), "compute Euclidean minimum spanning tree using '/positions'-dataset")
-    ("optionNum", po::value(&optionNum), "the option number of distance function between two points");
+    ("optionNum", po::value(&optionNum), "the option number of distance function between two points")
+    ("knn", po::value(&knn), "the number of nearest neighbors to consider");
 
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -372,7 +436,7 @@ int main(int argc, char *argv[])
 
   try
   {
-    DoGenerateMinimumSpanningTree(inputFileName, outputFileName, (DistanceOptions)optionNum);
+    DoGenerateMinimumSpanningTree(inputFileName, outputFileName, (DistanceOptions)optionNum, knn);
     return EXIT_SUCCESS;
   }
   catch (std::exception& e)
