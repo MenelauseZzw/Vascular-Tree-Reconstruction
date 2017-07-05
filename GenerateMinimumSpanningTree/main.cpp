@@ -189,53 +189,81 @@ void GenerateMinimumSpanningTreeWith(
   Map<const MatrixType> tangentLinesPoints1_(tangentLinesPoints1.data(), numberOfPoints, NumDimensions);
   Map<const MatrixType> tangentLinesPoints2_(tangentLinesPoints2.data(), numberOfPoints, NumDimensions);
 
-  GraphType knnGraph(numberOfPoints);
-  WeightMapType weightmap = get(edge_weight, knnGraph);
+  GraphType origGraph(numberOfPoints);
+  WeightMapType weightmap = get(edge_weight, origGraph);
 
-  GenerateKnnGraph(
-    knn,
-    positions,
-    tangentLinesPoints1,
-    tangentLinesPoints2,
-    indices1,
-    indices2,
-    NumDimensions);
-
-  GraphEdgeType e;
-
-  for (size_t i = 0; i < indices1.size(); ++i)
+  if (knn != -1)
   {
-    const IndexType index1 = indices1[i];
-    const IndexType index2 = indices2[i];
+    GenerateKnnGraph(
+      knn,
+      positions,
+      tangentLinesPoints1,
+      tangentLinesPoints2,
+      indices1,
+      indices2,
+      NumDimensions);
 
-    tie(e, tuples::ignore) = add_edge(index1, index2, knnGraph);
+    GraphEdgeType e;
 
-    const auto& point1 = positions_.row(index1);
-    const auto& tangentLine1Point1 = tangentLinesPoints1_.row(index1);
-    const auto& tangentLine1Point2 = tangentLinesPoints2_.row(index1);
-    const ValueType radius1 = radiuses[index1];
+    for (size_t i = 0; i < indices1.size(); ++i)
+    {
+      const IndexType index1 = indices1[i];
+      const IndexType index2 = indices2[i];
 
-    const auto& point2 = positions_.row(index2);
-    const auto& tangentLine2Point1 = tangentLinesPoints1_.row(index2);
-    const auto& tangentLine2Point2 = tangentLinesPoints2_.row(index2);
-    const ValueType radius2 = radiuses[index2];
+      tie(e, tuples::ignore) = add_edge(index1, index2, origGraph);
 
-    const ValueType distance = distanceFunc(point1, point2, tangentLine1Point1, tangentLine1Point2, tangentLine2Point1, tangentLine2Point2, radius1, radius2);
-    weightmap[e] = distance;
+      const auto& point1 = positions_.row(index1);
+      const auto& tangentLine1Point1 = tangentLinesPoints1_.row(index1);
+      const auto& tangentLine1Point2 = tangentLinesPoints2_.row(index1);
+      const ValueType radius1 = radiuses[index1];
+
+      const auto& point2 = positions_.row(index2);
+      const auto& tangentLine2Point1 = tangentLinesPoints1_.row(index2);
+      const auto& tangentLine2Point2 = tangentLinesPoints2_.row(index2);
+      const ValueType radius2 = radiuses[index2];
+
+      const ValueType distance = distanceFunc(point1, point2, tangentLine1Point1, tangentLine1Point2, tangentLine2Point1, tangentLine2Point2, radius1, radius2);
+      weightmap[e] = distance;
+    }
+
+    indices1.clear();
+    indices2.clear();
+  }
+  else
+  {
+    GraphEdgeType e;
+
+    for (IndexType index1 = 0; index1 < numberOfPoints; ++index1)
+    {
+      for (IndexType index2 = index1 + 1; index2 < numberOfPoints; ++index2)
+      {
+        tie(e, tuples::ignore) = add_edge(index1, index2, origGraph);
+
+        const auto& point1 = positions_.row(index1);
+        const auto& tangentLine1Point1 = tangentLinesPoints1_.row(index1);
+        const auto& tangentLine1Point2 = tangentLinesPoints2_.row(index1);
+        const ValueType radius1 = radiuses[index1];
+
+        const auto& point2 = positions_.row(index2);
+        const auto& tangentLine2Point1 = tangentLinesPoints1_.row(index2);
+        const auto& tangentLine2Point2 = tangentLinesPoints2_.row(index2);
+        const ValueType radius2 = radiuses[index2];
+
+        const ValueType distance = distanceFunc(point1, point2, tangentLine1Point1, tangentLine1Point2, tangentLine2Point1, tangentLine2Point2, radius1, radius2);
+        weightmap[e] = distance;
+      }
+    }
   }
 
   std::vector<GraphEdgeType> spanningTree;
   spanningTree.reserve(numberOfPoints - 1);
 
-  kruskal_minimum_spanning_tree(knnGraph, std::back_inserter(spanningTree));
-
-  indices1.clear();
-  indices2.clear();
+  kruskal_minimum_spanning_tree(origGraph, std::back_inserter(spanningTree));
 
   for (const GraphEdgeType& e : spanningTree)
   {
-    const IndexType index1 = source(e, knnGraph);
-    const IndexType index2 = target(e, knnGraph);
+    const IndexType index1 = source(e, origGraph);
+    const IndexType index2 = target(e, origGraph);
 
     indices1.push_back(index1);
     indices2.push_back(index2);
@@ -398,7 +426,7 @@ int main(int argc, char *argv[])
 
   bool simpleMode = false;
   int optionNum = (int)DistanceOptions::Euclidean;
-  int knn = 17;
+  int knn = -1;
 
   po::options_description desc;
 
@@ -408,7 +436,7 @@ int main(int argc, char *argv[])
     ("outputFileName", po::value(&outputFileName)->required(), "the name of the output file")
     ("simple", po::value(&simpleMode), "compute Euclidean minimum spanning tree using '/positions'-dataset")
     ("optionNum", po::value(&optionNum), "the option number of distance function between two points")
-    ("knn", po::value(&knn), "the number of nearest neighbors to consider");
+    ("knn", po::value(&knn), "the number of nearest neighbors to consider (if not specified then use complete graph)");
 
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);
