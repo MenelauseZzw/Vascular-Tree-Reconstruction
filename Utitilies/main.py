@@ -6,8 +6,7 @@ import pandas as pd
 
 # http://stackoverflow.com/questions/2801882/generating-a-png-with-matplotlib-when-display-is-undefined
 # Force matplotlib to not use any Xwindows backend.
-matplotlib.use('Agg')
-
+#matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 #import maxflow
 import os.path
@@ -21,13 +20,13 @@ from sklearn.neighbors import KDTree,radius_neighbors_graph
 from xml.etree import ElementTree
 
 def doConvertRawToH5(args):
-    dirname  = args.dirname
+    dirname = args.dirname
     basename = args.basename
-    shape    = tuple(args.shape)
-    weight   = args.weight
+    shape = tuple(args.shape)
+    weight = args.weight
 
     filename = os.path.join(dirname, basename)
-    dataset  = IO.readRawFile(filename, shape=shape)
+    dataset = IO.readRawFile(filename, shape=shape)
 
     measurements = dataset['measurements']
 
@@ -39,27 +38,27 @@ def doConvertRawToH5(args):
 
     weights = np.full(len(indices1), weight, dtype=np.float)
 
-    dataset['weights']  = weights
+    dataset['weights'] = weights
 
     filename, _ = os.path.splitext(filename)
-    filename    = filename + '.h5'
+    filename = filename + '.h5'
     
     IO.writeH5File(filename, dataset)
 
 def doConvertRawToH5Ignor(args):
-    dirname  = args.dirname
+    dirname = args.dirname
     basename = args.basename
-    shape    = tuple(args.shape)
-    weight   = args.weight
+    shape = tuple(args.shape)
+    weight = args.weight
 
     filename = os.path.join(dirname, basename)
-    dataset  = IO.readRawFile(filename, shape=shape)
+    dataset = IO.readRawFile(filename, shape=shape)
 
-    measurements        = dataset['measurements']
+    measurements = dataset['measurements']
     tangentLinesPoints1 = dataset['tangentLinesPoints1']
     tangentLinesPoints2 = dataset['tangentLinesPoints2']
-    radiuses            = dataset['radiuses']
-    responses           = dataset['responses']
+    radiuses = dataset['radiuses']
+    responses = dataset['responses']
  
     conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
     indices1, indices2 = np.nonzero(conn)
@@ -68,18 +67,18 @@ def doConvertRawToH5Ignor(args):
     ignor[indices1] = False
     ignor[indices2] = False
 
-    measurements        = measurements[~ignor]
+    measurements = measurements[~ignor]
     tangentLinesPoints1 = tangentLinesPoints1[~ignor]
     tangentLinesPoints2 = tangentLinesPoints2[~ignor]
-    radiuses            = radiuses[~ignor]
-    responses           = responses[~ignor]
+    radiuses = radiuses[~ignor]
+    responses = responses[~ignor]
 
     dataset = dict()
 
-    dataset['measurements']        = measurements
+    dataset['measurements'] = measurements
     dataset['tangentLinesPoints1'] = tangentLinesPoints1
     dataset['tangentLinesPoints2'] = tangentLinesPoints2
-    dataset['radiuses']            = radiuses
+    dataset['radiuses'] = radiuses
     
     conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
     indices1, indices2 = np.nonzero(conn)
@@ -92,12 +91,12 @@ def doConvertRawToH5Ignor(args):
     dataset['weights'] = weights
 
     filename, _ = os.path.splitext(filename)
-    filename    = filename + '.h5'
+    filename = filename + '.h5'
 
     IO.writeH5File(filename, dataset)
 
 def doConvertRawToH5NoBifurc(args):
-    dirname  = args.dirname
+    dirname = args.dirname
     basename = args.basename
 
     filename = os.path.join(dirname, 'tree_structure.xml')
@@ -106,33 +105,33 @@ def doConvertRawToH5NoBifurc(args):
     positions = dataset['positions']
     nodeTypes = dataset['nodeTypes']
 
-    bifurcs  = positions[nodeTypes == 'b']
+    bifurcs = positions[nodeTypes == 'b']
     bifurcnn = KDTree(bifurcs)
 
     filename = os.path.join(dirname, basename)
-    dataset  = IO.readRawFile(filename, shape=(101,101,101))
+    dataset = IO.readRawFile(filename, shape=(101,101,101))
 
-    measurements        = dataset['measurements']
+    measurements = dataset['measurements']
     tangentLinesPoints1 = dataset['tangentLinesPoints1']
     tangentLinesPoints2 = dataset['tangentLinesPoints2']
-    radiuses            = dataset['radiuses']
-    responses           = dataset['responses']
+    radiuses = dataset['radiuses']
+    responses = dataset['responses']
  
     dist, _ = bifurcnn.query(measurements, k=1)
-    ignor   = dist[:,0] < (np.sqrt(3) + 2) / 2
+    ignor = dist[:,0] < (np.sqrt(3) + 2) / 2
 
-    measurements        = measurements[~ignor]
+    measurements = measurements[~ignor]
     tangentLinesPoints1 = tangentLinesPoints1[~ignor]
     tangentLinesPoints2 = tangentLinesPoints2[~ignor]
-    radiuses            = radiuses[~ignor]
-    responses           = responses[~ignor]
+    radiuses = radiuses[~ignor]
+    responses = responses[~ignor]
 
     dataset = dict()
 
-    dataset['measurements']        = measurements
+    dataset['measurements'] = measurements
     dataset['tangentLinesPoints1'] = tangentLinesPoints1
     dataset['tangentLinesPoints2'] = tangentLinesPoints2
-    dataset['radiuses']            = radiuses
+    dataset['radiuses'] = radiuses
 
     conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
     indices1, indices2 = np.nonzero(conn)
@@ -145,7 +144,7 @@ def doConvertRawToH5NoBifurc(args):
     dataset['weights'] = weights
 
     filename, _ = os.path.splitext(filename)
-    filename    = filename + '_nobifurc.h5'
+    filename = filename + '_nobifurc.h5'
 
     IO.writeH5File(filename, dataset)
 
@@ -182,34 +181,34 @@ def createGraphPolyData(points, indices1, indices2, connectedComponents):
     return polyData
 
 def doCreateGraphPolyDataFile(args):
-    dirname       = args.dirname
-    basename      = args.basename
+    dirname = args.dirname
+    basename = args.basename
     pointsArrName = args.points
 
     filename = os.path.join(dirname, basename)
-    dataset  = IO.readH5File(filename)
+    dataset = IO.readH5File(filename)
 
-    connectedComponentsName = 'connectedComponentsIndices';
+    connectedComponentsName = 'connectedComponentsIndices'
 
-    positions                  = dataset[pointsArrName]
-    indices1                   = dataset['indices1']
-    indices2                   = dataset['indices2']
+    positions = dataset[pointsArrName]
+    indices1 = dataset['indices1']
+    indices2 = dataset['indices2']
     connectedComponentsIndices = dataset[connectedComponentsName] if connectedComponentsName in dataset else np.zeros(len(positions), dtype="double")
 
-    polyData   = createGraphPolyData(positions, indices1, indices2, connectedComponentsIndices)
+    polyData = createGraphPolyData(positions, indices1, indices2, connectedComponentsIndices)
     
     filename, _ = os.path.splitext(filename)
-    filename    = filename + '.vtp'
+    filename = filename + '.vtp'
     IO.writePolyDataFile(filename, polyData)
 
 def doEMST(args):
-    dirname       = args.dirname
-    basename      = args.basename
-    maxradius     = args.maxradius
+    dirname = args.dirname
+    basename = args.basename
+    maxradius = args.maxradius
     pointsArrName = args.points
 
-    filename  = os.path.join(dirname, basename)
-    dataset   = IO.readH5File(filename)
+    filename = os.path.join(dirname, basename)
+    dataset = IO.readH5File(filename)
 
     positions = dataset[pointsArrName]
 
@@ -218,7 +217,7 @@ def doEMST(args):
 
     for i in xrange(n):
         p = positions[i]
-        for k in xrange(i+1, n):
+        for k in xrange(i + 1, n):
             q = positions[k]
             dist = linalg.norm(p - q)
             if dist > maxradius: continue
@@ -239,7 +238,7 @@ def doEMST(args):
     dataset['indices2'] = np.array(indices2, dtype=np.int)
     
     filename, _ = os.path.splitext(filename)
-    filename    = filename + 'EMST.h5'
+    filename = filename + 'EMST.h5'
 
     IO.writeH5File(filename, dataset)
 
@@ -269,29 +268,29 @@ def getArcLength(p, q, Cpq):
     return arcLen
 
 def doArcMST(args):
-    dirname   = args.dirname
-    basename  = args.basename
+    dirname = args.dirname
+    basename = args.basename
     maxradius = args.maxradius
 
-    filename  = os.path.join(dirname, basename)
-    dataset   = IO.readH5File(filename)
+    filename = os.path.join(dirname, basename)
+    dataset = IO.readH5File(filename)
 
-    positions           = dataset['positions']
+    positions = dataset['positions']
     tangentLinesPoints1 = dataset['tangentLinesPoints1']
     tangentLinesPoints2 = dataset['tangentLinesPoints2']
 
-    tangentLines  = tangentLinesPoints2 - tangentLinesPoints1
+    tangentLines = tangentLinesPoints2 - tangentLinesPoints1
     tangentLines /= linalg.norm(tangentLines, axis=1, keepdims=True)
 
     n = len(positions)
     G = dict()
 
     for i in xrange(n):
-        p  = positions[i]
+        p = positions[i]
         lp = tangentLines[i]
 
-        for k in xrange(i+1, n):
-            q  = positions[k]
+        for k in xrange(i + 1, n):
+            q = positions[k]
             dist = linalg.norm(p - q)
             if dist > maxradius: continue
             lq = tangentLines[k]
@@ -320,7 +319,7 @@ def doArcMST(args):
     dataset['indices2'] = np.array(indices2, dtype=np.int)
 
     filename, _ = os.path.splitext(filename)
-    filename    = filename + 'ArcMST.h5'
+    filename = filename + 'ArcMST.h5'
 
     IO.writeH5File(filename, dataset)
 
@@ -335,17 +334,17 @@ def createArcPolyData(p, q, Cpq):
     return polyData
 
 def doCreateArcsPolyDataFile(args):
-    dirname   = args.dirname
-    basename  = args.basename
+    dirname = args.dirname
+    basename = args.basename
 
-    filename  = os.path.join(dirname, basename)
-    dataset   = IO.readH5File(filename)
+    filename = os.path.join(dirname, basename)
+    dataset = IO.readH5File(filename)
 
-    positions           = dataset['positions']
+    positions = dataset['positions']
     tangentLinesPoints1 = dataset['tangentLinesPoints1']
     tangentLinesPoints2 = dataset['tangentLinesPoints2']
 
-    tangentLines  = tangentLinesPoints2 - tangentLinesPoints1
+    tangentLines = tangentLinesPoints2 - tangentLinesPoints1
     tangentLines /= linalg.norm(tangentLines, axis=1, keepdims=True)
 
     n = len(positions)
@@ -356,8 +355,8 @@ def doCreateArcsPolyDataFile(args):
     appendPolyData = vtk.vtkAppendPolyData()
 
     for i,k in zip(indices1,indices2):
-        p  = positions[i]
-        q  = positions[k]
+        p = positions[i]
+        q = positions[k]
 
         lp = tangentLines[i]
         lq = tangentLines[k]
@@ -380,7 +379,7 @@ def doCreateArcsPolyDataFile(args):
 
 
     filename, _ = os.path.splitext(filename)
-    filename    = filename + '.vtp'
+    filename = filename + '.vtp'
 
     IO.writePolyDataFile(filename, polyData)
 
@@ -409,28 +408,28 @@ def getSplineLength(spline, num_points):
     return splineLen
 
 def doCubicSplineMST(args):
-    dirname   = args.dirname
-    basename  = args.basename
+    dirname = args.dirname
+    basename = args.basename
     maxradius = args.maxradius
 
-    filename  = os.path.join(dirname, basename)
-    dataset   = IO.readH5File(filename)
+    filename = os.path.join(dirname, basename)
+    dataset = IO.readH5File(filename)
 
-    positions           = dataset['positions']
+    positions = dataset['positions']
     tangentLinesPoints1 = dataset['tangentLinesPoints1']
     tangentLinesPoints2 = dataset['tangentLinesPoints2']
 
-    tangentLines  = tangentLinesPoints2 - tangentLinesPoints1
+    tangentLines = tangentLinesPoints2 - tangentLinesPoints1
     tangentLines /= linalg.norm(tangentLines, axis=1, keepdims=True)
 
     n = len(positions)
     G = dict()
 
     for i in xrange(n):
-        p  = positions[i]
+        p = positions[i]
         lp = tangentLines[i]
-        for k in xrange(i+1, n):
-            q  = positions[k]
+        for k in xrange(i + 1, n):
+            q = positions[k]
             lq = tangentLines[k]
             dist = linalg.norm(p - q)
             if dist > maxradius: continue
@@ -438,7 +437,7 @@ def doCubicSplineMST(args):
             minLength = np.inf
 
             for lpsgn,lqsgn in ((-1,-1),(-1, 1),(1,-1),(1, 1)):
-                cubicSpline  = getCubicSpline(p, dist * lpsgn * lp, q, dist * lqsgn * lq)
+                cubicSpline = getCubicSpline(p, dist * lpsgn * lp, q, dist * lqsgn * lq)
                 splineLength = getSplineLength(cubicSpline, num_points=100)
                 if splineLength < minLength:
                     minLength = splineLength
@@ -459,7 +458,7 @@ def doCubicSplineMST(args):
     dataset['indices2'] = np.array(indices2, dtype=np.int)
     
     filename, _ = os.path.splitext(filename)
-    filename    = filename + 'CubicSplineMST.h5'
+    filename = filename + 'CubicSplineMST.h5'
 
     IO.writeH5File(filename, dataset)
 
@@ -477,17 +476,17 @@ def createSplinePolyData(spline, num_points):
     return polyData
 
 def doCreateCubicSplinePolyDataFile(args):
-    dirname   = args.dirname
-    basename  = args.basename
+    dirname = args.dirname
+    basename = args.basename
 
-    filename  = os.path.join(dirname, basename)
-    dataset   = IO.readH5File(filename)
+    filename = os.path.join(dirname, basename)
+    dataset = IO.readH5File(filename)
 
-    positions           = dataset['positions']
+    positions = dataset['positions']
     tangentLinesPoints1 = dataset['tangentLinesPoints1']
     tangentLinesPoints2 = dataset['tangentLinesPoints2']
 
-    tangentLines  = tangentLinesPoints2 - tangentLinesPoints1
+    tangentLines = tangentLinesPoints2 - tangentLinesPoints1
     tangentLines /= linalg.norm(tangentLines, axis=1, keepdims=True)
     
     n = len(positions)
@@ -498,8 +497,8 @@ def doCreateCubicSplinePolyDataFile(args):
     appendPolyData = vtk.vtkAppendPolyData()
 
     for i,k in zip(indices1, indices2):
-        p  = positions[i]
-        q  = positions[k]
+        p = positions[i]
+        q = positions[k]
 
         lp = tangentLines[i]
         lq = tangentLines[k]
@@ -510,11 +509,11 @@ def doCreateCubicSplinePolyDataFile(args):
         minLength = np.inf
 
         for lpsgn,lqsgn in ((-1,-1),(-1, 1),(1,-1),(1, 1)):
-            cubicSpline  = getCubicSpline(p, dist * lpsgn * lp, q, dist * lqsgn * lq)
+            cubicSpline = getCubicSpline(p, dist * lpsgn * lp, q, dist * lqsgn * lq)
             splineLength = getSplineLength(cubicSpline, num_points=100)
             if splineLength < minLength:
                 minLength = splineLength
-                spline    = cubicSpline
+                spline = cubicSpline
 
         splinePolyData = createSplinePolyData(spline, num_points=100)
         appendPolyData.AddInputData(splinePolyData)
@@ -523,33 +522,36 @@ def doCreateCubicSplinePolyDataFile(args):
     polyData = appendPolyData.GetOutput()
 
     filename, _ = os.path.splitext(filename)
-    filename    = filename + '.vtp'
+    filename = filename + '.vtp'
 
     IO.writePolyDataFile(filename, polyData)
 
 def doConvertRawToH5Responses(args):
-    dirname  = args.dirname
+    dirname = args.dirname
     basename = args.basename
-    shape    = tuple(args.shape)
-    weight   = args.weight
+    shape = tuple(args.shape)
+    weight = args.weight
 
     filename = os.path.join(dirname, basename)
-    dataset  = IO.readRawFile(filename, shape=shape)
+    dataset = IO.readRawFile(filename, shape=shape)
 
-    measurements     = dataset['measurements']
-    radiuses         = dataset['radiuses']
-    responses        = dataset['responses']
+    measurements = dataset['measurements']
+    radiuses = dataset['radiuses']
+    responses = dataset['responses']
 
     conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
-    # conn = radius_neighbors_graph(measurements, radius=(1 + np.sqrt(2)) / 2, metric='euclidean', include_self=False)
+    # conn = radius_neighbors_graph(measurements, radius=(1 + np.sqrt(2)) / 2,
+    # metric='euclidean', include_self=False)
     indices1, indices2 = np.nonzero(conn)
 
     # Sort in ascending order
     # indices1, indices2 = zip(*sorted(zip(indices1,indices2)))
 
     # Sort in descending order
-    # indices1, indices2 = zip(*sorted(zip(indices1,indices2), key=lambda x: x[1], reverse=True))
-    # indices1, indices2 = zip(*sorted(zip(indices1,indices2), key=lambda x: x[0]))
+    # indices1, indices2 = zip(*sorted(zip(indices1,indices2), key=lambda x:
+    # x[1], reverse=True))
+    # indices1, indices2 = zip(*sorted(zip(indices1,indices2), key=lambda x:
+    # x[0]))
 
     indices1 = np.array(indices1, dtype=np.int)
     indices2 = np.array(indices2, dtype=np.int)
@@ -560,15 +562,15 @@ def doConvertRawToH5Responses(args):
 
     weights = np.multiply(weight, responses[indices1])
 
-    dataset['weights']  = weights
+    dataset['weights'] = weights
 
     filename, _ = os.path.splitext(filename)
-    filename    = filename + '.h5'
+    filename = filename + '.h5'
     
     IO.writeH5File(filename, dataset)
 
 def doROC(args):
-    dirname   = args.dirname
+    dirname = args.dirname
     basename1 = args.basename1
     basename2 = args.basename2
 
@@ -603,21 +605,21 @@ def doROC(args):
     ax2.scatter(stgd2, 100 * tglr2, 2.0, color='blue', marker=',', label=basename2)
     ax2.legend(loc=4)
 
-    basename1,_  = os.path.splitext(basename1)
-    basename2,_  = os.path.splitext(basename2)
+    basename1,_ = os.path.splitext(basename1)
+    basename2,_ = os.path.splitext(basename2)
 
     filename = os.path.join(dirname, basename1 + '.' + basename2 + 'ROC.png')
     fig.savefig(filename)
 
 def doAUC(args):
-    dirname  = args.dirname
+    dirname = args.dirname
     basename = args.basename
 
     filename = os.path.join(dirname, basename)
 
     sourceToTargetGraphsDistance = np.genfromtxt(filename, delimiter=',', usecols=1, skip_header=1) # source-to-target-graphs-distance
-    sourceGraphsLengthRatio      = np.genfromtxt(filename, delimiter=',', usecols=2, skip_header=1) # source-graphs-length-ratio
-    targetGraphsLengthRatio      = np.genfromtxt(filename, delimiter=',', usecols=3, skip_header=1) # target-graphs-length-ratio
+    sourceGraphsLengthRatio = np.genfromtxt(filename, delimiter=',', usecols=2, skip_header=1) # source-graphs-length-ratio
+    targetGraphsLengthRatio = np.genfromtxt(filename, delimiter=',', usecols=3, skip_header=1) # target-graphs-length-ratio
 
     print('{:18.16f}'.format(integrate.trapz(sourceGraphsLengthRatio, sourceToTargetGraphsDistance)))
     print('{:18.16f}'.format(integrate.trapz(targetGraphsLengthRatio, sourceToTargetGraphsDistance)))
@@ -643,19 +645,19 @@ def createTangentsPolyData(tangentLinesPoints1, tangentLinesPoints2):
     return polyData
 
 def doCreateTangentsPolyDataFile(args):
-    dirname       = args.dirname
-    basename      = args.basename
+    dirname = args.dirname
+    basename = args.basename
     pointsArrName = args.points
 
     filename = os.path.join(dirname, basename)
-    dataset  = IO.readH5File(filename)
+    dataset = IO.readH5File(filename)
 
-    positions           = dataset[pointsArrName]
+    positions = dataset[pointsArrName]
     tangentLinesPoints1 = dataset['tangentLinesPoints1']
     tangentLinesPoints2 = dataset['tangentLinesPoints2']
-    scale               = dataset['radiuses']
+    scale = dataset['radiuses']
 
-    tangentLines  = tangentLinesPoints2 - tangentLinesPoints1
+    tangentLines = tangentLinesPoints2 - tangentLinesPoints1
     tangentLines /= linalg.norm(tangentLines, axis=1, keepdims=True)
     
     n = len(positions)
@@ -666,7 +668,7 @@ def doCreateTangentsPolyDataFile(args):
     scaleDataArray.SetName("Radius")
 
     for i in xrange(n):
-        p  = positions[i]
+        p = positions[i]
         s = p + 0.5 * tangentLines[i]
         t = p - 0.5 * tangentLines[i]
 
@@ -681,7 +683,7 @@ def doCreateTangentsPolyDataFile(args):
     polyData.GetPointData().SetScalars(scaleDataArray)
 
     filename, _ = os.path.splitext(filename)
-    filename    = filename + 'Tangents.vtp'
+    filename = filename + 'Tangents.vtp'
     IO.writePolyDataFile(filename, polyData)
 
 def createCircularPolyData(pointsArr, tangentLinesPoints1, tangentLinesPoints2, radiusesArr):
@@ -710,43 +712,43 @@ def createCircularPolyData(pointsArr, tangentLinesPoints1, tangentLinesPoints2, 
     return polyData
 
 def doCreateRadiusesPolyDataFile(args):
-    dirname         = args.dirname
-    basename        = args.basename
-    pointsArrName   = args.points
+    dirname = args.dirname
+    basename = args.basename
+    pointsArrName = args.points
 
     filename = os.path.join(dirname, basename)
-    dataset  = IO.readH5File(filename)
+    dataset = IO.readH5File(filename)
 
-    points              = dataset[pointsArrName]
+    points = dataset[pointsArrName]
     tangentLinesPoints1 = dataset['tangentLinesPoints1']
     tangentLinesPoints2 = dataset['tangentLinesPoints2']
-    radiuses            = dataset['radiuses']
+    radiuses = dataset['radiuses']
 
     polyData = createCircularPolyData(points, tangentLinesPoints1, tangentLinesPoints2, radiuses)
     
     filename, _ = os.path.splitext(filename)
-    filename    = filename + 'Radiuses.vtp'
+    filename = filename + 'Radiuses.vtp'
     IO.writePolyDataFile(filename, polyData)
 
 def doMST(dirname):
     filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
-    dataset  = IO.readH5File(filename)
+    dataset = IO.readH5File(filename)
 
-    measurements        = dataset['measurements']
-    positions           = dataset['positions']
+    measurements = dataset['measurements']
+    positions = dataset['positions']
     tangentLinesPoints1 = dataset['tangentLinesPoints1']
     tangentLinesPoints2 = dataset['tangentLinesPoints2']
-    radiuses            = dataset['radiuses']
+    radiuses = dataset['radiuses']
     
-    indices1            = dataset['indices1']
-    indices2            = dataset['indices2']
+    indices1 = dataset['indices1']
+    indices2 = dataset['indices2']
 
     n = len(positions)
     G = dict()
 
     for i,k in zip(indices1, indices2):
-        p  = positions[i]
-        q  = positions[k]
+        p = positions[i]
+        q = positions[k]
         lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
         lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
 
@@ -756,7 +758,7 @@ def doMST(dirname):
         lp = lp * dist
         lq = lq * dist
 
-        spline    = createSpline(p, lp, q, lq)
+        spline = createSpline(p, lp, q, lq)
         splineLen = splineLength(spline, num_points=100)
         
         if not i in G:
@@ -780,7 +782,7 @@ def doMST(dirname):
     appendPolyData = vtk.vtkAppendPolyData()
 
     for i in xrange(n):
-        p  = positions[i]
+        p = positions[i]
         lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
         lp = lp / (2 * linalg.norm(lp))
 
@@ -795,14 +797,14 @@ def doMST(dirname):
 
 #def doGraphCut(dirname):
 #    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
-#    dataset  = IO.readH5File(filename)
+#    dataset = IO.readH5File(filename)
 
-#    positions           = dataset['positions']
+#    positions = dataset['positions']
 #    tangentLinesPoints1 = dataset['tangentLinesPoints1']
 #    tangentLinesPoints2 = dataset['tangentLinesPoints2']
     
-#    indices1            = dataset['indices1']
-#    indices2            = dataset['indices2']
+#    indices1 = dataset['indices1']
+#    indices2 = dataset['indices2']
 
 #    n = len(positions)
 #    g = maxflow.Graph[float]()
@@ -823,8 +825,8 @@ def doMST(dirname):
 #    for i,k in zip(indices1, indices2):
 #        if k < i: continue
 
-#        p  = positions[i]
-#        q  = positions[k]
+#        p = positions[i]
+#        q = positions[k]
 #        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
 #        lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
 
@@ -835,7 +837,7 @@ def doMST(dirname):
 #        lq = lq * dist
    
 #        for lpsgn,lqsgn in [(-lp,-lq), (-lp, lq), (lp,-lq), (lp, lq)]:
-#            spline    = createSpline(p,lpsgn, q, lqsgn)
+#            spline = createSpline(p,lpsgn, q, lqsgn)
 #            splineLen = splineLength(spline, num_points=100)
 
 #        A = splineLength(createSpline(p,-lp, q,-lq), num_points=100)
@@ -856,8 +858,8 @@ def doMST(dirname):
 #    for i,k in zip(indices1, indices2):
 #        if k < i: continue
 
-#        p  = positions[i]
-#        q  = positions[k]
+#        p = positions[i]
+#        q = positions[k]
 #        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
 #        lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
 
@@ -869,16 +871,16 @@ def doMST(dirname):
 #        lq = lq * dist
 
 #        if g.get_segment(nodes[i]) == 1:
-#            lpsgn =  lp
+#            lpsgn = lp
 #        else:
 #            lpsgn = -lp
 
 #        if g.get_segment(nodes[k]) == 1:
-#            lqsgn =  lq
+#            lqsgn = lq
 #        else:
 #            lqsgn = -lq
    
-#        spline    = createSpline(p, lpsgn, q, lqsgn)
+#        spline = createSpline(p, lpsgn, q, lqsgn)
 #        splineLen = splineLength(spline, num_points=100)
 
 #        if not i in G:
@@ -893,8 +895,8 @@ def doMST(dirname):
 #    T = MinimumSpanningTree.MinimumSpanningTree(G)
 
 #    for i,k in T:
-#        p  = positions[i]
-#        q  = positions[k]
+#        p = positions[i]
+#        q = positions[k]
 #        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
 #        lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
 
@@ -906,12 +908,12 @@ def doMST(dirname):
 #        lq = lq * dist
 
 #        if g.get_segment(nodes[i]) == 1:
-#            lpsgn =  lp
+#            lpsgn = lp
 #        else:
 #            lpsgn = -lp
 
 #        if g.get_segment(nodes[k]) == 1:
-#            lqsgn =  lq
+#            lqsgn = lq
 #        else:
 #            lqsgn = -lq
    
@@ -927,10 +929,9 @@ def doMST(dirname):
 
 #    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.vtp')
 #    IO.writePolyDataFile(filename, polyData)
-
 def doAnalyzeLabeling(args):
-    dirname   = args.dirname
-    basename  = args.basename
+    dirname = args.dirname
+    basename = args.basename
 
     filename = os.path.join(dirname, 'tree_structure.xml')
     dataset = IO.readGxlFile(filename)
@@ -938,17 +939,17 @@ def doAnalyzeLabeling(args):
     positions = dataset['positions']
     nodeTypes = dataset['nodeTypes']
 
-    bifurcs  = positions[nodeTypes == 'b']
+    bifurcs = positions[nodeTypes == 'b']
     bifurcnn = KDTree(bifurcs)
 
-    filename  = os.path.join(dirname, basename)
-    dataset   = IO.readH5File(filename)
+    filename = os.path.join(dirname, basename)
+    dataset = IO.readH5File(filename)
 
-    positions     = dataset['positions']
+    positions = dataset['positions']
     sourceIndices = dataset['sourceIndices']
     targetIndices = dataset['targetIndices']
 
-    dist, _    = bifurcnn.query(positions[sourceIndices], k=1)
+    dist, _ = bifurcnn.query(positions[sourceIndices], k=1)
     nearBifurc = dist[:,0] < 1e-2
 
     dist = linalg.norm(positions[sourceIndices] - positions[targetIndices], axis=1)
@@ -959,20 +960,22 @@ def projectOntoSourceTree(sOrig, tOrig, pOrig):
     t = tOrig[:,np.newaxis,:] # t.shape = (numPoints1, 1L, numDimensions)
     p = pOrig[np.newaxis,:,:] # p.shape = (1L, numPoints2, numDimensions)
 
-    sMinusT   = s - t
+    sMinusT = s - t
     sMinusTSq = np.sum(sMinusT * sMinusT, axis=2)
 
-    sMinusP   = s - p
+    sMinusP = s - p
     sMinusPDotSMinusT = np.sum(sMinusP * sMinusT, axis=2)
     
     lambd = sMinusPDotSMinusT / sMinusTSq
     lambd = lambd[:,:,np.newaxis]
     
-    # proj[i,k] is projection of point p[k] onto line between points s[i] and t[i]
-    proj  = s - lambd * sMinusT
+    # proj[i,k] is projection of point p[k] onto line between points s[i] and
+    # t[i]
+    proj = s - lambd * sMinusT
 
-    # dist[i,k] is distance between point p[k] and line between points s[i] and t[i]
-    dist  = linalg.norm(proj - p, axis=2)
+    # dist[i,k] is distance between point p[k] and line between points s[i] and
+    # t[i]
+    dist = linalg.norm(proj - p, axis=2)
     
     # ignore points which projections do not belong to corresponding intervals
     ignor = np.logical_or(lambd < 0, lambd > 1)
@@ -983,24 +986,26 @@ def projectOntoSourceTree(sOrig, tOrig, pOrig):
 
     dist = np.where(ignor, np.minimum(sDist, tDist), dist)
 
-    # closIndex[k] is index i such that an interval between points s[i] and t[i] of source tree is the closest one to point p[k]
+    # closIndex[k] is index i such that an interval between points s[i] and
+    # t[i] of source tree is the closest one to point p[k]
     closIndex = np.argmin(dist, axis=0)
 
-    # closProj[k] is projection of point p[k] to the closest interval of source tree
-    closProj  = np.array([proj[closIndex[I]][I] for I in np.ndindex(closIndex.shape)])
+    # closProj[k] is projection of point p[k] to the closest interval of source
+    # tree
+    closProj = np.array([proj[closIndex[I]][I] for I in np.ndindex(closIndex.shape)])
 
     # closLambd[k] is projection coefficient corresponding to closProj[k]
     closLambd = np.array([lambd[closIndex[I]][I] for I in np.ndindex(closIndex.shape)]) 
 
-    # errors[k] = ||pOrig[k] - closProj[k]||    
+    # errors[k] = ||pOrig[k] - closProj[k]||
     errors = linalg.norm(closProj - pOrig, axis=1)
 
     return (closIndex, closProj, closLambd, errors)
 
 def doProjectionOntoSourceTreePolyDataFile(args):
-    dirname            = args.dirname
+    dirname = args.dirname
     targetFileBasename = args.targetFileBasename
-    positionsDataSet   = args.positions
+    positionsDataSet = args.positions
     
     sourceFilename = os.path.join(dirname, 'tree_structure.xml')
     targetFilename = os.path.join(dirname, targetFileBasename)
@@ -1008,9 +1013,9 @@ def doProjectionOntoSourceTreePolyDataFile(args):
     sourceDataset = IO.readGxlFile(sourceFilename)
     targetDataset = IO.readH5File(targetFilename)
 
-    positions   = sourceDataset['positions']
-    indices1    = sourceDataset['indices1']
-    indices2    = sourceDataset['indices2']
+    positions = sourceDataset['positions']
+    indices1 = sourceDataset['indices1']
+    indices2 = sourceDataset['indices2']
 
     sOrig = positions[indices1]
     tOrig = positions[indices2]
@@ -1026,8 +1031,8 @@ def doProjectionOntoSourceTreePolyDataFile(args):
     numIndices = len(indices1)
 
     positions = []
-    indices1  = []
-    indices2  = []
+    indices1 = []
+    indices2 = []
 
     for index in xrange(numIndices):
         mask = np.equal(closIndex, index)
@@ -1037,17 +1042,17 @@ def doProjectionOntoSourceTreePolyDataFile(args):
 
         orderedLambd, orderedProj = zip(*orderedByLambda)
 
-        startIndex     = len(positions)
+        startIndex = len(positions)
         numProjections = len(orderedProj)
 
         positions.extend(orderedProj)
         indices1.extend(xrange(startIndex, startIndex + numProjections - 1))
         indices2.extend(xrange(startIndex + 1, startIndex + numProjections))
 
-    polyData   = createGraphPolyData(positions, indices1, indices2)
+    polyData = createGraphPolyData(positions, indices1, indices2)
     
     filename, _ = os.path.splitext(targetFileBasename)
-    filename    = os.path.join(dirname, filename + 'OptimalTree.vtp')
+    filename = os.path.join(dirname, filename + 'OptimalTree.vtp')
     IO.writePolyDataFile(filename, polyData)
 
     positions = []
@@ -1058,17 +1063,17 @@ def doProjectionOntoSourceTreePolyDataFile(args):
     indices1 = list(xrange(0, pOrigLen))
     indices2 = list(xrange(pOrigLen, len(positions)))
 
-    polyData   = createGraphPolyData(positions, indices1, indices2)
+    polyData = createGraphPolyData(positions, indices1, indices2)
     
     filename, _ = os.path.splitext(targetFileBasename)
-    filename    = os.path.join(dirname, filename + 'ProjectionOntoSourceTree.vtp')
+    filename = os.path.join(dirname, filename + 'ProjectionOntoSourceTree.vtp')
     IO.writePolyDataFile(filename, polyData)
 
 def doProjectionOntoSourceTreeCsv(args):
-    dirname             = args.dirname
-    targetFileBasename  = args.targetFileBasename
-    prependStringRow    = args.prependStringRow
-    pointsArrName       = args.points
+    dirname = args.dirname
+    targetFileBasename = args.targetFileBasename
+    prependStringRow = args.prependStringRow
+    pointsArrName = args.points
     
     sourceFilename = os.path.join(dirname, 'tree_structure.xml')
     targetFilename = os.path.join(dirname, targetFileBasename)
@@ -1076,9 +1081,9 @@ def doProjectionOntoSourceTreeCsv(args):
     sourceDataset = IO.readGxlFile(sourceFilename)
     targetDataset = IO.readH5File(targetFilename)
 
-    positions   = sourceDataset['positions']
-    indices1    = sourceDataset['indices1']
-    indices2    = sourceDataset['indices2']
+    positions = sourceDataset['positions']
+    indices1 = sourceDataset['indices1']
+    indices2 = sourceDataset['indices2']
 
     sOrig = positions[indices1]
     tOrig = positions[indices2]
@@ -1086,32 +1091,32 @@ def doProjectionOntoSourceTreeCsv(args):
 
     _,_,_,errors = projectOntoSourceTree(sOrig, tOrig, pOrig)
 
-    errMean    = np.mean(errors)
-    errStdDev  = np.std(errors)
-    errMedian  = np.median(errors)
+    errMean = np.mean(errors)
+    errStdDev = np.std(errors)
+    errMedian = np.median(errors)
     
-    err25Perc  = np.percentile(errors,q=25)
-    err75Perc  = np.percentile(errors,q=75)
-    err95Perc  = np.percentile(errors,q=95)
+    err25Perc = np.percentile(errors,q=25)
+    err75Perc = np.percentile(errors,q=75)
+    err95Perc = np.percentile(errors,q=95)
     err100Perc = np.percentile(errors,q=100)
 
     print '{0}{1},{2},{3},{4},{5},{6},{7}'.format(prependStringRow, errMean, errStdDev, errMedian, err25Perc, err75Perc, err95Perc, err100Perc)
 
 def doErrorBar(args):
-    dirname  = args.dirname
+    dirname = args.dirname
     basename = args.basename
     
     filename = os.path.join(dirname, basename)
 
-    weight    = np.genfromtxt(filename, delimiter=',', usecols=0, skip_header=1) # weight
-    errMean   = np.genfromtxt(filename, delimiter=',', usecols=1, skip_header=1) # error-mean
+    weight = np.genfromtxt(filename, delimiter=',', usecols=0, skip_header=1) # weight
+    errMean = np.genfromtxt(filename, delimiter=',', usecols=1, skip_header=1) # error-mean
     errStdDev = np.genfromtxt(filename, delimiter=',', usecols=2, skip_header=1) # error-stdDev
     errMedian = np.genfromtxt(filename, delimiter=',', usecols=3, skip_header=1) # error-median
 
     fig = plt.figure()
     fig.set_size_inches(12, 6)
 
-    ax  = fig.add_subplot(111)
+    ax = fig.add_subplot(111)
     ax.set_xlim(0, 10)
     ax.set_ylim(0, 1.0)
 
@@ -1126,10 +1131,10 @@ def doErrorBar(args):
     fig.savefig(filename + '.png')
 
 def doCreateDatabaseProjectionOntoSourceTreeCsvFile(args):
-    dirname  = args.dirname
+    dirname = args.dirname
     basename = args.basename
     firstNum = args.firstNum
-    lastNum  = args.lastNum
+    lastNum = args.lastNum
 
     df = pd.DataFrame()
 
@@ -1138,27 +1143,27 @@ def doCreateDatabaseProjectionOntoSourceTreeCsvFile(args):
 
     for num in xrange(firstNum, lastNum + 1):
         filename = os.path.join(dirname, 'image{0:03d}'.format(num), basename)
-        rows     = np.genfromtxt(filename, delimiter=',', skip_header=1)
+        rows = np.genfromtxt(filename, delimiter=',', skip_header=1)
 
-        errorMeanColumnName   = 'errorMean{0:03d}'.format(num)
+        errorMeanColumnName = 'errorMean{0:03d}'.format(num)
         errorStdDevColumnName = 'errorStdDev{0:03d}'.format(num)
 
         curvatureWeightColumn = []
-        errorMeanColumn       = []
-        errorStdDevColumn     = []
+        errorMeanColumn = []
+        errorStdDevColumn = []
 
         for r in rows:
             curvatureWeight = r[0]
-            errorMean       = r[1]
-            errorStdDev     = r[2]
+            errorMean = r[1]
+            errorStdDev = r[2]
 
             curvatureWeightColumn.append(curvatureWeight)
             errorMeanColumn.append(errorMean)
             errorStdDevColumn.append(errorStdDev)
            
         items[curvatureWeightColumnName] = curvatureWeightColumn
-        items[errorMeanColumnName]       = errorMeanColumn
-        items[errorStdDevColumnName]     = errorStdDevColumn
+        items[errorMeanColumnName] = errorMeanColumn
+        items[errorStdDevColumnName] = errorStdDevColumn
 
     df = pd.DataFrame(items)
     df = df.set_index(curvatureWeightColumnName)
@@ -1171,19 +1176,21 @@ def createProjectionsOntoGroundTruthTree(sOrig, tOrig, pOrig, closestIndices=Non
     t = tOrig[:,np.newaxis,:] # t.shape = (numPoints1, 1L, numDimensions)
     p = pOrig[np.newaxis,:,:] # p.shape = (1L, numPoints2, numDimensions)
 
-    sMinusT   = s - t
+    sMinusT = s - t
     sMinusTSq = np.sum(sMinusT * sMinusT, axis=2)
 
-    sMinusP   = s - p
+    sMinusP = s - p
     sMinusPDotSMinusT = np.sum(sMinusP * sMinusT, axis=2)
 
     lambd = sMinusPDotSMinusT / sMinusTSq
     lambd = lambd[:,:,np.newaxis]
 
-    # proj[i,k] is projection of point p[k] onto line between points s[i] and t[i]
-    # dist[i,k] is distance between point p[k] and line between points s[i] and t[i]
-    proj  = s - lambd * sMinusT
-    dist  = linalg.norm(proj - p, axis=2)
+    # proj[i,k] is projection of point p[k] onto line between points s[i] and
+    # t[i]
+    # dist[i,k] is distance between point p[k] and line between points s[i] and
+    # t[i]
+    proj = s - lambd * sMinusT
+    dist = linalg.norm(proj - p, axis=2)
 
     # ignore points which projections do not belong to corresponding intervals
     ignor = np.logical_or(lambd < 0, lambd > 1)
@@ -1192,16 +1199,18 @@ def createProjectionsOntoGroundTruthTree(sOrig, tOrig, pOrig, closestIndices=Non
     sDist = linalg.norm(s - p, axis=2)
     tDist = linalg.norm(t - p, axis=2)
 
-    dist  = np.where(ignor, np.minimum(sDist, tDist), dist)
+    dist = np.where(ignor, np.minimum(sDist, tDist), dist)
 
-    # closestIndices[k] is index i such that the distance between point p[k] and
+    # closestIndices[k] is index i such that the distance between point p[k]
+    # and
     # interval between points s[i] and t[i] is the minimal among all intervals
     if closestIndices is None:
         closestIndices = np.argmin(dist, axis=0)
     else:
         np.argmin(dist, axis=0, out=closestIndices)
 
-    # closestPoints[k] is the closest to p[k] point belonging to the interval between points
+    # closestPoints[k] is the closest to p[k] point belonging to the interval
+    # between points
     # s[closestIndices[k]] and t[closestIndices[k]]
     closestPoints = np.array([(sOrig[closestIndices[I]] if sDist[closestIndices[I]][I] < tDist[closestIndices[I]][I] else tOrig[closestIndices[I]]) \
         if ignor[closestIndices[I]][I] else proj[closestIndices[I]][I] for I in np.ndindex(closestIndices.shape)])
@@ -1209,82 +1218,83 @@ def createProjectionsOntoGroundTruthTree(sOrig, tOrig, pOrig, closestIndices=Non
     return closestPoints
 
 def doCreateProjectionsOntoGroundTruthTreeGraphPolyDataFile(args):
-    dirname        = args.dirname
-    basename       = args.basename
-    pointsArrName  = args.points
+    dirname = args.dirname
+    basename = args.basename
+    pointsArrName = args.points
 
-    filename       = os.path.join(dirname, 'tree_structure.xml')
-    dataset        = IO.readGxlFile(filename)
+    filename = os.path.join(dirname, 'tree_structure.xml')
+    dataset = IO.readGxlFile(filename)
 
-    positions      = dataset['positions']
-    indices1       = dataset['indices1']
-    indices2       = dataset['indices2']
+    positions = dataset['positions']
+    indices1 = dataset['indices1']
+    indices2 = dataset['indices2']
 
-    sOrig          = positions[indices1]
-    tOrig          = positions[indices2]
+    sOrig = positions[indices1]
+    tOrig = positions[indices2]
 
-    filename       = os.path.join(dirname, basename)
-    dataset        = IO.readRawFile(filename, shape=(101,101,101))
+    filename = os.path.join(dirname, basename)
+    dataset = IO.readRawFile(filename, shape=(101,101,101))
 
-    points         = dataset[pointsArrName]
+    points = dataset[pointsArrName]
     numberOfPoints = len(points)
-    projections    = createProjectionsOntoGroundTruthTree(sOrig, tOrig, points)
+    projections = createProjectionsOntoGroundTruthTree(sOrig, tOrig, points)
 
-    indices1       = list(xrange(numberOfPoints))
-    indices2       = list(xrange(numberOfPoints, 2 * numberOfPoints))
+    indices1 = list(xrange(numberOfPoints))
+    indices2 = list(xrange(numberOfPoints, 2 * numberOfPoints))
 
-    pointsArr      = np.vstack((points, projections))
-    polyData       = createGraphPolyData(pointsArr, indices1, indices2)
+    pointsArr = np.vstack((points, projections))
+    polyData = createGraphPolyData(pointsArr, indices1, indices2)
 
-    filename, _    = os.path.splitext(filename)
-    filename       = filename + 'ProjectionsOntoGroundTruthTree.vtp'
+    filename, _ = os.path.splitext(filename)
+    filename = filename + 'ProjectionsOntoGroundTruthTree.vtp'
     IO.writePolyDataFile(filename, polyData)
 
 def doAnalyzeNonMaximumSuppressionVolumeCsv(args):
-    dirname        = args.dirname
-    basenameOrig   = args.basenameOrig
-    basename       = args.basename
-    pointsArrName  = args.points
+    dirname = args.dirname
+    basenameOrig = args.basenameOrig
+    basename = args.basename
+    pointsArrName = args.points
     thresholdAbove = args.thresholdAbove
 
-    filename  = os.path.join(dirname, 'tree_structure.xml')
-    dataset   = IO.readGxlFile(filename)
+    filename = os.path.join(dirname, 'tree_structure.xml')
+    dataset = IO.readGxlFile(filename)
 
     positions = dataset['positions']
-    indices1  = dataset['indices1']
-    indices2  = dataset['indices2']
+    indices1 = dataset['indices1']
+    indices2 = dataset['indices2']
 
-    sOrig     = positions[indices1]
-    tOrig     = positions[indices2]
+    sOrig = positions[indices1]
+    tOrig = positions[indices2]
 
-    filenameOrig    = os.path.join(dirname, basenameOrig)
-    filename        = os.path.join(dirname, basename)
+    filenameOrig = os.path.join(dirname, basenameOrig)
+    filename = os.path.join(dirname, basename)
 
-    datasetOrig     = IO.readRawFile(filenameOrig, shape=(101,101,101))
-    dataset         = IO.readRawFile(filename, shape=(101,101,101))
+    datasetOrig = IO.readRawFile(filenameOrig, shape=(101,101,101))
+    dataset = IO.readRawFile(filename, shape=(101,101,101))
 
-    pointsOrig      = datasetOrig[pointsArrName]
-    points          = dataset[pointsArrName]
+    pointsOrig = datasetOrig[pointsArrName]
+    points = dataset[pointsArrName]
 
-    responsesOrig   = datasetOrig['responses']
+    responsesOrig = datasetOrig['responses']
 
     numberOfPointsOrig = len(pointsOrig)
-    numberOfPoints     = len(points)
+    numberOfPoints = len(points)
 
     projectionsOrig = createProjectionsOntoGroundTruthTree(sOrig, tOrig, pointsOrig)
-    distancesOrig   = linalg.norm(pointsOrig - projectionsOrig, axis=1)
+    distancesOrig = linalg.norm(pointsOrig - projectionsOrig, axis=1)
 
     # anything farther that thresholdAbove is considered to be negative
-    ignorOrig        = distancesOrig > thresholdAbove
-    positives,       = np.where(~ignorOrig)
-    negatives,       = np.where( ignorOrig)
+    ignorOrig = distancesOrig > thresholdAbove
+    positives, = np.where(~ignorOrig)
+    negatives, = np.where(ignorOrig)
 
     numberOfNegatives = len(negatives) # the number of real negative cases in the data
     numberOfPositives = len(positives) # the number of real positive cases in the data
     assert numberOfPositives + numberOfNegatives == numberOfPointsOrig
 
-    # pairwiseRel[i,k] is True when pointsOrig[i] and points[k] are the same points
-    pairwiseRel         = np.all(np.equal(pointsOrig[:,np.newaxis,:], points[np.newaxis,:,:]), axis=2)
+    # pairwiseRel[i,k] is True when pointsOrig[i] and points[k] are the same
+    # points
+    pairwiseRel = np.all(np.equal(pointsOrig[:,np.newaxis,:], points[np.newaxis,:,:]), axis=2)
     indicesOrig,indices = np.nonzero(pairwiseRel)
     assert np.array_equal(pointsOrig[indicesOrig], points[indices])
 
@@ -1308,9 +1318,9 @@ def doAnalyzeNonMaximumSuppressionVolumeCsv(args):
     assert numberOfTruePos + numberOfFalsPos == numberOfPoints
 
     precision = float(numberOfTruePos) / (numberOfTruePos + numberOfFalsPos)
-    recall    = float(numberOfTruePos) / (numberOfTruePos + numberOfFalsNeg)
-    accuracy  = (float(numberOfTruePos) + numberOfTrueNeg) / (numberOfPositives + numberOfNegatives)
-    fmeasure  = 2 * (precision * recall) / (precision + recall)
+    recall = float(numberOfTruePos) / (numberOfTruePos + numberOfFalsNeg)
+    accuracy = (float(numberOfTruePos) + numberOfTrueNeg) / (numberOfPositives + numberOfNegatives)
+    fmeasure = 2 * (precision * recall) / (precision + recall)
 
     print "numberOfPositives,numberOfNegatives,numberOfTruePositives,numberOfFalsePositives,numberOfFalseNegatives,numberOfTrueNegatives,precision,recall,accuracy,fmeasure"
     print ",".join(str(i) for i in (numberOfPositives,numberOfNegatives,numberOfTruePos,numberOfFalsPos,numberOfFalsNeg,numberOfTrueNeg,precision,recall,accuracy,fmeasure))
@@ -1322,50 +1332,50 @@ def doAnalyzeNonMaximumSuppressionVolumeCsv(args):
     print np.mean(responsesOrig[falsPositives]),np.std(responsesOrig[falsPositives])
 
 def doCreateDistanceToClosestPointsCsv(args):
-    dirname          = args.dirname
-    basename         = args.basename
-    voxelWidth       = args.voxelWidth
-    pointsArrName    = args.points
-    doOutputHeader   = args.doOutputHeader
+    dirname = args.dirname
+    basename = args.basename
+    voxelWidth = args.voxelWidth
+    pointsArrName = args.points
+    doOutputHeader = args.doOutputHeader
     prependHeaderStr = args.prependHeaderStr
-    prependRowStr    = args.prependRowStr
-    minRadiusIncl    = args.minRadiusIncl
-    maxRadiusExcl    = args.maxRadiusExcl
+    prependRowStr = args.prependRowStr
+    minRadiusIncl = args.minRadiusIncl
+    maxRadiusExcl = args.maxRadiusExcl
 
-    filename       = os.path.join(dirname, 'tree_structure.xml')
-    dataset        = IO.readGxlFile(filename)
+    filename = os.path.join(dirname, 'tree_structure.xml')
+    dataset = IO.readGxlFile(filename)
 
-    positions      = dataset['positions']
-    positions      = voxelWidth * positions
+    positions = dataset['positions']
+    positions = voxelWidth * positions
 
-    indices1       = dataset['indices1']
-    indices2       = dataset['indices2']
-    radiuses       = dataset['radiusPrime']
+    indices1 = dataset['indices1']
+    indices2 = dataset['indices2']
+    radiuses = dataset['radiusPrime']
 
-    sOrig          = positions[indices1]
-    tOrig          = positions[indices2]
+    sOrig = positions[indices1]
+    tOrig = positions[indices2]
 
-    filename       = os.path.join(dirname, basename)
-    dataset        = IO.readH5File(filename)
+    filename = os.path.join(dirname, basename)
+    dataset = IO.readH5File(filename)
 
-    points         = dataset[pointsArrName]
+    points = dataset[pointsArrName]
     numberOfPoints = len(points)
 
-    closestIndices  = np.empty((numberOfPoints,), dtype='int32')
-    closestPoints   = createProjectionsOntoGroundTruthTree(sOrig, tOrig, points, closestIndices)
+    closestIndices = np.empty((numberOfPoints,), dtype='int32')
+    closestPoints = createProjectionsOntoGroundTruthTree(sOrig, tOrig, points, closestIndices)
     closestRadiuses = radiuses[closestIndices]
 
     distancesSq = np.sum(np.square(closestPoints - points), axis=1)
-    ignor       = np.logical_or(closestRadiuses < minRadiusIncl, closestRadiuses >= maxRadiusExcl)
+    ignor = np.logical_or(closestRadiuses < minRadiusIncl, closestRadiuses >= maxRadiusExcl)
     distancesSq = distancesSq[~ignor]
-    distances   = np.sqrt(distancesSq)
+    distances = np.sqrt(distancesSq)
 
     num = len(distances)
     sum = np.sum(distances)
     ssd = np.sum(distancesSq)
     ave = sum / num # ave = np.mean(distances)
     msd = ssd / num # np.mean(distancesSq)
-    var = msd - ave*ave # var = np.var(distances)
+    var = msd - ave * ave # var = np.var(distances)
     std = np.sqrt(var) # std = np.std(distances)
     med = np.median(distances)
     p25 = np.percentile(distances, q=25)
@@ -1382,45 +1392,45 @@ def doCreateDistanceToClosestPointsCsv(args):
     print prependRowStr + (",".join(str(kvp[1]) for kvp in keyValPairs))
 
 def doCreateCoDirectionalityWithClosestPointsCsv(args):
-    dirname          = args.dirname
-    basename         = args.basename
-    pointsArrName    = args.points
-    doOutputHeader   = args.doOutputHeader
+    dirname = args.dirname
+    basename = args.basename
+    pointsArrName = args.points
+    doOutputHeader = args.doOutputHeader
     prependHeaderStr = args.prependHeaderStr
-    prependRowStr    = args.prependRowStr
+    prependRowStr = args.prependRowStr
 
-    filename       = os.path.join(dirname, 'tree_structure.xml')
-    dataset        = IO.readGxlFile(filename)
+    filename = os.path.join(dirname, 'tree_structure.xml')
+    dataset = IO.readGxlFile(filename)
 
-    positions      = dataset['positions']
-    indices1       = dataset['indices1']
-    indices2       = dataset['indices2']
+    positions = dataset['positions']
+    indices1 = dataset['indices1']
+    indices2 = dataset['indices2']
 
-    sOrig          = positions[indices1]
-    tOrig          = positions[indices2]
+    sOrig = positions[indices1]
+    tOrig = positions[indices2]
 
-    filename       = os.path.join(dirname, basename)
-    dataset        = IO.readH5File(filename)
+    filename = os.path.join(dirname, basename)
+    dataset = IO.readH5File(filename)
 
-    points              = dataset[pointsArrName]
+    points = dataset[pointsArrName]
     tangentLinesPoints1 = dataset['tangentLinesPoints1']
     tangentLinesPoints2 = dataset['tangentLinesPoints2']
     
     numberOfPoints = len(points)
 
     closestIndices = np.zeros(points.shape[:1], dtype='int64')
-    closestPoints  = createProjectionsOntoGroundTruthTree(sOrig, tOrig, points, closestIndices)
+    closestPoints = createProjectionsOntoGroundTruthTree(sOrig, tOrig, points, closestIndices)
 
-    tangentLinesOrig  = sOrig[closestIndices] - tOrig[closestIndices]
-    tangentLinesOrig  = tangentLinesOrig / linalg.norm(tangentLinesOrig, axis=1, keepdims=True)
+    tangentLinesOrig = sOrig[closestIndices] - tOrig[closestIndices]
+    tangentLinesOrig = tangentLinesOrig / linalg.norm(tangentLinesOrig, axis=1, keepdims=True)
 
-    tangentLines      = tangentLinesPoints1 - tangentLinesPoints2
-    tangentLines      = tangentLines / linalg.norm(tangentLines, axis=1, keepdims=True)
+    tangentLines = tangentLinesPoints1 - tangentLinesPoints2
+    tangentLines = tangentLines / linalg.norm(tangentLines, axis=1, keepdims=True)
 
     xs = np.abs(np.sum(tangentLines * tangentLinesOrig, axis=1)) # cos(u,v)
     ys = np.sqrt(1 - np.square(xs)) # sin(u,v)
 
-    num   = numberOfPoints
+    num = numberOfPoints
 
     sumXs = np.sum(xs)
     sumYs = np.sum(ys)
@@ -1438,30 +1448,30 @@ def doCreateCoDirectionalityWithClosestPointsCsv(args):
     print prependRowStr + (",".join(str(kvp[1]) for kvp in keyValPairs))
 
 def doCreateDistanceClosestInnerNodesCsv(args):
-    dirname          = args.dirname
-    basename         = args.basename
-    pointsArrName    = args.points
-    doOutputHeader   = args.doOutputHeader
+    dirname = args.dirname
+    basename = args.basename
+    pointsArrName = args.points
+    doOutputHeader = args.doOutputHeader
     prependHeaderStr = args.prependHeaderStr
-    prependRowStr    = args.prependRowStr
+    prependRowStr = args.prependRowStr
 
-    filename       = os.path.join(dirname, 'tree_structure.xml')
-    dataset        = IO.readGxlFile(filename)
+    filename = os.path.join(dirname, 'tree_structure.xml')
+    dataset = IO.readGxlFile(filename)
 
-    positionsOrig  = dataset['positions']
-    nodeTypes      = dataset['nodeTypes']
+    positionsOrig = dataset['positions']
+    nodeTypes = dataset['nodeTypes']
 
-    pointsOrig     = positionsOrig[nodeTypes == 'b']
+    pointsOrig = positionsOrig[nodeTypes == 'b']
 
-    filename       = os.path.join(dirname, basename)
-    dataset        = IO.readH5File(filename)
+    filename = os.path.join(dirname, basename)
+    dataset = IO.readH5File(filename)
 
-    positions      = dataset[pointsArrName]
+    positions = dataset[pointsArrName]
     numberOfPoints = len(positions)
 
-    identity       = np.identity(numberOfPoints)
-    indices1       = dataset['indices1']
-    indices2       = dataset['indices2']
+    identity = np.identity(numberOfPoints)
+    indices1 = dataset['indices1']
+    indices2 = dataset['indices2']
     
     deg = np.zeros(numberOfPoints, dtype=np.int)
 
@@ -1469,18 +1479,18 @@ def doCreateDistanceClosestInnerNodesCsv(args):
         deg[i] += 1
         deg[k] += 1
     
-    points         = positions[deg > 2]
+    points = positions[deg > 2]
 
-    pointsTree          = KDTree(points)
+    pointsTree = KDTree(points)
     distances,neighbors = pointsTree.query(pointsOrig)
     neighbors = neighbors.flatten()
 
-    pointsOrigTree              = KDTree(pointsOrig)
+    pointsOrigTree = KDTree(pointsOrig)
     distancesOrig,neighborsOrig = pointsOrigTree.query(points)
     neighborsOrig = neighborsOrig.flatten()
     
     maskOrig = neighborsOrig[neighbors] == np.arange(len(neighbors))
-    mask     = neighbors[neighborsOrig] == np.arange(len(neighborsOrig))
+    mask = neighbors[neighborsOrig] == np.arange(len(neighborsOrig))
 
     assert np.count_nonzero(maskOrig) == np.count_nonzero(mask)
 
@@ -1522,10 +1532,10 @@ def doCreateDistanceClosestInnerNodesCsv(args):
     print prependRowStr + (",".join(str(kvp[1]) for kvp in keyValPairs))
 
 def doCreateFrangiDistanceComparisonChart(args):
-    dirname         = args.dirname
-    basenames       = args.basenames
-    argDataSetName  = args.arg
-    valDataSetName  = args.val
+    dirname = args.dirname
+    basenames = args.basenames
+    argDataSetName = args.arg
+    valDataSetName = args.val
 
     plt.figure(dpi=600, figsize=(20,20))
 
@@ -1536,12 +1546,12 @@ def doCreateFrangiDistanceComparisonChart(args):
     plt.ylabel(valDataSetName)
 
     for basename,colorname in zip(basenames, ('red','blue','green','purple')):
-        filename    = os.path.join(dirname, basename)
+        filename = os.path.join(dirname, basename)
         if os.path.exists(filename):
             labelname,_ = os.path.splitext(basename)
-            dataset     = pd.read_csv(filename)
-            argDataSet  = dataset[argDataSetName]
-            valDataSet  = dataset[valDataSetName]
+            dataset = pd.read_csv(filename)
+            argDataSet = dataset[argDataSetName]
+            valDataSet = dataset[valDataSetName]
             plt.scatter(argDataSet, valDataSet, color=colorname, label=labelname, marker='.')
 
     plt.legend(loc='upper left')
@@ -1551,32 +1561,32 @@ def doCreateFrangiDistanceComparisonChart(args):
     plt.savefig(filename)
 
 def doCreateTreeStructureH5File(args):
-    dirname     = args.dirname
-    voxelWidth  = args.voxelWidth
+    dirname = args.dirname
+    voxelWidth = args.voxelWidth
     
     filename = os.path.join(dirname, 'tree_structure.xml')
-    dataset  = IO.readGxlFile(filename)
+    dataset = IO.readGxlFile(filename)
      
     positions = dataset['positions']
-    indices1  = dataset['indices1']   
-    indices2  = dataset['indices2']   
-    radiuses  = dataset['radiusPrime']
+    indices1 = dataset['indices1']   
+    indices2 = dataset['indices2']   
+    radiuses = dataset['radiusPrime']
     
     positions = voxelWidth * positions
 
     dataset = dict()
 
     dataset['positions'] = positions
-    dataset['indices1']  = indices1
-    dataset['indices2']  = indices2
-    dataset['radiuses']  = radiuses
+    dataset['indices1'] = indices1
+    dataset['indices2'] = indices2
+    dataset['radiuses'] = radiuses
 
     filename = os.path.join(dirname, 'tree_structure.h5')
     IO.writeH5File(filename, dataset)
 
 def doConvertTubeTKFileToH5File(args):
-    dirname    = args.dirname
-    basename   = args.basename
+    dirname = args.dirname
+    basename = args.basename
     voxelWidth = args.voxelWidth
 
     filename = os.path.join(dirname, basename)
@@ -1588,7 +1598,7 @@ def doConvertTubeTKFileToH5File(args):
 
         for m in re.finditer(pattern, str):
             NPoints = int(m.group('NPoints'))
-            Points  = m.group('Points').split('\n')
+            Points = m.group('Points').split('\n')
             assert NPoints == len(Points)
             allPoints.extend(Points)
 
@@ -1628,32 +1638,137 @@ def doConvertTubeTKFileToH5File(args):
         tangentLinesPoints2.append(z - tz)
 
     filename, _ = os.path.splitext(filename)
-    filename    = filename + '.h5'
+    filename = filename + '.h5'
 
     dataset = dict()
 
-    dataset['positions']           = np.array(positions, dtype=np.double)
-    dataset['radiuses']            = np.array(radiuses, dtype=np.double)
+    dataset['positions'] = np.array(positions, dtype=np.double)
+    dataset['radiuses'] = np.array(radiuses, dtype=np.double)
     dataset['tangentLinesPoints1'] = np.array(tangentLinesPoints1, dtype=np.double)
     dataset['tangentLinesPoints2'] = np.array(tangentLinesPoints2, dtype=np.double)
-    dataset['measurements']        = np.array([], dtype=np.double)
-    dataset['objectnessMeasure']   = np.array([], dtype=np.double)
+    dataset['measurements'] = np.array([], dtype=np.double)
+    dataset['objectnessMeasure'] = np.array([], dtype=np.double)
 
     IO.writeH5File(filename, dataset)
 
 def doComputeLengthOfMinimumSpanningTree(args):
-    dirname  = args.dirname
+    dirname = args.dirname
     basename = args.basename
 
     filename = os.path.join(dirname, basename)
-    dataset  = IO.readH5File(filename)
+    dataset = IO.readH5File(filename)
 
     positions = dataset['positions']
-    indices1  = dataset['indices1']
-    indices2  = dataset['indices2']
+    indices1 = dataset['indices1']
+    indices2 = dataset['indices2']
 
     lengthOfMinimumSpanningTree = linalg.norm(positions[indices1] - positions[indices2], axis=1).sum()
     print lengthOfMinimumSpanningTree
+
+def doPlotDistanceToClosestPointsAgainstLengthOfMinimumSpanningTree(args):
+    dirname = args.dirname
+    basename = args.basename
+
+    filename = os.path.join(dirname, basename)
+
+    thresholds = np.array([0.02,0.04,0.06,0.08,0.10,0.12,0.14,0.16,0.18,0.20],dtype=float)
+    distancesToClosestPoints = np.array([100,90,80,70,60,50,40,30,20,10],dtype=float)
+    distancesToClosestPointsStd = np.array([1,2,1,2,1,2,1,2,1,2],dtype=float)
+    lengthsOfMinimumSpanningTree = np.array([303.3745022,279.3026574,257.1022683,237.4869511,220.1730432,204.0034839,189.0027731,175.2272198,162.1135914,150.3167844],dtype=float)
+    lengthsOfMinimumSpanningTreeStd = np.array([5.510502504,5.796899314,5.740989963,5.669363902,5.722441026,5.620959512,5.884145791,6.00747231,6.098954469,6.020057755],dtype=float)
+    
+    plt.errorbar(lengthsOfMinimumSpanningTree, distancesToClosestPoints, xerr=lengthsOfMinimumSpanningTreeStd, yerr=distancesToClosestPointsStd, color='green')
+    plt.show()
+
+    pass
+
+def getImageNames(numImages):
+    return ['image{:03d}'.format(num) for num in xrange(1, 1 + numImages)]
+
+def getThresholdValues():
+    return ['{:1d}.{:02d}'.format(num / 100, num % 100) for num in np.linspace(2, 20, 10, dtype=int)]
+
+def getParameterValues():
+    return ['{:1d}.{:02d}'.format(num / 100, num % 100) for num in np.linspace(5, 200, 40, dtype=int)]
+
+def compute_average_distance(group):
+    return group['SUM'].sum() / group['NUM'].sum()
+
+def compute_std_of_distance(group):
+    average_distance = compute_average_distance(group)
+    return np.sqrt((group['SSD'].sum() / group['NUM'].sum()) - average_distance * average_distance)
+
+def compute_average_ratio_of_lengths_pct(group):
+    ratio_of_lengths = group['EMST'] / group['GTR'] 
+    return ratio_of_lengths.mean() * 100
+
+def compute_std_of_ratio_of_lengths_pct(group):
+    ratio_of_lengths = group['EMST'] / group['GTR'] 
+    return ratio_of_lengths.std() * 100
+
+def doAnalyzeOurMethod(args):
+    dirname   = args.dirname
+    numImages = args.numImages
+
+    thresholdValues = getThresholdValues()
+    parameterValues = getParameterValues()
+
+    result = pd.DataFrame()
+
+    for imageName in getImageNames(numImages):
+        with open(os.path.join(dirname, imageName, 'GroundTruthLengthOfMinimumSpanningTree.txt')) as f:
+            lengthOfGroundTruthTree = float(f.read())
+
+        for thresholdValue in thresholdValues:
+            df = pd.read_csv(os.path.join(dirname, imageName, thresholdValue, 'NonMaximumSuppressionVolumeDistanceToClosestPoints-0.000-1.000.csv'))
+
+            df.insert(0,'IMG',imageName)
+            df.insert(1,'THV',thresholdValue)
+            df.insert(len(df.columns), 'EMST', np.nan)
+            df.insert(len(df.columns), 'MST1', np.nan)
+            df.insert(len(df.columns), 'MST2', np.nan)
+            df.insert(len(df.columns), 'GTR', lengthOfGroundTruthTree)
+            
+            #with open(os.path.join(dirname, imageName, thresholdValue, 'NonMaximumSuppressionVolumeEMSTLengthOfMinimumSpanningTree.txt')) as f:
+            #        lengthOfEmst = float(f.read())
+
+            for parameterValue in parameterValues:
+                with open(os.path.join(dirname, imageName, thresholdValue, parameterValue, 'NonMaximumSuppressionCurvVolumeEMSTLengthOfMinimumSpanningTree.txt')) as f:
+                    lengthOfEmst = float(f.read())
+
+                with open(os.path.join(dirname, imageName, thresholdValue, parameterValue, 'NonMaximumSuppressionCurvVolumeArcLengthsMinMSTLengthOfMinimumSpanningTree.txt')) as f:
+                    lengthOfMST1 = float(f.read())
+
+                with open(os.path.join(dirname, imageName, thresholdValue, parameterValue, 'NonMaximumSuppressionCurvVolumeArcLengthsSumMSTLengthOfMinimumSpanningTree.txt')) as f:
+                    lengthOfMST2 = float(f.read())
+
+                parameterValue = float(parameterValue)
+
+                df.loc[df['PAR'] == parameterValue,'EMST'] = lengthOfEmst
+                df.loc[df['PAR'] == parameterValue,'MST1'] = lengthOfMST1
+                df.loc[df['PAR'] == parameterValue,'MST2'] = lengthOfMST2
+
+            result = result.append(df)
+
+    result.sort_values(['IMG','THV','PAR'], inplace=True)
+    result.to_csv(os.path.join(dirname, 'OurResult.csv'), index=False)
+
+    #df = pd.DataFrame(columns=['THV','AVE','STD','EMST','EMST.STD'])
+
+    #for i, (name,group) in enumerate(result.groupby(['THV'])):
+    #    assert group['SUM'].count() == numImages
+    #    average_distance = compute_average_distance(group) / voxel_width
+    #    std_of_distance = compute_std_of_distance(group) / voxel_width
+    #    average_ratio_of_lengths = compute_average_ratio_of_lengths_pct(group)
+    #    std_of_ratio_of_lengths = compute_std_of_ratio_of_lengths_pct(group)
+    #    threshold_value = float(name)
+
+    #    df.loc[i] = (threshold_value, average_distance, std_of_distance, average_ratio_of_lengths, std_of_ratio_of_lengths)
+    #    #print '{:.2f} {:.3f} ({:.3f}) {:2.1f}
+    #    #({:2.1f})'.format(threshold_value, average_distance, std_of_distance,
+    #    #average_ratio_of_lengths, std_of_ratio_of_lengths)
+
+    #df.to_csv(os.path.join(dirname, 'OurResult.csv'), index=False)
 
 if __name__ == '__main__':
     # create the top-level parser
@@ -1765,7 +1880,8 @@ if __name__ == '__main__':
     subparser.add_argument('basename')
     subparser.set_defaults(func=doAnalyzeLabeling)
 
-    # create the parser for the "doProjectionOntoSourceTreePolyDataFile" command
+    # create the parser for the "doProjectionOntoSourceTreePolyDataFile"
+    # command
     subparser = subparsers.add_parser('doProjectionOntoSourceTreePolyDataFile')
     subparser.add_argument('dirname')
     subparser.add_argument('targetFileBasename')
@@ -1780,7 +1896,8 @@ if __name__ == '__main__':
     subparser.add_argument('--points', default='positions')
     subparser.set_defaults(func=doProjectionOntoSourceTreeCsv)
 
-    # create the parser for the "doCreateDatabaseProjectionOntoSourceTreeCsvFile" command
+    # create the parser for the
+    # "doCreateDatabaseProjectionOntoSourceTreeCsvFile" command
     subparser = subparsers.add_parser('doCreateDatabaseProjectionOntoSourceTreeCsvFile')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
@@ -1794,14 +1911,16 @@ if __name__ == '__main__':
     subparser.add_argument('basename')
     subparser.set_defaults(func=doErrorBar)
 
-    # create the parser for the "doCreateProjectionsOntoGroundTruthTreeGraphPolyDataFile" command
+    # create the parser for the
+    # "doCreateProjectionsOntoGroundTruthTreeGraphPolyDataFile" command
     subparser = subparsers.add_parser('doCreateProjectionsOntoGroundTruthTreeGraphPolyDataFile')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.add_argument('--points', default='positions')
     subparser.set_defaults(func=doCreateProjectionsOntoGroundTruthTreeGraphPolyDataFile)
 
-    # create the parser for the "doAnalyzeNonMaximumSuppressionVolumeCsv" command
+    # create the parser for the "doAnalyzeNonMaximumSuppressionVolumeCsv"
+    # command
     subparser = subparsers.add_parser('doAnalyzeNonMaximumSuppressionVolumeCsv')
     subparser.add_argument('dirname')
     subparser.add_argument('basenameOrig')
@@ -1823,7 +1942,8 @@ if __name__ == '__main__':
     subparser.add_argument('--maxRadiusExcl', default=np.inf, type=float)
     subparser.set_defaults(func=doCreateDistanceToClosestPointsCsv)
 
-    # create the parser for the "doCreateCoDirectionalityWithClosestPointsCsv" command
+    # create the parser for the "doCreateCoDirectionalityWithClosestPointsCsv"
+    # command
     subparser = subparsers.add_parser('doCreateCoDirectionalityWithClosestPointsCsv')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
@@ -1869,6 +1989,19 @@ if __name__ == '__main__':
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.set_defaults(func=doComputeLengthOfMinimumSpanningTree)
+
+    # create the parser for the
+    # "doPlotDistanceToClosestPointsAgainstLengthOfMinimumSpanningTree" command
+    subparser = subparsers.add_parser('doPlotDistanceToClosestPointsAgainstLengthOfMinimumSpanningTree')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.set_defaults(func=doPlotDistanceToClosestPointsAgainstLengthOfMinimumSpanningTree)
+
+    # create the parser for the "doAnalyzeOurMethod" command
+    subparser = subparsers.add_parser('doAnalyzeOurMethod')
+    subparser.add_argument('dirname')
+    subparser.add_argument('--numImages', type=int)
+    subparser.set_defaults(func=doAnalyzeOurMethod)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
