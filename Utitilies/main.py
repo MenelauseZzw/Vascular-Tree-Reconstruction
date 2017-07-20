@@ -1698,17 +1698,18 @@ def computeStandardDeviationOfDistance(group):
     averageDistance = computeAverageDistance(group)
     return np.sqrt((group['SSD'].sum() / group['NUM'].sum()) - averageDistance * averageDistance)
 
-def compute_average_ratio_of_lengths_pct(group):
-    ratio_of_lengths = group['EMST'] / group['GTR'] 
-    return ratio_of_lengths.mean() * 100
+def computeAverageRatioOfLengthsPct(group):
+    ratioOfLengths = group['EMST'] / group['GTT'] 
+    return ratioOfLengths.mean() * 100
 
-def compute_std_of_ratio_of_lengths_pct(group):
-    ratio_of_lengths = group['EMST'] / group['GTR'] 
-    return ratio_of_lengths.std() * 100
+def computeStandardDeviationOfRatioOfLengthsPct(group):
+    ratioOfLengths = group['EMST'] / group['GTT'] 
+    return ratioOfLengths.std() * 100
 
 def doAnalyzeOurMethod(args):
-    dirname   = args.dirname
-    numImages = args.numImages
+    dirname    = args.dirname
+    numImages  = args.numImages
+    voxelWidth = args.voxelWidth
 
     thresholdValues = getThresholdValues()
     parameterValues = getParameterValues()
@@ -1730,7 +1731,9 @@ def doAnalyzeOurMethod(args):
                 df.insert(len(df.columns), 'MST2', np.nan)
                 df.insert(len(df.columns), 'GTT', lengthOfGroundTruthTree)
 
-            #with open(os.path.join(dirname, imageName, thresholdValue, 'NonMaximumSuppressionVolumeEMSTLengthOfMinimumSpanningTree.txt')) as f:
+            #with open(os.path.join(dirname, imageName, thresholdValue,
+            #'NonMaximumSuppressionVolumeEMSTLengthOfMinimumSpanningTree.txt'))
+            #as f:
             #        lengthOfEmst = float(f.read())
 
                 for parameterValue in parameterValues:
@@ -1757,22 +1760,20 @@ def doAnalyzeOurMethod(args):
     result.sort_values(['IMG','THV','PAR'], inplace=True)
     result.to_csv(os.path.join(dirname, 'OurResult.csv'), index=False)
 
-    #df = pd.DataFrame(columns=['THV','AVE','STD','EMST','EMST.STD'])
+    for parameterValue in parameterValues:
+        df = pd.DataFrame(columns=['THV','AVE','STD','EMST','EMST.STD'])
+        thisParameterValueResult = result[result['PAR'] == float(parameterValue)]
+        for i, (name,group) in enumerate(thisParameterValueResult.groupby(['THV'])):
+            assert group['SUM'].count() == numImages
+            averageDistance             = computeAverageDistance(group) / voxelWidth
+            standardDeviationOfDistance = computeStandardDeviationOfDistance(group) / voxelWidth
+            averageRatioOfLengths             = computeAverageRatioOfLengthsPct(group)
+            standardDeviationOfRatioOfLengths = computeStandardDeviationOfRatioOfLengthsPct(group)
+            thresholdValue = float(name)
 
-    #for i, (name,group) in enumerate(result.groupby(['THV'])):
-    #    assert group['SUM'].count() == numImages
-    #    averageDistance             = computeAverageDistance(group) / voxel_width
-    #    standardDeviationOfDistance = computeStandardDeviationOfDistance(group) / voxel_width
-    #    average_ratio_of_lengths = compute_average_ratio_of_lengths_pct(group)
-    #    std_of_ratio_of_lengths = compute_std_of_ratio_of_lengths_pct(group)
-    #    thresholdValue = float(name)
+            df.loc[i] = (thresholdValue, averageDistance, standardDeviationOfDistance, averageRatioOfLengths, standardDeviationOfRatioOfLengths)
 
-    #    df.loc[i] = (threshold_value, average_distance, std_of_distance, average_ratio_of_lengths, std_of_ratio_of_lengths)
-    #    #print '{:.2f} {:.3f} ({:.3f}) {:2.1f}
-    #    #({:2.1f})'.format(threshold_value, average_distance, std_of_distance,
-    #    #average_ratio_of_lengths, std_of_ratio_of_lengths)
-
-    #df.to_csv(os.path.join(dirname, 'OurResult.csv'), index=False)
+        df.to_csv(os.path.join(dirname, 'OurResult-' + parameterValue + '.csv'), index=False)
 
 if __name__ == '__main__':
     # create the top-level parser
@@ -2004,6 +2005,7 @@ if __name__ == '__main__':
     # create the parser for the "doAnalyzeOurMethod" command
     subparser = subparsers.add_parser('doAnalyzeOurMethod')
     subparser.add_argument('dirname')
+    subparser.add_argument('voxelWidth', type=float)
     subparser.add_argument('--numImages', type=int)
     subparser.set_defaults(func=doAnalyzeOurMethod)
 
