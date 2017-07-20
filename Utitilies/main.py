@@ -1758,7 +1758,7 @@ def doAnalyzeOurMethod(args):
             print imageName
 
     result.sort_values(['IMG','THV','PAR'], inplace=True)
-    result.to_csv(os.path.join(dirname, 'OurResult.csv'), index=False)
+    result.to_csv(os.path.join(dirname, 'OurResult-All.csv'), index=False)
 
     for parameterValue in parameterValues:
         df = pd.DataFrame(columns=['THV','AVE','STD','EMST','EMST.STD'])
@@ -1774,6 +1774,57 @@ def doAnalyzeOurMethod(args):
             df.loc[i] = (thresholdValue, averageDistance, standardDeviationOfDistance, averageRatioOfLengths, standardDeviationOfRatioOfLengths)
 
         df.to_csv(os.path.join(dirname, 'OurResult-' + parameterValue + '.csv'), index=False)
+
+def doAnalyzeAylwardMethod(args):
+    dirname    = args.dirname
+    numImages  = args.numImages
+    voxelWidth = args.voxelWidth
+
+    thresholdValues = getThresholdValues()
+    parameterValues = getParameterValues()
+
+    result = pd.DataFrame()
+
+    for imageName in getImageNames(numImages):
+        with open(os.path.join(dirname, imageName, 'LengthOfGroundTruthTree.txt')) as f:
+            lengthOfGroundTruthTree = float(f.read())
+
+        for thresholdValue in thresholdValues:
+            df = pd.read_csv(os.path.join(dirname, imageName, thresholdValue, 'ObjectnessMeasureValueVolumeSegmentTubesResultDistanceToClosestPoints-0.000-1.000.csv'))
+            df.insert(0,'IMG',imageName)
+            df.insert(1,'THV',thresholdValue)
+
+            df.insert(len(df.columns),'GTT', lengthOfGroundTruthTree)
+
+            with open(os.path.join(dirname, imageName, thresholdValue, 'ObjectnessMeasureValueVolumeSegmentTubesResultEMSTLengthOfMinimumSpanningTree.txt')) as f:
+                lengthOfEmst = float(f.read())
+            df.insert(len(df.columns),'EMST',lengthOfEmst)
+
+            with open(os.path.join(dirname, imageName, thresholdValue, 'ObjectnessMeasureValueVolumeSegmentTubesResultArcLengthsMinMSTLengthOfMinimumSpanningTree.txt')) as f:
+                lengthOfMST1 = float(f.read())
+            df.insert(len(df.columns),'MST1',lengthOfMST1)
+
+            with open(os.path.join(dirname, imageName, thresholdValue, 'ObjectnessMeasureValueVolumeSegmentTubesResultArcLengthsSumMSTLengthOfMinimumSpanningTree.txt')) as f:
+                lengthOfMST2 = float(f.read())
+            df.insert(len(df.columns),'MST2',lengthOfMST2)
+
+            result = result.append(df)
+         
+    result.sort_values(['IMG','THV'], inplace=True)
+    result.to_csv(os.path.join(dirname, 'AylwardResult-All.csv'), index=False)
+    
+    df = pd.DataFrame(columns=['THV','AVE','STD','EMST','EMST.STD'])
+
+    for i, (name,group) in enumerate(result.groupby(['THV'])):
+        averageDistance             = computeAverageDistance(group) / voxelWidth
+        standardDeviationOfDistance = computeStandardDeviationOfDistance(group) / voxelWidth
+        averageRatioOfLengths             = computeAverageRatioOfLengthsPct(group)
+        standardDeviationOfRatioOfLengths = computeStandardDeviationOfRatioOfLengthsPct(group)
+        thresholdValue = float(name)
+        
+        df.loc[i] = (thresholdValue, averageDistance, standardDeviationOfDistance, averageRatioOfLengths, standardDeviationOfRatioOfLengths)
+
+    df.to_csv(os.path.join(dirname, 'AylwardResult.csv'), index=False)
 
 if __name__ == '__main__':
     # create the top-level parser
@@ -2008,6 +2059,13 @@ if __name__ == '__main__':
     subparser.add_argument('voxelWidth', type=float)
     subparser.add_argument('--numImages', type=int)
     subparser.set_defaults(func=doAnalyzeOurMethod)
+
+    # create the parser for the "doAnalyzeAylwardMethod" command
+    subparser = subparsers.add_parser('doAnalyzeAylwardMethod')
+    subparser.add_argument('dirname')
+    subparser.add_argument('voxelWidth', type=float)
+    subparser.add_argument('--numImages', type=int)
+    subparser.set_defaults(func=doAnalyzeAylwardMethod)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
