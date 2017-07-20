@@ -1691,12 +1691,12 @@ def getThresholdValues():
 def getParameterValues():
     return ['{:1d}.{:02d}'.format(num / 100, num % 100) for num in np.linspace(5, 200, 40, dtype=int)]
 
-def compute_average_distance(group):
+def computeAverageDistance(group):
     return group['SUM'].sum() / group['NUM'].sum()
 
-def compute_std_of_distance(group):
-    average_distance = compute_average_distance(group)
-    return np.sqrt((group['SSD'].sum() / group['NUM'].sum()) - average_distance * average_distance)
+def computeStandardDeviationOfDistance(group):
+    averageDistance = computeAverageDistance(group)
+    return np.sqrt((group['SSD'].sum() / group['NUM'].sum()) - averageDistance * averageDistance)
 
 def compute_average_ratio_of_lengths_pct(group):
     ratio_of_lengths = group['EMST'] / group['GTR'] 
@@ -1716,39 +1716,43 @@ def doAnalyzeOurMethod(args):
     result = pd.DataFrame()
 
     for imageName in getImageNames(numImages):
-        with open(os.path.join(dirname, imageName, 'GroundTruthLengthOfMinimumSpanningTree.txt')) as f:
-            lengthOfGroundTruthTree = float(f.read())
+        try:
+            with open(os.path.join(dirname, imageName, 'LengthOfGroundTruthTree.txt')) as f:
+                lengthOfGroundTruthTree = float(f.read())
 
-        for thresholdValue in thresholdValues:
-            df = pd.read_csv(os.path.join(dirname, imageName, thresholdValue, 'NonMaximumSuppressionVolumeDistanceToClosestPoints-0.000-1.000.csv'))
+            for thresholdValue in thresholdValues:
+                df = pd.read_csv(os.path.join(dirname, imageName, thresholdValue, 'NonMaximumSuppressionVolumeDistanceToClosestPoints-0.000-1.000.csv'))
 
-            df.insert(0,'IMG',imageName)
-            df.insert(1,'THV',thresholdValue)
-            df.insert(len(df.columns), 'EMST', np.nan)
-            df.insert(len(df.columns), 'MST1', np.nan)
-            df.insert(len(df.columns), 'MST2', np.nan)
-            df.insert(len(df.columns), 'GTR', lengthOfGroundTruthTree)
-            
+                df.insert(0,'IMG',imageName)
+                df.insert(1,'THV',thresholdValue)
+                df.insert(len(df.columns), 'EMST', np.nan)
+                df.insert(len(df.columns), 'MST1', np.nan)
+                df.insert(len(df.columns), 'MST2', np.nan)
+                df.insert(len(df.columns), 'GTT', lengthOfGroundTruthTree)
+
             #with open(os.path.join(dirname, imageName, thresholdValue, 'NonMaximumSuppressionVolumeEMSTLengthOfMinimumSpanningTree.txt')) as f:
             #        lengthOfEmst = float(f.read())
 
-            for parameterValue in parameterValues:
-                with open(os.path.join(dirname, imageName, thresholdValue, parameterValue, 'NonMaximumSuppressionCurvVolumeEMSTLengthOfMinimumSpanningTree.txt')) as f:
-                    lengthOfEmst = float(f.read())
+                for parameterValue in parameterValues:
+                    with open(os.path.join(dirname, imageName, thresholdValue, parameterValue, 'NonMaximumSuppressionCurvVolumeEMSTLengthOfMinimumSpanningTree.txt')) as f:
+                       lengthOfEmst = float(f.read())
 
-                with open(os.path.join(dirname, imageName, thresholdValue, parameterValue, 'NonMaximumSuppressionCurvVolumeArcLengthsMinMSTLengthOfMinimumSpanningTree.txt')) as f:
-                    lengthOfMST1 = float(f.read())
+                    with open(os.path.join(dirname, imageName, thresholdValue, parameterValue, 'NonMaximumSuppressionCurvVolumeArcLengthsMinMSTLengthOfMinimumSpanningTree.txt')) as f:
+                        lengthOfMST1 = float(f.read())
 
-                with open(os.path.join(dirname, imageName, thresholdValue, parameterValue, 'NonMaximumSuppressionCurvVolumeArcLengthsSumMSTLengthOfMinimumSpanningTree.txt')) as f:
-                    lengthOfMST2 = float(f.read())
+                    with open(os.path.join(dirname, imageName, thresholdValue, parameterValue, 'NonMaximumSuppressionCurvVolumeArcLengthsSumMSTLengthOfMinimumSpanningTree.txt')) as f:
+                        lengthOfMST2 = float(f.read())
 
-                parameterValue = float(parameterValue)
+                    parameterValue = float(parameterValue)
 
-                df.loc[df['PAR'] == parameterValue,'EMST'] = lengthOfEmst
-                df.loc[df['PAR'] == parameterValue,'MST1'] = lengthOfMST1
-                df.loc[df['PAR'] == parameterValue,'MST2'] = lengthOfMST2
+                    df.loc[df['PAR'] == parameterValue,'EMST'] = lengthOfEmst
+                    df.loc[df['PAR'] == parameterValue,'MST1'] = lengthOfMST1
+                    df.loc[df['PAR'] == parameterValue,'MST2'] = lengthOfMST2
 
-            result = result.append(df)
+                result = result.append(df)
+
+        except ValueError:
+            print imageName
 
     result.sort_values(['IMG','THV','PAR'], inplace=True)
     result.to_csv(os.path.join(dirname, 'OurResult.csv'), index=False)
@@ -1757,11 +1761,11 @@ def doAnalyzeOurMethod(args):
 
     #for i, (name,group) in enumerate(result.groupby(['THV'])):
     #    assert group['SUM'].count() == numImages
-    #    average_distance = compute_average_distance(group) / voxel_width
-    #    std_of_distance = compute_std_of_distance(group) / voxel_width
+    #    averageDistance             = computeAverageDistance(group) / voxel_width
+    #    standardDeviationOfDistance = computeStandardDeviationOfDistance(group) / voxel_width
     #    average_ratio_of_lengths = compute_average_ratio_of_lengths_pct(group)
     #    std_of_ratio_of_lengths = compute_std_of_ratio_of_lengths_pct(group)
-    #    threshold_value = float(name)
+    #    thresholdValue = float(name)
 
     #    df.loc[i] = (threshold_value, average_distance, std_of_distance, average_ratio_of_lengths, std_of_ratio_of_lengths)
     #    #print '{:.2f} {:.3f} ({:.3f}) {:2.1f}
