@@ -1826,6 +1826,49 @@ def doAnalyzeAylwardMethod(args):
 
     df.to_csv(os.path.join(dirname, 'AylwardResult.csv'), index=False)
 
+def doAnalyzeSiddiqiMethod(args):
+    dirname    = args.dirname
+    numImages  = args.numImages
+    voxelWidth = args.voxelWidth
+
+    thresholdValues = getThresholdValues()
+    parameterValues = getParameterValues()
+
+    result = pd.DataFrame()
+
+    for imageName in getImageNames(numImages):
+        with open(os.path.join(dirname, imageName, 'LengthOfGroundTruthTree.txt')) as f:
+            lengthOfGroundTruthTree = float(f.read())
+
+        for thresholdValue in thresholdValues:
+            df = pd.read_csv(os.path.join(dirname, imageName, thresholdValue, 'FluxDrivenMedialCurveExtractionDistanceToClosestPoints-0.000-1.000.csv'))
+            df.insert(0,'IMG',imageName)
+            df.insert(1,'THV',thresholdValue)
+
+            df.insert(len(df.columns),'GTT', lengthOfGroundTruthTree)
+
+            with open(os.path.join(dirname, imageName, thresholdValue, 'FluxDrivenMedialCurveExtractionEMSTLengthOfMinimumSpanningTree.txt')) as f:
+                lengthOfEmst = float(f.read())
+            df.insert(len(df.columns),'EMST',lengthOfEmst)
+
+            result = result.append(df)
+         
+    result.sort_values(['IMG','THV'], inplace=True)
+    result.to_csv(os.path.join(dirname, 'SiddiqiResult-All.csv'), index=False)
+    
+    df = pd.DataFrame(columns=['THV','AVE','STD','EMST','EMST.STD'])
+
+    for i, (name,group) in enumerate(result.groupby(['THV'])):
+        averageDistance             = computeAverageDistance(group) / voxelWidth
+        standardDeviationOfDistance = computeStandardDeviationOfDistance(group) / voxelWidth
+        averageRatioOfLengths             = computeAverageRatioOfLengthsPct(group)
+        standardDeviationOfRatioOfLengths = computeStandardDeviationOfRatioOfLengthsPct(group)
+        thresholdValue = float(name)
+        
+        df.loc[i] = (thresholdValue, averageDistance, standardDeviationOfDistance, averageRatioOfLengths, standardDeviationOfRatioOfLengths)
+
+    df.to_csv(os.path.join(dirname, 'SiddiqiResult.csv'), index=False)
+
 if __name__ == '__main__':
     # create the top-level parser
     argparser = argparse.ArgumentParser()
@@ -2066,6 +2109,13 @@ if __name__ == '__main__':
     subparser.add_argument('voxelWidth', type=float)
     subparser.add_argument('--numImages', type=int)
     subparser.set_defaults(func=doAnalyzeAylwardMethod)
+
+    # create the parser for the "doAnalyzeSiddiqiMethod" command
+    subparser = subparsers.add_parser('doAnalyzeSiddiqiMethod')
+    subparser.add_argument('dirname')
+    subparser.add_argument('voxelWidth', type=float)
+    subparser.add_argument('--numImages', type=int)
+    subparser.set_defaults(func=doAnalyzeSiddiqiMethod)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
