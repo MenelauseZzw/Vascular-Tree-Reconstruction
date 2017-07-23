@@ -1654,6 +1654,8 @@ def doConvertTubeTKFileToH5File(args):
 def doComputeLengthOfMinimumSpanningTree(args):
     dirname = args.dirname
     basename = args.basename
+    minRadiusIncl = args.minRadiusIncl
+    maxRadiusExcl = args.maxRadiusExcl
 
     filename = os.path.join(dirname, basename)
     dataset = IO.readH5File(filename)
@@ -1661,6 +1663,12 @@ def doComputeLengthOfMinimumSpanningTree(args):
     positions = dataset['positions']
     indices1 = dataset['indices1']
     indices2 = dataset['indices2']
+    radiuses = dataset['radiuses']
+
+    ignor = np.logical_or(radiuses < minRadiusIncl, radiuses >= maxRadiusExcl)
+    
+    indices1 = indices1[~ignor]
+    indices2 = indices2[~ignor]
 
     lengthOfMinimumSpanningTree = linalg.norm(positions[indices1] - positions[indices2], axis=1).sum()
     print lengthOfMinimumSpanningTree
@@ -1868,6 +1876,77 @@ def doAnalyzeSiddiqiMethod(args):
         df.loc[i] = (thresholdValue, averageDistance, standardDeviationOfDistance, averageRatioOfLengths, standardDeviationOfRatioOfLengths)
 
     df.to_csv(os.path.join(dirname, 'SiddiqiResult.csv'), index=False)
+
+def doComputeDistanceToClosestPointsCsv(args):
+    dirname = args.dirname
+    basename = args.basename
+    voxelWidth = args.voxelWidth
+    pointsArrName = args.points
+    doOutputHeader = args.doOutputHeader
+    prependHeaderStr = args.prependHeaderStr
+    prependRowStr = args.prependRowStr
+    minRadiusIncl = args.minRadiusIncl
+    maxRadiusExcl = args.maxRadiusExcl
+
+    filename = os.path.join(dirname, 'tree_structure.xml')
+    dataset = IO.readGxlFile(filename)
+
+    positions = dataset['positions']
+    positions = voxelWidth * positions
+
+    indicesOrig1 = dataset['indices1']
+    indicesOrig2 = dataset['indices2']
+    radiuses = dataset['radiusPrime']
+
+    sOrig = positions[indicesOrig1]
+    tOrig = positions[indicesOrig2]
+
+    filename = os.path.join(dirname, basename)
+    dataset = IO.readH5File(filename)
+
+    points = dataset[pointsArrName]
+    
+    indices1 = dataset['indices1']
+    indices2 = dataset['indices2']
+
+    numberOfPoints = len(points)
+
+    closestIndices = np.empty((numberOfPoints,), dtype='int32')
+    closestPoints = createProjectionsOntoGroundTruthTree(sOrig, tOrig, points, closestIndices)
+    closestRadiuses = radiuses[closestIndices]
+
+    distancesSq = np.sum(np.square(closestPoints - points), axis=1)
+    ignor = np.logical_or(closestRadiuses < minRadiusIncl, closestRadiuses >= maxRadiusExcl)
+    distancesSq = distancesSq[~ignor]
+    distanceToClosestPoints = np.sqrt(distancesSq)
+
+    LengthOfTree                    = np.sum(linalg.norm(points[index1] - points[index2]) for index1,index2 in zip(indices1,indices2))
+    LengthOfTreeWithinGivenRadiuses = np.sum(linalg.norm(points[index1] - points[index2]) for index1,index2 in zip(indices1,indices2) if not (ignor[index1] or ignor[index2]))
+
+    NumberOfPoints = len(distanceToClosestPoints)
+    sum = np.sum(distanceToClosestPoints)
+    ssd = np.sum(distancesSq)
+    AverageError = sum / NumberOfPoints # ave = np.mean(distances)
+    msd = ssd / NumberOfPoints # np.mean(distancesSq)
+    var = msd - AverageError * AverageError # var = np.var(distances)
+    StandardDeviation = np.sqrt(var) # std = np.std(distances)
+    Median       = np.median(distanceToClosestPoints)
+    Percentile25 = np.percentile(distanceToClosestPoints, q=25)
+    Percentile75 = np.percentile(distanceToClosestPoints, q=75)
+    Percentile95 = np.percentile(distanceToClosestPoints, q=95)
+    Percentile99 = np.percentile(distanceToClosestPoints, q=99)
+    MaximumError = np.max(distanceToClosestPoints)
+
+    NumberOfPointsWithin05Voxel = np.count_nonzero(distanceToClosestPoints <= 0.5 * voxelWidth)
+    NumberOfPointsWithin1Voxel  = np.count_nonzero(distanceToClosestPoints <= voxelWidth)
+    
+    keyValPairs = [(name,eval(name)) for name in ('NumberOfPoints', 'AverageError', 'StandardDeviation', 'MaximumError', 'Median', 'Percentile25','Percentile75','Percentile95','Percentile99',
+        'NumberOfPointsWithin05Voxel', 'NumberOfPointsWithin1Voxel', 'LengthOfTreeWithinGivenRadiuses','LengthOfTree','var','sum','ssd',)]
+
+    if (doOutputHeader):
+        print prependHeaderStr + (",".join(kvp[0] for kvp in keyValPairs))
+
+    print prependRowStr + (",".join(str(kvp[1]) for kvp in keyValPairs))
 
 if __name__ == '__main__':
     # create the top-level parser
@@ -2087,6 +2166,8 @@ if __name__ == '__main__':
     subparser = subparsers.add_parser('doComputeLengthOfMinimumSpanningTree')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
+    subparser.add_argument('--minRadiusIncl', default=0, type=float)
+    subparser.add_argument('--maxRadiusExcl', default=np.inf, type=float)
     subparser.set_defaults(func=doComputeLengthOfMinimumSpanningTree)
 
     # create the parser for the
@@ -2116,6 +2197,19 @@ if __name__ == '__main__':
     subparser.add_argument('voxelWidth', type=float)
     subparser.add_argument('--numImages', type=int)
     subparser.set_defaults(func=doAnalyzeSiddiqiMethod)
+
+    # create the parser for the "doComputeDistanceToClosestPointsCsv" command
+    subparser = subparsers.add_parser('doComputeDistanceToClosestPointsCsv')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.add_argument('voxelWidth', type=float)
+    subparser.add_argument('--points', default='positions')
+    subparser.add_argument('--doOutputHeader', default=False, action='store_true')
+    subparser.add_argument('--prependHeaderStr', default="")
+    subparser.add_argument('--prependRowStr', default="")
+    subparser.add_argument('--minRadiusIncl', default=0, type=float)
+    subparser.add_argument('--maxRadiusExcl', default=np.inf, type=float)
+    subparser.set_defaults(func=doComputeDistanceToClosestPointsCsv)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
