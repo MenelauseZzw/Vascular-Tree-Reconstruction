@@ -316,7 +316,7 @@ void DoGenerateMinimumSpanningTreeSimple(const std::string& inputFileName, const
   outputFileWriter.Write(indices2DataSetName, indices2);
 }
 
-void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::string& outputFileName, DistanceOptions distanceOption, int knn)
+void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::string& outputFileName, bool noPositionsDataSet, DistanceOptions distanceOption, int knn)
 {
   const int NumDimensions = 3;
 
@@ -336,7 +336,7 @@ void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::
   const std::string indices1DataSetName = "indices1";
   const std::string indices2DataSetName = "indices2";
 
-  BOOST_LOG_TRIVIAL(info) << "input filename = \"" << inputFileName << "\"";
+  BOOST_LOG_TRIVIAL(info) << "input filename  = \"" << inputFileName << "\"";
   BOOST_LOG_TRIVIAL(info) << "output filename = \"" << outputFileName << "\"";
 
   FileReader inputFileReader(inputFileName);
@@ -349,11 +349,14 @@ void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::
   std::vector<ValueType> objectnessMeasure;
 
   inputFileReader.Read(measurementsDataSetName, measurements);
-  inputFileReader.Read(positionsDataSetName, positions);
+  if (!noPositionsDataSet)
+    inputFileReader.Read(positionsDataSetName, positions);
   inputFileReader.Read(tangentLinesPoints1DataSetName, tangentLinesPoints1);
   inputFileReader.Read(tangentLinesPoints2DataSetName, tangentLinesPoints2);
   inputFileReader.Read(radiusesDataSetName, radiuses);
   inputFileReader.Read(objectnessMeasureDataSetName, objectnessMeasure);
+
+  const std::vector<ValueType>& points = noPositionsDataSet ? measurements : positions;
 
   std::vector<IndexType> indices1;
   std::vector<IndexType> indices2;
@@ -363,7 +366,7 @@ void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::
   case DistanceOptions::Euclidean:
     GenerateMinimumSpanningTreeWith<NumDimensions>(
       (DistanceFunctionType)ComputeEuclideanDistance<ValueType, PositionType>,
-      positions,
+      points,
       tangentLinesPoints1,
       tangentLinesPoints2,
       radiuses,
@@ -375,7 +378,7 @@ void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::
   case DistanceOptions::ArcLengthsSum:
     GenerateMinimumSpanningTreeWith<NumDimensions>(
       (DistanceFunctionType)ComputeArcLengthsSumDistance<ValueType, PositionType>,
-      positions,
+      points,
       tangentLinesPoints1,
       tangentLinesPoints2,
       radiuses,
@@ -387,7 +390,7 @@ void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::
   case DistanceOptions::ArcLengthsMin:
     GenerateMinimumSpanningTreeWith<NumDimensions>(
       (DistanceFunctionType)ComputeArcLengthsMinDistance<ValueType, PositionType>,
-      positions,
+      points,
       tangentLinesPoints1,
       tangentLinesPoints2,
       radiuses,
@@ -411,7 +414,8 @@ void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::
   outputFileWriter.Write(tangentLinesPoints2DataSetName, tangentLinesPoints2);
   outputFileWriter.Write(radiusesDataSetName, radiuses);
   outputFileWriter.Write(objectnessMeasureDataSetName, objectnessMeasure);
-  outputFileWriter.Write(positionsDataSetName, positions);
+  if (!noPositionsDataSet)
+    outputFileWriter.Write(positionsDataSetName, positions);
 
   outputFileWriter.Write(indices1DataSetName, indices1);
   outputFileWriter.Write(indices2DataSetName, indices2);
@@ -424,7 +428,9 @@ int main(int argc, char *argv[])
   std::string inputFileName;
   std::string outputFileName;
 
+  bool noPositionsDataSet = false;
   bool simpleMode = false;
+
   int optionNum = (int)DistanceOptions::Euclidean;
   int knn = -1;
 
@@ -434,6 +440,7 @@ int main(int argc, char *argv[])
     ("help", "print usage message")
     ("inputFileName", po::value(&inputFileName)->required(), "the name of the input file")
     ("outputFileName", po::value(&outputFileName)->required(), "the name of the output file")
+    ("noPositions", po::value(&noPositionsDataSet), "indicate that '/positions' dataset is not present in the input file")
     ("simple", po::value(&simpleMode), "compute Euclidean minimum spanning tree using '/positions'-dataset")
     ("optionNum", po::value(&optionNum), "the option number of distance function between two points")
     ("knn", po::value(&knn), "the number of nearest neighbors to consider (if not specified then use complete graph)");
@@ -464,7 +471,7 @@ int main(int argc, char *argv[])
 
   try
   {
-    DoGenerateMinimumSpanningTree(inputFileName, outputFileName, (DistanceOptions)optionNum, knn);
+    DoGenerateMinimumSpanningTree(inputFileName, outputFileName, noPositionsDataSet, (DistanceOptions)optionNum, knn);
     return EXIT_SUCCESS;
   }
   catch (std::exception& e)
