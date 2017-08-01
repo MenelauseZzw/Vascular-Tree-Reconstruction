@@ -1690,192 +1690,40 @@ def doPlotDistanceToClosestPointsAgainstLengthOfMinimumSpanningTree(args):
 
     pass
 
-def getImageNames(numImages):
-    return ['image{:03d}'.format(num) for num in xrange(1, 1 + numImages)]
+def analyzeResult(df, voxelSize):
+    outResult = pd.DataFrame(columns=['ThresholdValue','AverageErrorInVoxelSize','LengthsRatioOfReconstructedTreeWithinGivenRadiuses','RatioOfPointsWithin05Voxel','RatioOfPointsWithin1Voxel'])
 
-def getThresholdValues():
-    return ['{:1d}.{:02d}'.format(num / 100, num % 100) for num in np.linspace(2, 20, 10, dtype=int)]
-
-def getParameterValues():
-    return ['{:1d}.{:02d}'.format(num / 100, num % 100) for num in np.linspace(5, 200, 40, dtype=int)]
-
-def computeAverageDistance(group):
-    return group['SUM'].sum() / group['NUM'].sum()
-
-def computeStandardDeviationOfDistance(group):
-    averageDistance = computeAverageDistance(group)
-    return np.sqrt((group['SSD'].sum() / group['NUM'].sum()) - averageDistance * averageDistance)
-
-def computeAverageRatioOfLengthsPct(group):
-    ratioOfLengths = group['EMST'] / group['GTT'] 
-    return ratioOfLengths.mean() * 100
-
-def computeStandardDeviationOfRatioOfLengthsPct(group):
-    ratioOfLengths = group['EMST'] / group['GTT'] 
-    return ratioOfLengths.std() * 100
-
-def doAnalyzeOurMethod(args):
-    dirname    = args.dirname
-    numImages  = args.numImages
-    voxelWidth = args.voxelWidth
-
-    thresholdValues = getThresholdValues()
-    parameterValues = getParameterValues()
-
-    result = pd.DataFrame()
-
-    for imageName in getImageNames(numImages):
-        try:
-            with open(os.path.join(dirname, imageName, 'LengthOfGroundTruthTree.txt')) as f:
-                lengthOfGroundTruthTree = float(f.read())
-
-            for thresholdValue in thresholdValues:
-                df = pd.read_csv(os.path.join(dirname, imageName, thresholdValue, 'NonMaximumSuppressionVolumeDistanceToClosestPoints-0.000-1.000.csv'))
-
-                df.insert(0,'IMG',imageName)
-                df.insert(1,'THV',thresholdValue)
-                df.insert(len(df.columns), 'EMST', np.nan)
-                df.insert(len(df.columns), 'MST1', np.nan)
-                df.insert(len(df.columns), 'MST2', np.nan)
-                df.insert(len(df.columns), 'GTT', lengthOfGroundTruthTree)
-
-            #with open(os.path.join(dirname, imageName, thresholdValue,
-            #'NonMaximumSuppressionVolumeEMSTLengthOfMinimumSpanningTree.txt'))
-            #as f:
-            #        lengthOfEmst = float(f.read())
-
-                for parameterValue in parameterValues:
-                    with open(os.path.join(dirname, imageName, thresholdValue, parameterValue, 'NonMaximumSuppressionCurvVolumeEMSTLengthOfMinimumSpanningTree.txt')) as f:
-                       lengthOfEmst = float(f.read())
-
-                    with open(os.path.join(dirname, imageName, thresholdValue, parameterValue, 'NonMaximumSuppressionCurvVolumeArcLengthsMinMSTLengthOfMinimumSpanningTree.txt')) as f:
-                        lengthOfMST1 = float(f.read())
-
-                    with open(os.path.join(dirname, imageName, thresholdValue, parameterValue, 'NonMaximumSuppressionCurvVolumeArcLengthsSumMSTLengthOfMinimumSpanningTree.txt')) as f:
-                        lengthOfMST2 = float(f.read())
-
-                    parameterValue = float(parameterValue)
-
-                    df.loc[df['PAR'] == parameterValue,'EMST'] = lengthOfEmst
-                    df.loc[df['PAR'] == parameterValue,'MST1'] = lengthOfMST1
-                    df.loc[df['PAR'] == parameterValue,'MST2'] = lengthOfMST2
-
-                result = result.append(df)
-
-        except ValueError:
-            print imageName
-
-    result.sort_values(['IMG','THV','PAR'], inplace=True)
-    result.to_csv(os.path.join(dirname, 'OurResult-All.csv'), index=False)
-
-    for parameterValue in parameterValues:
-        df = pd.DataFrame(columns=['THV','AVE','STD','EMST','EMST.STD'])
-        thisParameterValueResult = result[result['PAR'] == float(parameterValue)]
-        for i, (name,group) in enumerate(thisParameterValueResult.groupby(['THV'])):
-            assert group['SUM'].count() == numImages
-            averageDistance             = computeAverageDistance(group) / voxelWidth
-            standardDeviationOfDistance = computeStandardDeviationOfDistance(group) / voxelWidth
-            averageRatioOfLengths             = computeAverageRatioOfLengthsPct(group)
-            standardDeviationOfRatioOfLengths = computeStandardDeviationOfRatioOfLengthsPct(group)
-            thresholdValue = float(name)
-
-            df.loc[i] = (thresholdValue, averageDistance, standardDeviationOfDistance, averageRatioOfLengths, standardDeviationOfRatioOfLengths)
-
-        df.to_csv(os.path.join(dirname, 'OurResult-' + parameterValue + '.csv'), index=False)
-
-def doAnalyzeAylwardMethod(args):
-    dirname    = args.dirname
-    numImages  = args.numImages
-    voxelWidth = args.voxelWidth
-
-    thresholdValues = getThresholdValues()
-    parameterValues = getParameterValues()
-
-    result = pd.DataFrame()
-
-    for imageName in getImageNames(numImages):
-        with open(os.path.join(dirname, imageName, 'LengthOfGroundTruthTree.txt')) as f:
-            lengthOfGroundTruthTree = float(f.read())
-
-        for thresholdValue in thresholdValues:
-            df = pd.read_csv(os.path.join(dirname, imageName, thresholdValue, 'ObjectnessMeasureValueVolumeSegmentTubesResultDistanceToClosestPoints-0.000-1.000.csv'))
-            df.insert(0,'IMG',imageName)
-            df.insert(1,'THV',thresholdValue)
-
-            df.insert(len(df.columns),'GTT', lengthOfGroundTruthTree)
-
-            with open(os.path.join(dirname, imageName, thresholdValue, 'ObjectnessMeasureValueVolumeSegmentTubesResultEMSTLengthOfMinimumSpanningTree.txt')) as f:
-                lengthOfEmst = float(f.read())
-            df.insert(len(df.columns),'EMST',lengthOfEmst)
-
-            with open(os.path.join(dirname, imageName, thresholdValue, 'ObjectnessMeasureValueVolumeSegmentTubesResultArcLengthsMinMSTLengthOfMinimumSpanningTree.txt')) as f:
-                lengthOfMST1 = float(f.read())
-            df.insert(len(df.columns),'MST1',lengthOfMST1)
-
-            with open(os.path.join(dirname, imageName, thresholdValue, 'ObjectnessMeasureValueVolumeSegmentTubesResultArcLengthsSumMSTLengthOfMinimumSpanningTree.txt')) as f:
-                lengthOfMST2 = float(f.read())
-            df.insert(len(df.columns),'MST2',lengthOfMST2)
-
-            result = result.append(df)
-         
-    result.sort_values(['IMG','THV'], inplace=True)
-    result.to_csv(os.path.join(dirname, 'AylwardResult-All.csv'), index=False)
-    
-    df = pd.DataFrame(columns=['THV','AVE','STD','EMST','EMST.STD'])
-
-    for i, (name,group) in enumerate(result.groupby(['THV'])):
-        averageDistance             = computeAverageDistance(group) / voxelWidth
-        standardDeviationOfDistance = computeStandardDeviationOfDistance(group) / voxelWidth
-        averageRatioOfLengths             = computeAverageRatioOfLengthsPct(group)
-        standardDeviationOfRatioOfLengths = computeStandardDeviationOfRatioOfLengthsPct(group)
-        thresholdValue = float(name)
+    for i, (ThresholdValue,g) in enumerate(df.groupby(['ThresholdValue'])):
+        AverageErrorInVoxelSize = g.AverageError.mean() / voxelSize
+        LengthsRatioOfReconstructedTreeWithinGivenRadiuses = (g.LengthOfTreeWithinGivenRadiuses / g.LengthOfGroundTruthTree).mean()
+        RatioOfPointsWithin05Voxel = (g.NumberOfPointsWithin05Voxel / g.NumberOfPoints).mean()
+        RatioOfPointsWithin1Voxel = (g.NumberOfPointsWithin1Voxel / g.NumberOfPoints).mean()
         
-        df.loc[i] = (thresholdValue, averageDistance, standardDeviationOfDistance, averageRatioOfLengths, standardDeviationOfRatioOfLengths)
+        outResult.loc[i] = (ThresholdValue,AverageErrorInVoxelSize,LengthsRatioOfReconstructedTreeWithinGivenRadiuses,RatioOfPointsWithin05Voxel,RatioOfPointsWithin1Voxel)
 
-    df.to_csv(os.path.join(dirname, 'AylwardResult.csv'), index=False)
+    return outResult
 
-def doAnalyzeSiddiqiMethod(args):
-    dirname    = args.dirname
-    numImages  = args.numImages
-    voxelWidth = args.voxelWidth
+def doAnalyzeOurResultCsv(args):
+    dirname   = args.dirname
+    basename  = args.basename
+    voxelSize = args.voxelSize
+    parValue  = args.parValue
 
-    thresholdValues = getThresholdValues()
-    parameterValues = getParameterValues()
+    df = pd.read_csv(os.path.join(dirname, basename))
+    df = df[df.ParValue == parValue]
 
-    result = pd.DataFrame()
+    outResult = analyzeResult(df, voxelSize)
+    outResult.to_csv(os.path.join(dirname, 'OutResult.csv'), index=False)
 
-    for imageName in getImageNames(numImages):
-        with open(os.path.join(dirname, imageName, 'LengthOfGroundTruthTree.txt')) as f:
-            lengthOfGroundTruthTree = float(f.read())
+def doAnalyzeTheirResultCsv(args):
+    dirname   = args.dirname
+    basename  = args.basename
+    voxelSize = args.voxelSize
 
-        for thresholdValue in thresholdValues:
-            df = pd.read_csv(os.path.join(dirname, imageName, thresholdValue, 'FluxDrivenMedialCurveExtractionDistanceToClosestPoints-0.000-1.000.csv'))
-            df.insert(0,'IMG',imageName)
-            df.insert(1,'THV',thresholdValue)
-
-            df.insert(len(df.columns),'GTT', lengthOfGroundTruthTree)
-
-            with open(os.path.join(dirname, imageName, thresholdValue, 'FluxDrivenMedialCurveExtractionEMSTLengthOfMinimumSpanningTree.txt')) as f:
-                lengthOfEmst = float(f.read())
-            df.insert(len(df.columns),'EMST',lengthOfEmst)
-
-            result = result.append(df)
-         
-    result.sort_values(['IMG','THV'], inplace=True)
-    result.to_csv(os.path.join(dirname, 'SiddiqiResult-All.csv'), index=False)
+    df = pd.read_csv(os.path.join(dirname, basename))
     
-    df = pd.DataFrame(columns=['THV','AVE','STD','EMST','EMST.STD'])
-
-    for i, (name,group) in enumerate(result.groupby(['THV'])):
-        averageDistance             = computeAverageDistance(group) / voxelWidth
-        standardDeviationOfDistance = computeStandardDeviationOfDistance(group) / voxelWidth
-        averageRatioOfLengths             = computeAverageRatioOfLengthsPct(group)
-        standardDeviationOfRatioOfLengths = computeStandardDeviationOfRatioOfLengthsPct(group)
-        thresholdValue = float(name)
-        
-        df.loc[i] = (thresholdValue, averageDistance, standardDeviationOfDistance, averageRatioOfLengths, standardDeviationOfRatioOfLengths)
-
-    df.to_csv(os.path.join(dirname, 'SiddiqiResult.csv'), index=False)
+    outResult = analyzeResult(df, voxelSize)
+    outResult.to_csv(os.path.join(dirname, 'OutResult.csv'), index=False)
 
 def doComputeDistanceToClosestPointsCsv(args):
     dirname = args.dirname
@@ -2177,26 +2025,20 @@ if __name__ == '__main__':
     subparser.add_argument('basename')
     subparser.set_defaults(func=doPlotDistanceToClosestPointsAgainstLengthOfMinimumSpanningTree)
 
-    # create the parser for the "doAnalyzeOurMethod" command
-    subparser = subparsers.add_parser('doAnalyzeOurMethod')
+    # create the parser for the "doAnalyzeOurResultCsv" command
+    subparser = subparsers.add_parser('doAnalyzeOurResultCsv')
     subparser.add_argument('dirname')
-    subparser.add_argument('voxelWidth', type=float)
-    subparser.add_argument('--numImages', type=int)
-    subparser.set_defaults(func=doAnalyzeOurMethod)
+    subparser.add_argument('basename')
+    subparser.add_argument('voxelSize', type=float)
+    subparser.add_argument('parValue', type=float)
+    subparser.set_defaults(func=doAnalyzeOurResultCsv)
 
-    # create the parser for the "doAnalyzeAylwardMethod" command
-    subparser = subparsers.add_parser('doAnalyzeAylwardMethod')
+    # create the parser for the "doAnalyzeTheirResultCsv" command
+    subparser = subparsers.add_parser('doAnalyzeTheirResultCsv')
     subparser.add_argument('dirname')
-    subparser.add_argument('voxelWidth', type=float)
-    subparser.add_argument('--numImages', type=int)
-    subparser.set_defaults(func=doAnalyzeAylwardMethod)
-
-    # create the parser for the "doAnalyzeSiddiqiMethod" command
-    subparser = subparsers.add_parser('doAnalyzeSiddiqiMethod')
-    subparser.add_argument('dirname')
-    subparser.add_argument('voxelWidth', type=float)
-    subparser.add_argument('--numImages', type=int)
-    subparser.set_defaults(func=doAnalyzeSiddiqiMethod)
+    subparser.add_argument('basename')
+    subparser.add_argument('voxelSize', type=float)
+    subparser.set_defaults(func=doAnalyzeTheirResultCsv)
 
     # create the parser for the "doComputeDistanceToClosestPointsCsv" command
     subparser = subparsers.add_parser('doComputeDistanceToClosestPointsCsv')

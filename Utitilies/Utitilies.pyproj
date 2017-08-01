@@ -8,10 +8,14 @@
     <StartupFile>main.py</StartupFile>
     <SearchPath>
     </SearchPath>
-    <WorkingDirectory>.</WorkingDirectory>
+    <WorkingDirectory>C:\echesakov\Database\GaussianNoiseStd10</WorkingDirectory>
     <OutputPath>.</OutputPath>
     <Name>Utitilies</Name>
     <RootNamespace>Utitilies</RootNamespace>
+    <LaunchProvider>Standard Python launcher</LaunchProvider>
+    <CommandLineArguments>"doComputeLengthOfMinimumSpanningTree" ".\image001" "tree_structure.h5" --minRadiusIncl=0.000 --maxRadiusExcl=0.046</CommandLineArguments>
+    <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
+    <IsWindowsApplication>False</IsWindowsApplication>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
