@@ -1905,7 +1905,7 @@ def doComputeDistanceToClosestPointsCsv(args):
     dataset = IO.readH5File(filename)
 
     points = dataset[pointsArrName]
-    
+ 
     indices1 = dataset['indices1']
     indices2 = dataset['indices2']
 
@@ -1939,9 +1939,9 @@ def doComputeDistanceToClosestPointsCsv(args):
 
     NumberOfPointsWithin05Voxel = np.count_nonzero(distanceToClosestPoints <= 0.5 * voxelWidth)
     NumberOfPointsWithin1Voxel  = np.count_nonzero(distanceToClosestPoints <= voxelWidth)
-    
+
     keyValPairs = [(name,eval(name)) for name in ('NumberOfPoints', 'AverageError', 'StandardDeviation', 'MaximumError', 'Median', 'Percentile25','Percentile75','Percentile95','Percentile99',
-        'NumberOfPointsWithin05Voxel', 'NumberOfPointsWithin1Voxel', 'LengthOfTreeWithinGivenRadiuses','LengthOfTree','var','sum','ssd',)]
+        'NumberOfPointsWithin05Voxel', 'NumberOfPointsWithin1Voxel', 'LengthOfTreeWithinGivenRadiuses','LengthOfTree',)]
 
     if (doOutputHeader):
         print prependHeaderStr + (",".join(kvp[0] for kvp in keyValPairs))
