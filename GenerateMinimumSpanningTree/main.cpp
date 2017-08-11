@@ -70,49 +70,86 @@ ValueType ComputeArcLengthsMinDistance(const PositionType& point1, const Positio
 }
 
 template<int NumDimensions, typename ValueType, typename IndexType>
-void GenerateEuclideanMinimumSpanningTree(const std::vector<ValueType>& positions, std::vector<IndexType>& indices1, std::vector<IndexType>& indices2)
+void GenerateEuclideanMinimumSpanningTree(const std::vector<ValueType>& positions, std::vector<IndexType>& indices1, std::vector<IndexType>& indices2, int knn)
 {
-  using namespace std;
   using namespace boost;
-  using namespace Eigen;
-
   typedef adjacency_list<vecS, vecS, undirectedS, no_property, property<edge_weight_t, ValueType>> GraphType;
   typedef typename graph_traits<GraphType>::edge_descriptor GraphEdgeType;
 
-  typedef Matrix<ValueType, Dynamic, NumDimensions, RowMajor> MatrixType;
-
   const size_t numberOfPoints = positions.size() / NumDimensions;
 
-  Map<const MatrixType> points(positions.data(), numberOfPoints, NumDimensions);
+  GraphType origGraph(numberOfPoints);
+  auto weightmap = get(edge_weight, origGraph);
 
-  GraphType completeGraph(numberOfPoints);
-  auto weightmap = get(edge_weight, completeGraph);
-
-  for (IndexType index1 = 0; index1 < numberOfPoints; ++index1)
+  if (knn != -1)
   {
-    for (IndexType index2 = index1 + 1; index2 < numberOfPoints; ++index2)
+    using namespace std;
+    using namespace flann;
+
+    const Matrix<ValueType> dataset(const_cast<ValueType*>(positions.data()), positions.size() / NumDimensions, NumDimensions);
+
+    Index<L2<ValueType>> index(dataset, flann::KDTreeIndexParams(1));
+    index.buildIndex();
+
+    vector<IndexType> indicesData(dataset.rows * (knn + 1));
+    Matrix<IndexType> indices(&indicesData[0], dataset.rows, knn + 1);
+
+    vector<ValueType> distancesData(dataset.rows * (knn + 1));
+    Matrix<ValueType> distances(&distancesData[0], dataset.rows, knn + 1);
+
+    index.knnSearch(dataset, indices, distances, knn + 1, flann::SearchParams(-1));
+
+    for (IndexType index1 = 0; index1 != dataset.rows; ++index1)
     {
-      GraphEdgeType e;
+      for (IndexType i = 0; i != knn + 1; ++i)
+      {
+        const IndexType index2 = indices[index1][i];
+        if (index1 == index2) continue;
+        if (index2 == -1) break;
 
-      tie(e, tuples::ignore) = add_edge(index1, index2, completeGraph);
+        GraphEdgeType e;
+        tie(e, tuples::ignore) = add_edge(index1, index2, origGraph);
 
-      const auto& point1 = points.row(index1);
-      const auto& point2 = points.row(index2);
-      const ValueType distance = (point1 - point2).norm();
+        weightmap[e] = distances[index1][i];
+      }
+    }
+  }
+  else
+  {
+    using namespace std;
+    using namespace Eigen;
 
-      weightmap[e] = distance;
+    typedef Matrix<ValueType, Dynamic, NumDimensions, RowMajor> MatrixType;
+    Map<const MatrixType> points(positions.data(), numberOfPoints, NumDimensions);
+
+    for (IndexType index1 = 0; index1 < numberOfPoints; ++index1)
+    {
+      for (IndexType index2 = index1 + 1; index2 < numberOfPoints; ++index2)
+      {
+        GraphEdgeType e;
+        tie(e, tuples::ignore) = add_edge(index1, index2, origGraph);
+
+        const auto& point1 = points.row(index1);
+        const auto& point2 = points.row(index2);
+        const ValueType distance = (point1 - point2).norm();
+
+        weightmap[e] = distance;
+      }
     }
   }
 
   std::vector<GraphEdgeType> spanningTree;
   spanningTree.reserve(numberOfPoints - 1);
 
-  kruskal_minimum_spanning_tree(completeGraph, std::back_inserter(spanningTree));
+  kruskal_minimum_spanning_tree(origGraph, std::back_inserter(spanningTree));
+
+  indices1.reserve(spanningTree.size());
+  indices2.reserve(spanningTree.size());
 
   for (const GraphEdgeType& e : spanningTree)
   {
-    const IndexType index1 = source(e, completeGraph);
-    const IndexType index2 = target(e, completeGraph);
+    const IndexType index1 = source(e, origGraph);
+    const IndexType index2 = target(e, origGraph);
 
     indices1.push_back(index1);
     indices2.push_back(index2);
@@ -277,7 +314,7 @@ enum class DistanceOptions
   ArcLengthsMin = 3
 };
 
-void DoGenerateMinimumSpanningTreeSimple(const std::string& inputFileName, const std::string& outputFileName)
+void DoGenerateMinimumSpanningTreeOnlyPositionsDataSet(const std::string& inputFileName, const std::string& outputFileName, int knn)
 {
   const int NumDimensions = 3;
 
@@ -292,7 +329,8 @@ void DoGenerateMinimumSpanningTreeSimple(const std::string& inputFileName, const
   const std::string indices2DataSetName = "indices2";
 
   BOOST_LOG_TRIVIAL(info) << "input filename = \"" << inputFileName << "\"";
-  BOOST_LOG_TRIVIAL(info) << "output filename = \"" << outputFileName << "\"";
+  BOOST_LOG_TRIVIAL(info) << "output filename = \"" << outputFileName << "\""; 
+  BOOST_LOG_TRIVIAL(info) << "knn = " << knn;
 
   FileReader inputFileReader(inputFileName);
 
@@ -303,7 +341,7 @@ void DoGenerateMinimumSpanningTreeSimple(const std::string& inputFileName, const
   std::vector<IndexType> indices1;
   std::vector<IndexType> indices2;
 
-  GenerateEuclideanMinimumSpanningTree<NumDimensions>(positions, indices1, indices2);
+  GenerateEuclideanMinimumSpanningTree<NumDimensions>(positions, indices1, indices2, knn);
 
   BOOST_LOG_TRIVIAL(info) << "indices1.size = " << indices1.size();
   BOOST_LOG_TRIVIAL(info) << "indices2.size = " << indices2.size();
@@ -338,6 +376,7 @@ void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::
 
   BOOST_LOG_TRIVIAL(info) << "input filename  = \"" << inputFileName << "\"";
   BOOST_LOG_TRIVIAL(info) << "output filename = \"" << outputFileName << "\"";
+  BOOST_LOG_TRIVIAL(info) << "knn = " << knn;
 
   FileReader inputFileReader(inputFileName);
 
@@ -403,7 +442,6 @@ void DoGenerateMinimumSpanningTree(const std::string& inputFileName, const std::
     throw std::invalid_argument("distanceOption is invalid");
   }
 
-  BOOST_LOG_TRIVIAL(info) << "knn = " << knn;
   BOOST_LOG_TRIVIAL(info) << "indices1.size = " << indices1.size();
   BOOST_LOG_TRIVIAL(info) << "indices2.size = " << indices2.size();
 
@@ -429,7 +467,7 @@ int main(int argc, char *argv[])
   std::string outputFileName;
 
   bool noPositionsDataSet = false;
-  bool simpleMode = false;
+  bool onlyPositionsDataSet = false;
 
   int optionNum = (int)DistanceOptions::Euclidean;
   int knn = -1;
@@ -441,7 +479,7 @@ int main(int argc, char *argv[])
     ("inputFileName", po::value(&inputFileName)->required(), "the name of the input file")
     ("outputFileName", po::value(&outputFileName)->required(), "the name of the output file")
     ("noPositions", po::value(&noPositionsDataSet), "indicate that '/positions' dataset is not present in the input file")
-    ("simple", po::value(&simpleMode), "compute Euclidean minimum spanning tree using '/positions'-dataset")
+    ("onlyPositions", po::value(&onlyPositionsDataSet), "indicate that only '/positions' dataset is present in the input file")
     ("optionNum", po::value(&optionNum), "the option number of distance function between two points")
     ("knn", po::value(&knn), "the number of nearest neighbors to consider (if not specified then use complete graph)");
 
@@ -455,11 +493,11 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
   }
 
-  if (simpleMode)
+  if (onlyPositionsDataSet)
   {
     try
     {
-      DoGenerateMinimumSpanningTreeSimple(inputFileName, outputFileName);
+      DoGenerateMinimumSpanningTreeOnlyPositionsDataSet(inputFileName, outputFileName, knn);
       return EXIT_SUCCESS;
     }
     catch (std::exception& e)
