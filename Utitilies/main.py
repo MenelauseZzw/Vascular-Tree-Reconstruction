@@ -1180,7 +1180,8 @@ def createProjectionsOntoGroundTruthTree(sOrig, tOrig, pOrig, closestIndices=Non
     sMinusTSq = np.sum(sMinusT * sMinusT, axis=2)
 
     sMinusP = s - p
-    sMinusPDotSMinusT = np.sum(sMinusP * sMinusT, axis=2)
+    #sMinusPDotSMinusT = np.sum(sMinusP * sMinusT, axis=2)
+    sMinusPDotSMinusT = np.einsum('ijk,ijk->ij',sMinusP, sMinusT)
 
     lambd = sMinusPDotSMinusT / sMinusTSq
     lambd = lambd[:,:,np.newaxis]
@@ -1796,6 +1797,155 @@ def doComputeDistanceToClosestPointsCsv(args):
 
     print prependRowStr + (",".join(str(kvp[1]) for kvp in keyValPairs))
 
+def doComputeTreeCoverageMeasure(args):
+    dirname       = args.dirname
+    basename      = args.basename
+    voxelSize     = args.voxelWidth
+    pointsArrName = args.points
+
+    filename = os.path.join(dirname, 'tree_structure.xml')
+    dataset  = IO.readGxlFile(filename)
+
+    positions = dataset['positions']
+    positions = voxelSize * positions
+
+    indicesOrig1 = dataset['indices1']
+    indicesOrig2 = dataset['indices2']
+    radiuses     = dataset['radiusPrime'] 
+
+    sOrig = positions[indicesOrig1]
+    tOrig = positions[indicesOrig2]
+
+    filename = os.path.join(dirname, basename)
+    dataset = IO.readH5File(filename)
+
+    points = dataset[pointsArrName]
+ 
+    indices1 = dataset['indices1']
+    indices2 = dataset['indices2']
+
+    s = points[indices1]
+    t = points[indices2]
+
+    samplingStep = voxelSize / 2
+
+    newPoints = []
+    newIndices = []
+
+    for k,(indexOrig1,indexOrig2) in enumerate(zip(indicesOrig1,indicesOrig2)):
+        pointOrig1 = positions[indexOrig1]
+        pointOrig2 = positions[indexOrig2]
+
+        num = int(np.ceil(linalg.norm(pointOrig1 - pointOrig2) / samplingStep))
+
+        pointsOrig = []
+        indicesOrig = []
+        
+        for i in xrange(num + 1):
+            lambd = i / float(num)
+            pointsOrig.append((1 - lambd) * pointOrig1 + lambd * pointOrig2)
+            indicesOrig.append(k)
+
+        newPoints.extend(pointsOrig)
+        newIndices.extend(indicesOrig)
+
+    numberOfPoints = len(newPoints)
+
+    newPoints     = np.array(newPoints)
+        
+    closestIndices = np.empty((numberOfPoints,), dtype='int32')
+    closestPoints  = createProjectionsOntoGroundTruthTree(s, t, newPoints, closestIndices)
+
+    x = linalg.norm(closestPoints - newPoints, axis=1) < radiuses[newIndices]
+    print np.count_nonzero(x),numberOfPoints
+
+    #numberOfPoints = len(points)
+
+    #closestIndices  = np.empty((numberOfPoints,), dtype='int32')
+    #closestPoints   = createProjectionsOntoGroundTruthTree(sOrig, tOrig, points, closestIndices)
+    #closestRadiuses = radiuses[closestIndices]
+
+    #length = 0
+
+    #points1 = []
+    #points2 = []
+
+    #for (index1,index2) in zip(indices1,indices2):
+    #    closestPoint1 = closestPoints[index1]
+    #    closestPoint2 = closestPoints[index2]
+        
+    #    closestIndex = closestIndices[index1]
+
+    #    if (closestIndex == closestIndices[index2]):
+    #        beginningToClosestPoint1 = sOrig[closestIndex] - closestPoint1
+    #        beginningToClosestPoint2 = sOrig[closestIndex] - closestPoint2
+
+    #        #startsAt = np.minimum(linalg.norm(beginningToClosestPoint1), linalg.norm(beginningToClosestPoint2))
+    #        #endsAt   = startsAt + linalg.norm(closestPoint1 - closestPoint2)
+
+    #        length += linalg.norm(closestPoint1 - closestPoint2)
+
+    #        points1.append(closestPoint1)
+    #        points2.append(closestPoint2)
+        #else:
+        #    point1 = points[index1]
+        #    point2 = points[index2]
+
+        #    num = 20
+
+        #    idx1 = len(newPoints)
+        #    idx2 = idx1 + 1
+
+        #    for i in xrange(num + 1):
+        #        lambd = i / float(num)
+        #        newPoint = (1 - lambd) * point1 + lambd * point2
+        #        newPoints.append(newPoint)
+
+        #    for i in xrange(num):
+        #        newIndices1.append(idx1 + i)
+        #        newIndices2.append(idx2 + i)
+
+    #closestIndices  = np.empty((len(newPoints),), dtype='int32')
+    #closestPoints   = createProjectionsOntoGroundTruthTree(sOrig, tOrig, np.array(newPoints), closestIndices)
+    #closestRadiuses = radiuses[closestIndices]
+
+    #for (index1,index2) in zip(newIndices1,newIndices2):
+    #    closestPoint1 = closestPoints[index1]
+    #    closestPoint2 = closestPoints[index2]
+        
+    #    closestIndex = closestIndices[index1]
+
+    #    if (closestIndex == closestIndices[index2]):
+    #        beginningToClosestPoint1 = sOrig[closestIndex] - closestPoint1
+    #        beginningToClosestPoint2 = sOrig[closestIndex] - closestPoint2
+
+    #        #startsAt = np.minimum(linalg.norm(beginningToClosestPoint1), linalg.norm(beginningToClosestPoint2))
+    #        #endsAt   = startsAt + linalg.norm(closestPoint1 - closestPoint2)
+
+    #        length += linalg.norm(closestPoint1 - closestPoint2)
+
+    #        points1.append(closestPoint1)
+    #        points2.append(closestPoint2)
+    #    else:
+    #        pass
+    #        #points1.append(newPoints[index1])
+    #        #points2.append(newPoints[index2])
+
+    
+    #polyData = createTangentsPolyData(points1, points2)
+    
+    #basename,_ = os.path.splitext(basename)
+    #filename = os.path.join(dirname, basename + 'Projection.vtp')
+
+    #IO.writePolyDataFile(filename, polyData)
+
+    #totalLength = 0
+
+    #for (index1,index2) in zip(indicesOrig1,indicesOrig2):
+    #    point1 = positions[index1]
+    #    point2 = positions[index2]
+    #    totalLength += linalg.norm(point1 - point2)
+
 if __name__ == '__main__':
     # create the top-level parser
     argparser = argparse.ArgumentParser()
@@ -2052,6 +2202,14 @@ if __name__ == '__main__':
     subparser.add_argument('--minRadiusIncl', default=0, type=float)
     subparser.add_argument('--maxRadiusExcl', default=np.inf, type=float)
     subparser.set_defaults(func=doComputeDistanceToClosestPointsCsv)
+
+    # create the parser for the "doComputeTreeCoverageMeasure" command
+    subparser = subparsers.add_parser('doComputeTreeCoverageMeasure')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.add_argument('voxelWidth', type=float)
+    subparser.add_argument('--points', default='positions')
+    subparser.set_defaults(func=doComputeTreeCoverageMeasure)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
