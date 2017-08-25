@@ -1814,7 +1814,7 @@ def resamplePoints(points, indices1, indices2, samplingStep):
 
     return np.array(resampledPoints),np.array(resampledIndices)
 
-def doComputeTreeCoverageMeasure(args):
+def doComputeOverlapMeasure(args):
     dirname       = args.dirname
     basename      = args.basename
     voxelSize     = args.voxelWidth
@@ -2186,14 +2186,14 @@ if __name__ == '__main__':
     subparser.add_argument('--maxRadiusExcl', default=np.inf, type=float)
     subparser.set_defaults(func=doComputeDistanceToClosestPointsCsv)
 
-    # create the parser for the "doComputeTreeCoverageMeasure" command
-    subparser = subparsers.add_parser('doComputeTreeCoverageMeasure')
+    # create the parser for the "doComputeOverlapMeasure" command
+    subparser = subparsers.add_parser('doComputeOverlapMeasure')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.add_argument('voxelWidth', type=float)
     subparser.add_argument('samplingStep', type=float)
     subparser.add_argument('--points', default='positions')
-    subparser.set_defaults(func=doComputeTreeCoverageMeasure)
+    subparser.set_defaults(func=doComputeOverlapMeasure)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
