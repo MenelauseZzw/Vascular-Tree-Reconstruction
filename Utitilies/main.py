@@ -16,7 +16,7 @@ import numpy.linalg as linalg
 import scipy.integrate as integrate
 import vtk
 
-from sklearn.neighbors import KDTree,radius_neighbors_graph
+from sklearn.neighbors import KDTree,NearestNeighbors,radius_neighbors_graph
 from xml.etree import ElementTree
 
 def doConvertRawToH5(args):
@@ -1797,10 +1797,28 @@ def doComputeDistanceToClosestPointsCsv(args):
 
     print prependRowStr + (",".join(str(kvp[1]) for kvp in keyValPairs))
 
+def resamplePoints(points, indices1, indices2, samplingStep):
+    resampledPoints  = []
+    resampledIndices = []
+
+    for k,(index1,index2) in enumerate(zip(indices1, indices2)):
+        point1 = points[index1]
+        point2 = points[index2]
+        num = int(np.ceil(linalg.norm(point1 - point2) / samplingStep))
+
+        for i in xrange(num + 1):
+            lambd  = i / float(num)
+            interp = (1 - lambd) * point1 + lambd * point2
+            resampledPoints.append(interp)
+            resampledIndices.append(k)
+
+    return resampledPoints,resampledIndices
+
 def doComputeTreeCoverageMeasure(args):
     dirname       = args.dirname
     basename      = args.basename
     voxelSize     = args.voxelWidth
+    samplingStep  = args.samplingStep
     pointsArrName = args.points
 
     filename = os.path.join(dirname, 'tree_structure.xml')
@@ -1813,9 +1831,6 @@ def doComputeTreeCoverageMeasure(args):
     indicesOrig2 = dataset['indices2']
     radiuses     = dataset['radiusPrime'] 
 
-    sOrig = positions[indicesOrig1]
-    tOrig = positions[indicesOrig2]
-
     filename = os.path.join(dirname, basename)
     dataset = IO.readH5File(filename)
 
@@ -1824,40 +1839,51 @@ def doComputeTreeCoverageMeasure(args):
     indices1 = dataset['indices1']
     indices2 = dataset['indices2']
 
-    s = points[indices1]
-    t = points[indices2]
+    resampledPositions,resampledIndices = resamplePoints(positions, indicesOrig1, indicesOrig2, samplingStep)
+    resampledPoints,_    = resamplePoints(points, indices1, indices2, samplingStep)
 
-    samplingStep = voxelSize / 2
+    neighbors = NearestNeighbors(n_neighbors=1)
+    neighbors.fit(resampledPoints)
+    dist,_ = neighbors.kneighbors(resampledPositions)
+    dist = np.ravel(dist)
 
-    newPoints = []
-    newIndices = []
+    closerThanRadius = dist < radiuses[resampledIndices]
+    
+    numCloserThanRadius = np.count_nonzero(closerThanRadius)
+    num = len(resampledPositions)
+    
+    print '{0},{1},{2:.4f}'.format(numCloserThanRadius,num,numCloserThanRadius / float(num))
 
-    for k,(indexOrig1,indexOrig2) in enumerate(zip(indicesOrig1,indicesOrig2)):
-        pointOrig1 = positions[indexOrig1]
-        pointOrig2 = positions[indexOrig2]
 
-        num = int(np.ceil(linalg.norm(pointOrig1 - pointOrig2) / samplingStep))
+    #newPoints = []
+    #newIndices = []
 
-        pointsOrig = []
-        indicesOrig = []
+    #for k,(indexOrig1,indexOrig2) in enumerate(zip(indicesOrig1,indicesOrig2)):
+    #    pointOrig1 = positions[indexOrig1]
+    #    pointOrig2 = positions[indexOrig2]
+
+    #    num = int(np.ceil(linalg.norm(pointOrig1 - pointOrig2) / samplingStep))
+
+    #    pointsOrig = []
+    #    indicesOrig = []
         
-        for i in xrange(num + 1):
-            lambd = i / float(num)
-            pointsOrig.append((1 - lambd) * pointOrig1 + lambd * pointOrig2)
-            indicesOrig.append(k)
+    #    for i in xrange(num + 1):
+    #        lambd = i / float(num)
+    #        pointsOrig.append()
+    #        indicesOrig.append(k)
 
-        newPoints.extend(pointsOrig)
-        newIndices.extend(indicesOrig)
+    #    newPoints.extend(pointsOrig)
+    #    newIndices.extend(indicesOrig)
 
-    numberOfPoints = len(newPoints)
+    #numberOfPoints = len(newPoints)
 
-    newPoints     = np.array(newPoints)
+    #newPoints     = np.array(newPoints)
         
-    closestIndices = np.empty((numberOfPoints,), dtype='int32')
-    closestPoints  = createProjectionsOntoGroundTruthTree(s, t, newPoints, closestIndices)
+    #closestIndices = np.empty((numberOfPoints,), dtype='int32')
+    #closestPoints  = createProjectionsOntoGroundTruthTree(s, t, newPoints, closestIndices)
 
-    x = linalg.norm(closestPoints - newPoints, axis=1) < radiuses[newIndices]
-    print np.count_nonzero(x),numberOfPoints
+    #x = linalg.norm(closestPoints - newPoints, axis=1) < radiuses[newIndices]
+    #print np.count_nonzero(x),numberOfPoints
 
     #numberOfPoints = len(points)
 
@@ -2208,6 +2234,7 @@ if __name__ == '__main__':
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.add_argument('voxelWidth', type=float)
+    subparser.add_argument('samplingStep', type=float)
     subparser.add_argument('--points', default='positions')
     subparser.set_defaults(func=doComputeTreeCoverageMeasure)
 
