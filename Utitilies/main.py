@@ -1804,7 +1804,7 @@ def resamplePoints(points, indices1, indices2, samplingStep):
     for k,(index1,index2) in enumerate(zip(indices1, indices2)):
         point1 = points[index1]
         point2 = points[index2]
-        num = int(np.ceil(linalg.norm(point1 - point2) / samplingStep))
+        num = int(np.ceil(linalg.norm(point1 - point2) / samplingStep) + 1)
 
         for i in xrange(num + 1):
             lambd  = i / float(num)
@@ -1869,65 +1869,65 @@ def doComputeOverlapMeasure(args):
         numCloserThanRadius, num, numCloserThanRadius / float(num),
         (numCloserThanRadiusOrig + numCloserThanRadius) / float(numOrig + num))
 
-    #pointsTP1 = []
-    #pointsTP2 = []
+    pointsTP1 = []
+    pointsTP2 = []
 
-    #pointsFP1 = []
-    #pointsFP2 = []
+    pointsFP1 = []
+    pointsFP2 = []
 
-    #for i in xrange(1, len(indicesOrig)):
-    #    if indicesOrig[i - 1] == indicesOrig[i]:
-    #        point1 = pointsOrig[i - 1]
-    #        point2 = pointsOrig[i]
+    for i in xrange(1, len(indicesOrig)):
+        if indicesOrig[i - 1] == indicesOrig[i]:
+            point1 = pointsOrig[i - 1]
+            point2 = pointsOrig[i]
 
-    #        if closerThanRadiusOrig[i - 1] and closerThanRadiusOrig[i]:
-    #            pointsTP1.append(point1)
-    #            pointsTP2.append(point2)
-    #        else:
-    #            pointsFP1.append(point1)
-    #            pointsFP2.append(point2)
+            if closerThanRadiusOrig[i - 1] and closerThanRadiusOrig[i]:
+                pointsTP1.append(point1)
+                pointsTP2.append(point2)
+            else:
+                pointsFP1.append(point1)
+                pointsFP2.append(point2)
 
-    #polyData   = createTangentsPolyData(pointsTP1, pointsTP2)
-    #basename,_ = os.path.splitext(basename)
-    #filename = os.path.join(dirname, basename + 'TPGT.vtp')
+    polyData   = createTangentsPolyData(pointsTP1, pointsTP2)
+    basename,_ = os.path.splitext(basename)
+    filename = os.path.join(dirname, basename + 'TPGT.vtp')
 
-    #IO.writePolyDataFile(filename, polyData)
+    IO.writePolyDataFile(filename, polyData)
 
-    #polyData   = createTangentsPolyData(pointsFP1, pointsFP2)
-    #basename,_ = os.path.splitext(basename)
-    #filename = os.path.join(dirname, basename + 'FPGT.vtp')
+    polyData   = createTangentsPolyData(pointsFP1, pointsFP2)
+    basename,_ = os.path.splitext(basename)
+    filename = os.path.join(dirname, basename + 'FPGT.vtp')
 
-    #IO.writePolyDataFile(filename, polyData)
+    IO.writePolyDataFile(filename, polyData)
 
-    #pointsTP1 = []
-    #pointsTP2 = []
+    pointsTP1 = []
+    pointsTP2 = []
 
-    #pointsFP1 = []
-    #pointsFP2 = []
+    pointsFP1 = []
+    pointsFP2 = []
 
-    #for i in xrange(1, len(indices)):
-    #    if indices[i - 1] == indices[i]:
-    #        point1 = points[i - 1]
-    #        point2 = points[i]
+    for i in xrange(1, len(indices)):
+        if indices[i - 1] == indices[i]:
+            point1 = points[i - 1]
+            point2 = points[i]
 
-    #        if closerThanRadius[i - 1] and closerThanRadius[i]:
-    #            pointsTP1.append(point1)
-    #            pointsTP2.append(point2)
-    #        else:
-    #            pointsFP1.append(point1)
-    #            pointsFP2.append(point2)
+            if closerThanRadius[i - 1] and closerThanRadius[i]:
+                pointsTP1.append(point1)
+                pointsTP2.append(point2)
+            else:
+                pointsFP1.append(point1)
+                pointsFP2.append(point2)
 
-    #polyData   = createTangentsPolyData(pointsTP1, pointsTP2)
-    #basename,_ = os.path.splitext(basename)
-    #filename = os.path.join(dirname, basename + 'TPRT.vtp')
+    polyData   = createTangentsPolyData(pointsTP1, pointsTP2)
+    basename,_ = os.path.splitext(basename)
+    filename = os.path.join(dirname, basename + 'TPRT.vtp')
 
-    #IO.writePolyDataFile(filename, polyData)
+    IO.writePolyDataFile(filename, polyData)
 
-    #polyData   = createTangentsPolyData(pointsFP1, pointsFP2)
-    #basename,_ = os.path.splitext(basename)
-    #filename = os.path.join(dirname, basename + 'FPRT.vtp')
+    polyData   = createTangentsPolyData(pointsFP1, pointsFP2)
+    basename,_ = os.path.splitext(basename)
+    filename = os.path.join(dirname, basename + 'FPRT.vtp')
 
-    #IO.writePolyDataFile(filename, polyData)
+    IO.writePolyDataFile(filename, polyData)
 
 if __name__ == '__main__':
     # create the top-level parser
