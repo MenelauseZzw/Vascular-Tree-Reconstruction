@@ -1812,7 +1812,7 @@ def resamplePoints(points, indices1, indices2, samplingStep):
             resampledPoints.append(interp)
             resampledIndices.append(k)
 
-    return resampledPoints,resampledIndices
+    return np.array(resampledPoints),np.array(resampledIndices)
 
 def doComputeTreeCoverageMeasure(args):
     dirname       = args.dirname
@@ -1839,144 +1839,95 @@ def doComputeTreeCoverageMeasure(args):
     indices1 = dataset['indices1']
     indices2 = dataset['indices2']
 
-    resampledPositions,resampledIndices = resamplePoints(positions, indicesOrig1, indicesOrig2, samplingStep)
-    resampledPoints,_    = resamplePoints(points, indices1, indices2, samplingStep)
+    pointsOrig,indicesOrig = resamplePoints(positions, indicesOrig1, indicesOrig2, samplingStep)
+    points,indices         = resamplePoints(points, indices1, indices2, samplingStep)
 
-    neighbors = NearestNeighbors(n_neighbors=1)
-    neighbors.fit(resampledPoints)
-    dist,ind = neighbors.kneighbors(resampledPositions)
-    dist = np.ravel(dist)
+    learner = NearestNeighbors(n_neighbors=1)
+    learner.fit(points)
 
-    closerThanRadius = dist < radiuses[resampledIndices]
+    dist,_ = learner.kneighbors(pointsOrig)
+    dist   = np.ravel(dist)
+
+    closerThanRadiusOrig = dist < radiuses[indicesOrig]
+    numCloserThanRadiusOrig = np.count_nonzero(closerThanRadiusOrig) # number of points {p_i} \in GroundTruthTree such that {q_j} is closest \in ReconstructedTree and ||p_i - q_j|| < radiusAt(p_i)
+    numOrig = len(pointsOrig)
     
-    numCloserThanRadius = np.count_nonzero(closerThanRadius)
-    numOriginalTree = len(dist)
+    learner = NearestNeighbors(n_neighbors=1)
+    learner.fit(pointsOrig)
 
-    numRelevant = len(np.unique(ind))
-    numReconstructedTree = len(resampledPoints)
+    dist,closestIndices = learner.kneighbors(points)
+    dist           = np.ravel(dist)
+    closestIndices = np.ravel(closestIndices)
+
+    closerThanRadius = dist < radiuses[indicesOrig[closestIndices]]
+
+    numCloserThanRadius = np.count_nonzero(closerThanRadius) # number of points {q_j} \in ReconstructedTree such that {p_i} is closest \in GroundTruthTree and ||p_i - q_j|| < radiusAt(p_i)
+    num = len(points)
     
+    print '{0},{1},{2},{3},{4},{5},{6}'.format(
+        numCloserThanRadiusOrig, numOrig, numCloserThanRadiusOrig / float(numOrig), 
+        numCloserThanRadius, num, numCloserThanRadius / float(num),
+        (numCloserThanRadiusOrig + numCloserThanRadius) / float(numOrig + num))
 
-    aveDist = np.mean(dist)
-    aveDistCloserThanRadius = np.mean(dist[closerThanRadius])
-    
-    print '{0},{1},{2},{3},{4},{5},{6},{7}'.format(numCloserThanRadius,numOriginalTree,numCloserThanRadius / float(numOriginalTree),aveDist,aveDistCloserThanRadius, numRelevant, numReconstructedTree, numRelevant / float(numReconstructedTree))
+    #pointsTP1 = []
+    #pointsTP2 = []
 
-    #newPoints = []
-    #newIndices = []
+    #pointsFP1 = []
+    #pointsFP2 = []
 
-    #for k,(indexOrig1,indexOrig2) in enumerate(zip(indicesOrig1,indicesOrig2)):
-    #    pointOrig1 = positions[indexOrig1]
-    #    pointOrig2 = positions[indexOrig2]
+    #for i in xrange(1, len(indicesOrig)):
+    #    if indicesOrig[i - 1] == indicesOrig[i]:
+    #        point1 = pointsOrig[i - 1]
+    #        point2 = pointsOrig[i]
 
-    #    num = int(np.ceil(linalg.norm(pointOrig1 - pointOrig2) / samplingStep))
+    #        if closerThanRadiusOrig[i - 1] and closerThanRadiusOrig[i]:
+    #            pointsTP1.append(point1)
+    #            pointsTP2.append(point2)
+    #        else:
+    #            pointsFP1.append(point1)
+    #            pointsFP2.append(point2)
 
-    #    pointsOrig = []
-    #    indicesOrig = []
-        
-    #    for i in xrange(num + 1):
-    #        lambd = i / float(num)
-    #        pointsOrig.append()
-    #        indicesOrig.append(k)
-
-    #    newPoints.extend(pointsOrig)
-    #    newIndices.extend(indicesOrig)
-
-    #numberOfPoints = len(newPoints)
-
-    #newPoints     = np.array(newPoints)
-        
-    #closestIndices = np.empty((numberOfPoints,), dtype='int32')
-    #closestPoints  = createProjectionsOntoGroundTruthTree(s, t, newPoints, closestIndices)
-
-    #x = linalg.norm(closestPoints - newPoints, axis=1) < radiuses[newIndices]
-    #print np.count_nonzero(x),numberOfPoints
-
-    #numberOfPoints = len(points)
-
-    #closestIndices  = np.empty((numberOfPoints,), dtype='int32')
-    #closestPoints   = createProjectionsOntoGroundTruthTree(sOrig, tOrig, points, closestIndices)
-    #closestRadiuses = radiuses[closestIndices]
-
-    #length = 0
-
-    #points1 = []
-    #points2 = []
-
-    #for (index1,index2) in zip(indices1,indices2):
-    #    closestPoint1 = closestPoints[index1]
-    #    closestPoint2 = closestPoints[index2]
-        
-    #    closestIndex = closestIndices[index1]
-
-    #    if (closestIndex == closestIndices[index2]):
-    #        beginningToClosestPoint1 = sOrig[closestIndex] - closestPoint1
-    #        beginningToClosestPoint2 = sOrig[closestIndex] - closestPoint2
-
-    #        #startsAt = np.minimum(linalg.norm(beginningToClosestPoint1), linalg.norm(beginningToClosestPoint2))
-    #        #endsAt   = startsAt + linalg.norm(closestPoint1 - closestPoint2)
-
-    #        length += linalg.norm(closestPoint1 - closestPoint2)
-
-    #        points1.append(closestPoint1)
-    #        points2.append(closestPoint2)
-        #else:
-        #    point1 = points[index1]
-        #    point2 = points[index2]
-
-        #    num = 20
-
-        #    idx1 = len(newPoints)
-        #    idx2 = idx1 + 1
-
-        #    for i in xrange(num + 1):
-        #        lambd = i / float(num)
-        #        newPoint = (1 - lambd) * point1 + lambd * point2
-        #        newPoints.append(newPoint)
-
-        #    for i in xrange(num):
-        #        newIndices1.append(idx1 + i)
-        #        newIndices2.append(idx2 + i)
-
-    #closestIndices  = np.empty((len(newPoints),), dtype='int32')
-    #closestPoints   = createProjectionsOntoGroundTruthTree(sOrig, tOrig, np.array(newPoints), closestIndices)
-    #closestRadiuses = radiuses[closestIndices]
-
-    #for (index1,index2) in zip(newIndices1,newIndices2):
-    #    closestPoint1 = closestPoints[index1]
-    #    closestPoint2 = closestPoints[index2]
-        
-    #    closestIndex = closestIndices[index1]
-
-    #    if (closestIndex == closestIndices[index2]):
-    #        beginningToClosestPoint1 = sOrig[closestIndex] - closestPoint1
-    #        beginningToClosestPoint2 = sOrig[closestIndex] - closestPoint2
-
-    #        #startsAt = np.minimum(linalg.norm(beginningToClosestPoint1), linalg.norm(beginningToClosestPoint2))
-    #        #endsAt   = startsAt + linalg.norm(closestPoint1 - closestPoint2)
-
-    #        length += linalg.norm(closestPoint1 - closestPoint2)
-
-    #        points1.append(closestPoint1)
-    #        points2.append(closestPoint2)
-    #    else:
-    #        pass
-    #        #points1.append(newPoints[index1])
-    #        #points2.append(newPoints[index2])
-
-    
-    #polyData = createTangentsPolyData(points1, points2)
-    
+    #polyData   = createTangentsPolyData(pointsTP1, pointsTP2)
     #basename,_ = os.path.splitext(basename)
-    #filename = os.path.join(dirname, basename + 'Projection.vtp')
+    #filename = os.path.join(dirname, basename + 'TPGT.vtp')
 
     #IO.writePolyDataFile(filename, polyData)
 
-    #totalLength = 0
+    #polyData   = createTangentsPolyData(pointsFP1, pointsFP2)
+    #basename,_ = os.path.splitext(basename)
+    #filename = os.path.join(dirname, basename + 'FPGT.vtp')
 
-    #for (index1,index2) in zip(indicesOrig1,indicesOrig2):
-    #    point1 = positions[index1]
-    #    point2 = positions[index2]
-    #    totalLength += linalg.norm(point1 - point2)
+    #IO.writePolyDataFile(filename, polyData)
+
+    #pointsTP1 = []
+    #pointsTP2 = []
+
+    #pointsFP1 = []
+    #pointsFP2 = []
+
+    #for i in xrange(1, len(indices)):
+    #    if indices[i - 1] == indices[i]:
+    #        point1 = points[i - 1]
+    #        point2 = points[i]
+
+    #        if closerThanRadius[i - 1] and closerThanRadius[i]:
+    #            pointsTP1.append(point1)
+    #            pointsTP2.append(point2)
+    #        else:
+    #            pointsFP1.append(point1)
+    #            pointsFP2.append(point2)
+
+    #polyData   = createTangentsPolyData(pointsTP1, pointsTP2)
+    #basename,_ = os.path.splitext(basename)
+    #filename = os.path.join(dirname, basename + 'TPRT.vtp')
+
+    #IO.writePolyDataFile(filename, polyData)
+
+    #polyData   = createTangentsPolyData(pointsFP1, pointsFP2)
+    #basename,_ = os.path.splitext(basename)
+    #filename = os.path.join(dirname, basename + 'FPRT.vtp')
+
+    #IO.writePolyDataFile(filename, polyData)
 
 if __name__ == '__main__':
     # create the top-level parser
