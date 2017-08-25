@@ -1844,18 +1844,22 @@ def doComputeTreeCoverageMeasure(args):
 
     neighbors = NearestNeighbors(n_neighbors=1)
     neighbors.fit(resampledPoints)
-    dist,_ = neighbors.kneighbors(resampledPositions)
+    dist,ind = neighbors.kneighbors(resampledPositions)
     dist = np.ravel(dist)
 
     closerThanRadius = dist < radiuses[resampledIndices]
     
     numCloserThanRadius = np.count_nonzero(closerThanRadius)
-    num = len(resampledPositions)
+    numOriginalTree = len(dist)
+
+    numRelevant = len(np.unique(ind))
+    numReconstructedTree = len(resampledPoints)
+    
 
     aveDist = np.mean(dist)
     aveDistCloserThanRadius = np.mean(dist[closerThanRadius])
     
-    print '{0},{1},{2},{3},{4}'.format(numCloserThanRadius,num,numCloserThanRadius / float(num),aveDist,aveDistCloserThanRadius)
+    print '{0},{1},{2},{3},{4},{5},{6},{7}'.format(numCloserThanRadius,numOriginalTree,numCloserThanRadius / float(numOriginalTree),aveDist,aveDistCloserThanRadius, numRelevant, numReconstructedTree, numRelevant / float(numReconstructedTree))
 
     #newPoints = []
     #newIndices = []
