@@ -1851,9 +1851,11 @@ def doComputeTreeCoverageMeasure(args):
     
     numCloserThanRadius = np.count_nonzero(closerThanRadius)
     num = len(resampledPositions)
-    
-    print '{0},{1},{2:.4f}'.format(numCloserThanRadius,num,numCloserThanRadius / float(num))
 
+    aveDist = np.mean(dist)
+    aveDistCloserThanRadius = np.mean(dist[closerThanRadius])
+    
+    print '{0},{1},{2},{3},{4}'.format(numCloserThanRadius,num,numCloserThanRadius / float(num),aveDist,aveDistCloserThanRadius)
 
     #newPoints = []
     #newIndices = []
