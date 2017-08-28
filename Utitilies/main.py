@@ -1878,14 +1878,33 @@ def doComputeOverlapMeasure(args):
     PercentageOfPointsCloserThanRadiusOrig = numCloserThanRadiusOrig / float(numOrig)
     PercentageOfPointsCloserThanRadius = numCloserThanRadius / float(num)
     OverlapMeasure = (numCloserThanRadiusOrig + numCloserThanRadius) / (float(numOrig) + num)
-    AverageDistanceOrig =  np.mean(distOrig)
-    AverageDistanceCloserThanRadiusOrig =  np.mean(distOrig[closerThanRadiusOrig])
-    AverageDistance =  np.mean(dist)
-    AverageDistanceCloserThanRadius =  np.mean(dist[closerThanRadius])
+
+    AverageDistanceOrig = np.mean(distOrig)
+    AverageDistanceOrigStd = np.std(distOrig)
+
+    distCloserThanRadiusOrig = distOrig[closerThanRadiusOrig]
+    distCloserThanRadius = dist[closerThanRadius]
+    distInside = np.concatenate((distCloserThanRadiusOrig, distCloserThanRadius))
+
+    AverageDistanceCloserThanRadiusOrig = np.mean(distCloserThanRadiusOrig)
+    AverageDistanceCloserThanRadiusOrigStd = np.std(distCloserThanRadiusOrig)
+
+    AverageDistanceCloserThanRadiusInRadiusSizeOrig = np.mean(distCloserThanRadiusOrig / radiuses[indicesOrig][closerThanRadiusOrig])
+    AverageDistanceCloserThanRadiusInRadiusSize = np.mean(distCloserThanRadius / radiuses[indicesOrig[closestIndices]][closerThanRadius])
+
+    AverageDistance = np.mean(dist)
+    AverageDistanceStd = np.std(dist)
+
+    AverageDistanceCloserThanRadius = np.mean(distCloserThanRadius)
+    AverageDistanceCloserThanRadiusStd = np.std(distCloserThanRadius)
+    
+    AverageInside = np.mean(distInside)
+    AverageInsideStd = np.std(distInside)
 
     keyValPairs = [(name,eval(name)) for name in ('NumberOfPointsCloserThanRadiusOrig', 'NumberOfPointsOrig','NumberOfPointsCloserThanRadius','NumberOfPoints',
-        'PercentageOfPointsCloserThanRadiusOrig','PercentageOfPointsCloserThanRadius','OverlapMeasure','AverageDistanceOrig','AverageDistanceCloserThanRadiusOrig',
-        'AverageDistance','AverageDistanceCloserThanRadius')]
+        'PercentageOfPointsCloserThanRadiusOrig','PercentageOfPointsCloserThanRadius','OverlapMeasure','AverageDistanceOrig','AverageDistanceOrigStd', 'AverageDistanceCloserThanRadiusInRadiusSizeOrig','AverageDistanceCloserThanRadiusInRadiusSize',
+        'AverageDistanceCloserThanRadiusOrig', 'AverageDistanceCloserThanRadiusOrigStd','AverageDistance', 'AverageDistanceStd', 'AverageDistanceCloserThanRadius',
+        'AverageDistanceCloserThanRadiusStd', 'AverageInside', 'AverageInsideStd')]
 
     if (doOutputHeader):
         print prependHeaderStr + (",".join(kvp[0] for kvp in keyValPairs))
