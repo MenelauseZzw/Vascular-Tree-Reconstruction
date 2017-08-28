@@ -1888,9 +1888,15 @@ def doComputeOverlapMeasure(args):
 
     AverageDistanceCloserThanRadiusOrig = np.mean(distCloserThanRadiusOrig)
     AverageDistanceCloserThanRadiusOrigStd = np.std(distCloserThanRadiusOrig)
+        
+    distCloserThanRadiusInRadiusSizeOrig = distCloserThanRadiusOrig / radiuses[indicesOrig][closerThanRadiusOrig]
+    distCloserThanRadiusInRadiusSize = distCloserThanRadius / radiuses[indicesOrig[closestIndices]][closerThanRadius]
 
-    AverageDistanceCloserThanRadiusInRadiusSizeOrig = np.mean(distCloserThanRadiusOrig / radiuses[indicesOrig][closerThanRadiusOrig])
-    AverageDistanceCloserThanRadiusInRadiusSize = np.mean(distCloserThanRadius / radiuses[indicesOrig[closestIndices]][closerThanRadius])
+    AverageDistanceCloserThanRadiusInRadiusSizeOrig = np.mean(distCloserThanRadiusInRadiusSizeOrig)
+    AverageDistanceCloserThanRadiusInRadiusSizeOrigStd = np.std(distCloserThanRadiusInRadiusSizeOrig)
+
+    AverageDistanceCloserThanRadiusInRadiusSize = np.mean(distCloserThanRadiusInRadiusSize)
+    AverageDistanceCloserThanRadiusInRadiusSizeStd = np.std(distCloserThanRadiusInRadiusSize)
 
     AverageDistance = np.mean(dist)
     AverageDistanceStd = np.std(dist)
@@ -1902,7 +1908,8 @@ def doComputeOverlapMeasure(args):
     AverageInsideStd = np.std(distInside)
 
     keyValPairs = [(name,eval(name)) for name in ('NumberOfPointsCloserThanRadiusOrig', 'NumberOfPointsOrig','NumberOfPointsCloserThanRadius','NumberOfPoints',
-        'PercentageOfPointsCloserThanRadiusOrig','PercentageOfPointsCloserThanRadius','OverlapMeasure','AverageDistanceOrig','AverageDistanceOrigStd', 'AverageDistanceCloserThanRadiusInRadiusSizeOrig','AverageDistanceCloserThanRadiusInRadiusSize',
+        'PercentageOfPointsCloserThanRadiusOrig','PercentageOfPointsCloserThanRadius','OverlapMeasure','AverageDistanceOrig','AverageDistanceOrigStd', 'AverageDistanceCloserThanRadiusInRadiusSizeOrig',
+        'AverageDistanceCloserThanRadiusInRadiusSizeOrigStd', 'AverageDistanceCloserThanRadiusInRadiusSize', 'AverageDistanceCloserThanRadiusInRadiusSizeStd',
         'AverageDistanceCloserThanRadiusOrig', 'AverageDistanceCloserThanRadiusOrigStd','AverageDistance', 'AverageDistanceStd', 'AverageDistanceCloserThanRadius',
         'AverageDistanceCloserThanRadiusStd', 'AverageInside', 'AverageInsideStd')]
 
