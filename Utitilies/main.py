@@ -1821,6 +1821,11 @@ def doComputeOverlapMeasure(args):
     samplingStep  = args.samplingStep
     pointsArrName = args.points
 
+    
+    doOutputHeader   = args.doOutputHeader
+    prependHeaderStr = args.prependHeaderStr
+    prependRowStr    = args.prependRowStr
+
     filename = os.path.join(dirname, 'tree_structure.xml')
     dataset  = IO.readGxlFile(filename)
 
@@ -1865,11 +1870,27 @@ def doComputeOverlapMeasure(args):
     numCloserThanRadius = np.count_nonzero(closerThanRadius) # number of points {q_j} \in ReconstructedTree such that {p_i} is closest \in GroundTruthTree and ||p_i - q_j|| < radiusAt(p_i)
     num = len(points)
     
-    print '{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10}'.format(
-        numCloserThanRadiusOrig, numOrig, numCloserThanRadiusOrig / float(numOrig), 
-        numCloserThanRadius, num, numCloserThanRadius / float(num),
-        (numCloserThanRadiusOrig + numCloserThanRadius) / float(numOrig + num),
-        np.mean(distOrig), np.mean(dist), np.mean(distOrig[closerThanRadiusOrig]), np.mean(dist[closerThanRadius]))
+
+    NumberOfPointsCloserThanRadiusOrig = numCloserThanRadiusOrig
+    NumberOfPointsOrig = numOrig
+    NumberOfPointsCloserThanRadius = numCloserThanRadius
+    NumberOfPoints = num
+    PercentageOfPointsCloserThanRadiusOrig = numCloserThanRadiusOrig / float(numOrig)
+    PercentageOfPointsCloserThanRadius = numCloserThanRadius / float(num)
+    OverlapMeasure = (numCloserThanRadiusOrig + numCloserThanRadius) / (float(numOrig) + num)
+    AverageDistanceOrig =  np.mean(distOrig)
+    AverageDistanceCloserThanRadiusOrig =  np.mean(distOrig[closerThanRadiusOrig])
+    AverageDistance =  np.mean(dist)
+    AverageDistanceCloserThanRadius =  np.mean(dist[closerThanRadius])
+
+    keyValPairs = [(name,eval(name)) for name in ('NumberOfPointsCloserThanRadiusOrig', 'NumberOfPointsOrig','NumberOfPointsCloserThanRadius','NumberOfPoints',
+        'PercentageOfPointsCloserThanRadiusOrig','PercentageOfPointsCloserThanRadius','OverlapMeasure','AverageDistanceOrig','AverageDistanceCloserThanRadiusOrig',
+        'AverageDistance','AverageDistanceCloserThanRadius')]
+
+    if (doOutputHeader):
+        print prependHeaderStr + (",".join(kvp[0] for kvp in keyValPairs))
+
+    print prependRowStr + (",".join(str(kvp[1]) for kvp in keyValPairs))
 
     #pointsTP1 = []
     #pointsTP2 = []
@@ -2207,6 +2228,10 @@ if __name__ == '__main__':
     subparser.add_argument('voxelWidth', type=float)
     subparser.add_argument('samplingStep', type=float)
     subparser.add_argument('--points', default='positions')
+    subparser.add_argument('--doOutputHeader', default=False, action='store_true')
+    subparser.add_argument('--prependHeaderStr', default="")
+    subparser.add_argument('--prependRowStr', default="")
+
     subparser.set_defaults(func=doComputeOverlapMeasure)
 
     # parse the args and call whatever function was selected
