@@ -2009,11 +2009,17 @@ def analyzeOverlapMeasure(df, voxelSize):
         AverageDistanceCloserThanRadiusInRadiusSizeOrig = g['AverageDistanceCloserThanRadiusInRadiusSizeOrig']
         AverageDistanceCloserThanRadiusInRadiusSize = g['AverageDistanceCloserThanRadiusInRadiusSize']
         
-        outResult.loc[i] = (ThresholdValue, np.mean(PercentageOfPointsCloserThanRadiusOrig), np.std(PercentageOfPointsCloserThanRadiusOrig), 
-            np.mean(PercentageOfPointsCloserThanRadius), np.std(PercentageOfPointsCloserThanRadius), np.mean(OverlapMeasure), np.std(OverlapMeasure),
-            np.mean(AverageInsideInVoxelSize), np.std(AverageInsideInVoxelSize), np.mean(AverageDistanceCloserThanRadiusInVoxelSizeOrig), np.std(AverageDistanceCloserThanRadiusInVoxelSizeOrig),
-            np.mean(AverageDistanceCloserThanRadiusInVoxelSize), np.std(AverageDistanceCloserThanRadiusInVoxelSize), np.mean(AverageDistanceCloserThanRadiusInRadiusSizeOrig), 
-            np.std(AverageDistanceCloserThanRadiusInRadiusSizeOrig), np.mean(AverageDistanceCloserThanRadiusInRadiusSize), np.std(AverageDistanceCloserThanRadiusInRadiusSize))
+        outResult.loc[i] = (ThresholdValue,
+            np.mean(PercentageOfPointsCloserThanRadiusOrig), np.std(PercentageOfPointsCloserThanRadiusOrig), 
+            np.mean(PercentageOfPointsCloserThanRadius), np.std(PercentageOfPointsCloserThanRadius), 
+            np.mean(OverlapMeasure), np.std(OverlapMeasure),
+            np.mean(AverageInsideInVoxelSize), np.std(AverageInsideInVoxelSize), 
+
+            np.mean(AverageDistanceCloserThanRadiusInVoxelSizeOrig), np.std(AverageDistanceCloserThanRadiusInVoxelSizeOrig),
+            np.mean(AverageDistanceCloserThanRadiusInVoxelSize), np.std(AverageDistanceCloserThanRadiusInVoxelSize), 
+
+            np.mean(AverageDistanceCloserThanRadiusInRadiusSizeOrig), np.std(AverageDistanceCloserThanRadiusInRadiusSizeOrig), 
+            np.mean(AverageDistanceCloserThanRadiusInRadiusSize), np.std(AverageDistanceCloserThanRadiusInRadiusSize))
 
     return outResult
 
