@@ -1990,6 +1990,48 @@ def doComputeOverlapMeasure(args):
 
     #IO.writePolyDataFile(filename, polyData)
 
+def analyzeOverlapMeasure(df, voxelSize):
+    outResult = pd.DataFrame(columns=['ThresholdValue','PercentageOfPointsCloserThanRadiusOrig','PercentageOfPointsCloserThanRadiusOrigStd',
+        'PercentageOfPointsCloserThanRadius','PercentageOfPointsCloserThanRadiusStd','OverlapMeasure','OverlapMeasureStd',
+        'AverageInside', 'AverageInsideStd', 'AverageDistanceCloserThanRadiusOrig','AverageDistanceCloserThanRadiusOrigStd',
+        'AverageDistanceCloserThanRadius','AverageDistanceCloserThanRadiusStd', 'AverageDistanceCloserThanRadiusInRadiusSizeOrig', 
+        'AverageDistanceCloserThanRadiusInRadiusSizeOrigStd', 'AverageDistanceCloserThanRadiusInRadiusSize', 'AverageDistanceCloserThanRadiusInRadiusSizeStd'])
+
+    for i, (ThresholdValue,g) in enumerate(df.groupby(['ThresholdValue'])):
+        PercentageOfPointsCloserThanRadiusOrig = g['PercentageOfPointsCloserThanRadiusOrig']
+        PercentageOfPointsCloserThanRadius = g['PercentageOfPointsCloserThanRadius']
+        OverlapMeasure = g['OverlapMeasure']
+        AverageInside = g['AverageInside']
+
+        AverageDistanceCloserThanRadiusOrig = g['AverageDistanceCloserThanRadiusOrig']
+        AverageDistanceCloserThanRadius = g['AverageDistanceCloserThanRadius']
+
+        AverageDistanceCloserThanRadiusInRadiusSizeOrig = g['AverageDistanceCloserThanRadiusInRadiusSizeOrig']
+        AverageDistanceCloserThanRadiusInRadiusSize = g['AverageDistanceCloserThanRadiusInRadiusSize']
+        
+        
+        outResult.loc[i] = (ThresholdValue, np.mean(PercentageOfPointsCloserThanRadiusOrig), np.std(PercentageOfPointsCloserThanRadiusOrig), 
+            np.mean(PercentageOfPointsCloserThanRadius), np.std(PercentageOfPointsCloserThanRadius), np.mean(OverlapMeasure), np.std(OverlapMeasure),
+            np.mean(AverageInside), np.std(AverageInside), np.mean(AverageDistanceCloserThanRadiusOrig), np.std(AverageDistanceCloserThanRadiusOrig),
+            np.mean(AverageDistanceCloserThanRadius), np.std(AverageDistanceCloserThanRadius), np.mean(AverageDistanceCloserThanRadiusInRadiusSizeOrig), 
+            np.std(AverageDistanceCloserThanRadiusInRadiusSizeOrig), np.mean(AverageDistanceCloserThanRadiusInRadiusSize), np.std(AverageDistanceCloserThanRadiusInRadiusSize))
+
+    return outResult
+
+def doAnalyzeTheirOverlapMeasureCsv(args):
+    dirname   = args.dirname
+    basename  = args.basename
+    voxelSize = args.voxelSize
+
+    df = pd.read_csv(os.path.join(dirname, basename))
+    
+    outResult = analyzeOverlapMeasure(df, voxelSize)
+
+    basename,_ = os.path.splitext(basename)
+    filename   = os.path.join(dirname, basename + 'Average.csv')
+
+    outResult.to_csv(filename, index=False)
+
 if __name__ == '__main__':
     # create the top-level parser
     argparser = argparse.ArgumentParser()
@@ -2257,8 +2299,14 @@ if __name__ == '__main__':
     subparser.add_argument('--doOutputHeader', default=False, action='store_true')
     subparser.add_argument('--prependHeaderStr', default="")
     subparser.add_argument('--prependRowStr', default="")
-
     subparser.set_defaults(func=doComputeOverlapMeasure)
+
+    # create the parser for the "doAnalyzeTheirOverlapMeasureCsv" command
+    subparser = subparsers.add_parser('doAnalyzeTheirOverlapMeasureCsv')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.add_argument('voxelSize', type=float)
+    subparser.set_defaults(func=doAnalyzeTheirOverlapMeasureCsv)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
