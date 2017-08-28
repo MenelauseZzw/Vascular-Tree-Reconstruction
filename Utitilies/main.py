@@ -1845,10 +1845,11 @@ def doComputeOverlapMeasure(args):
     learner = NearestNeighbors(n_neighbors=1)
     learner.fit(points)
 
-    dist,_ = learner.kneighbors(pointsOrig)
-    dist   = np.ravel(dist)
+    distOrig,closestIndicesOrig = learner.kneighbors(pointsOrig)
+    distOrig           = np.ravel(distOrig)
+    closestIndicesOrig = np.ravel(closestIndicesOrig)
 
-    closerThanRadiusOrig = dist < radiuses[indicesOrig]
+    closerThanRadiusOrig = distOrig < radiuses[indicesOrig]
     numCloserThanRadiusOrig = np.count_nonzero(closerThanRadiusOrig) # number of points {p_i} \in GroundTruthTree such that {q_j} is closest \in ReconstructedTree and ||p_i - q_j|| < radiusAt(p_i)
     numOrig = len(pointsOrig)
     
@@ -1864,10 +1865,11 @@ def doComputeOverlapMeasure(args):
     numCloserThanRadius = np.count_nonzero(closerThanRadius) # number of points {q_j} \in ReconstructedTree such that {p_i} is closest \in GroundTruthTree and ||p_i - q_j|| < radiusAt(p_i)
     num = len(points)
     
-    print '{0},{1},{2},{3},{4},{5},{6}'.format(
+    print '{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10}'.format(
         numCloserThanRadiusOrig, numOrig, numCloserThanRadiusOrig / float(numOrig), 
         numCloserThanRadius, num, numCloserThanRadius / float(num),
-        (numCloserThanRadiusOrig + numCloserThanRadius) / float(numOrig + num))
+        (numCloserThanRadiusOrig + numCloserThanRadius) / float(numOrig + num),
+        np.mean(distOrig), np.mean(dist), np.mean(distOrig[closerThanRadiusOrig]), np.mean(dist[closerThanRadius]))
 
     #pointsTP1 = []
     #pointsTP2 = []
@@ -1926,6 +1928,18 @@ def doComputeOverlapMeasure(args):
     #polyData   = createTangentsPolyData(pointsFP1, pointsFP2)
     #basename,_ = os.path.splitext(basename)
     #filename = os.path.join(dirname, basename + 'FPRT.vtp')
+
+    #IO.writePolyDataFile(filename, polyData)
+
+    #polyData   = createTangentsPolyData(pointsOrig[closerThanRadiusOrig], points[closestIndicesOrig[closerThanRadiusOrig]])
+    #basename,_ = os.path.splitext(basename)
+    #filename = os.path.join(dirname, basename + 'Labeling1.vtp')
+
+    #IO.writePolyDataFile(filename, polyData)
+
+    #polyData   = createTangentsPolyData(points[closerThanRadius], pointsOrig[closestIndices[closerThanRadius]])
+    #basename,_ = os.path.splitext(basename)
+    #filename = os.path.join(dirname, basename + 'Labeling2.vtp')
 
     #IO.writePolyDataFile(filename, polyData)
 
