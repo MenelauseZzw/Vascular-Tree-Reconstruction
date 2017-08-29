@@ -1821,10 +1821,11 @@ def doComputeOverlapMeasure(args):
     samplingStep  = args.samplingStep
     pointsArrName = args.points
 
-    
     doOutputHeader   = args.doOutputHeader
     prependHeaderStr = args.prependHeaderStr
     prependRowStr    = args.prependRowStr
+
+    debugMode = args.debugMode
 
     filename = os.path.join(dirname, 'tree_structure.xml')
     dataset  = IO.readGxlFile(filename)
@@ -1918,77 +1919,78 @@ def doComputeOverlapMeasure(args):
 
     print prependRowStr + (",".join(str(kvp[1]) for kvp in keyValPairs))
 
-    #pointsTP1 = []
-    #pointsTP2 = []
+    if debugMode:
+        pointsTP1 = []
+        pointsTP2 = []
 
-    #pointsFP1 = []
-    #pointsFP2 = []
+        pointsFP1 = []
+        pointsFP2 = []
 
-    #for i in xrange(1, len(indicesOrig)):
-    #    if indicesOrig[i - 1] == indicesOrig[i]:
-    #        point1 = pointsOrig[i - 1]
-    #        point2 = pointsOrig[i]
+        for i in xrange(1, len(indicesOrig)):
+            if indicesOrig[i - 1] == indicesOrig[i]:
+                point1 = pointsOrig[i - 1]
+                point2 = pointsOrig[i]
 
-    #        if closerThanRadiusOrig[i - 1] and closerThanRadiusOrig[i]:
-    #            pointsTP1.append(point1)
-    #            pointsTP2.append(point2)
-    #        else:
-    #            pointsFP1.append(point1)
-    #            pointsFP2.append(point2)
+                if closerThanRadiusOrig[i - 1] and closerThanRadiusOrig[i]:
+                    pointsTP1.append(point1)
+                    pointsTP2.append(point2)
+                else:
+                    pointsFP1.append(point1)
+                    pointsFP2.append(point2)
 
-    #polyData   = createTangentsPolyData(pointsTP1, pointsTP2)
-    #basename,_ = os.path.splitext(basename)
-    #filename = os.path.join(dirname, basename + 'TPGT.vtp')
+        polyData   = createTangentsPolyData(pointsTP1, pointsTP2)
+        basename,_ = os.path.splitext(basename)
+        filename = os.path.join(dirname, basename + 'TrPoGrTr.vtp')
 
-    #IO.writePolyDataFile(filename, polyData)
+        IO.writePolyDataFile(filename, polyData)
 
-    #polyData   = createTangentsPolyData(pointsFP1, pointsFP2)
-    #basename,_ = os.path.splitext(basename)
-    #filename = os.path.join(dirname, basename + 'FPGT.vtp')
+        polyData   = createTangentsPolyData(pointsFP1, pointsFP2)
+        basename,_ = os.path.splitext(basename)
+        filename = os.path.join(dirname, basename + 'FaPoGrTr.vtp')
 
-    #IO.writePolyDataFile(filename, polyData)
+        IO.writePolyDataFile(filename, polyData)
 
-    #pointsTP1 = []
-    #pointsTP2 = []
+        pointsTP1 = []
+        pointsTP2 = []
 
-    #pointsFP1 = []
-    #pointsFP2 = []
+        pointsFP1 = []
+        pointsFP2 = []
 
-    #for i in xrange(1, len(indices)):
-    #    if indices[i - 1] == indices[i]:
-    #        point1 = points[i - 1]
-    #        point2 = points[i]
+        for i in xrange(1, len(indices)):
+            if indices[i - 1] == indices[i]:
+                point1 = points[i - 1]
+                point2 = points[i]
 
-    #        if closerThanRadius[i - 1] and closerThanRadius[i]:
-    #            pointsTP1.append(point1)
-    #            pointsTP2.append(point2)
-    #        else:
-    #            pointsFP1.append(point1)
-    #            pointsFP2.append(point2)
+                if closerThanRadius[i - 1] and closerThanRadius[i]:
+                    pointsTP1.append(point1)
+                    pointsTP2.append(point2)
+                else:
+                    pointsFP1.append(point1)
+                    pointsFP2.append(point2)
 
-    #polyData   = createTangentsPolyData(pointsTP1, pointsTP2)
-    #basename,_ = os.path.splitext(basename)
-    #filename = os.path.join(dirname, basename + 'TPRT.vtp')
+        polyData   = createTangentsPolyData(pointsTP1, pointsTP2)
+        basename,_ = os.path.splitext(basename)
+        filename = os.path.join(dirname, basename + 'TrPoReTr.vtp')
 
-    #IO.writePolyDataFile(filename, polyData)
+        IO.writePolyDataFile(filename, polyData)
 
-    #polyData   = createTangentsPolyData(pointsFP1, pointsFP2)
-    #basename,_ = os.path.splitext(basename)
-    #filename = os.path.join(dirname, basename + 'FPRT.vtp')
+        polyData   = createTangentsPolyData(pointsFP1, pointsFP2)
+        basename,_ = os.path.splitext(basename)
+        filename = os.path.join(dirname, basename + 'FaPoReTr.vtp')
 
-    #IO.writePolyDataFile(filename, polyData)
+        IO.writePolyDataFile(filename, polyData)
 
-    #polyData   = createTangentsPolyData(pointsOrig[closerThanRadiusOrig], points[closestIndicesOrig[closerThanRadiusOrig]])
-    #basename,_ = os.path.splitext(basename)
-    #filename = os.path.join(dirname, basename + 'Labeling1.vtp')
+        polyData   = createTangentsPolyData(pointsOrig[closerThanRadiusOrig], points[closestIndicesOrig[closerThanRadiusOrig]])
+        basename,_ = os.path.splitext(basename)
+        filename = os.path.join(dirname, basename + 'GrTrToReTr.vtp')
 
-    #IO.writePolyDataFile(filename, polyData)
+        IO.writePolyDataFile(filename, polyData)
 
-    #polyData   = createTangentsPolyData(points[closerThanRadius], pointsOrig[closestIndices[closerThanRadius]])
-    #basename,_ = os.path.splitext(basename)
-    #filename = os.path.join(dirname, basename + 'Labeling2.vtp')
+        polyData   = createTangentsPolyData(points[closerThanRadius], pointsOrig[closestIndices[closerThanRadius]])
+        basename,_ = os.path.splitext(basename)
+        filename = os.path.join(dirname, basename + 'ReTrToGrTr.vtp')
 
-    #IO.writePolyDataFile(filename, polyData)
+        IO.writePolyDataFile(filename, polyData)
 
 def analyzeOverlapMeasure(df, voxelSize):
     outResult = pd.DataFrame(columns=['ThresholdValue','PercentageOfPointsCloserThanRadiusOrig','PercentageOfPointsCloserThanRadiusOrigStd',
@@ -2304,6 +2306,7 @@ if __name__ == '__main__':
     subparser.add_argument('--doOutputHeader', default=False, action='store_true')
     subparser.add_argument('--prependHeaderStr', default="")
     subparser.add_argument('--prependRowStr', default="")
+    subparser.add_argument('--debugMode', default=False, action='store_true')
     subparser.set_defaults(func=doComputeOverlapMeasure)
 
     # create the parser for the "doAnalyzeTheirOverlapMeasureCsv" command
