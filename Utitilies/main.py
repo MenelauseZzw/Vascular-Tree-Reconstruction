@@ -1885,13 +1885,14 @@ def doComputeOverlapMeasure(args):
 
     distCloserThanRadiusOrig = distOrig[closerThanRadiusOrig]
     distCloserThanRadius = dist[closerThanRadius]
-    distInside = np.concatenate((distCloserThanRadiusOrig, distCloserThanRadius))
-
+    bothDist = np.concatenate((distCloserThanRadiusOrig, distCloserThanRadius))
+    
     AverageDistanceCloserThanRadiusOrig = np.mean(distCloserThanRadiusOrig)
     AverageDistanceCloserThanRadiusOrigStd = np.std(distCloserThanRadiusOrig)
         
     distCloserThanRadiusInRadiusSizeOrig = distCloserThanRadiusOrig / radiuses[indicesOrig][closerThanRadiusOrig]
     distCloserThanRadiusInRadiusSize = distCloserThanRadius / radiuses[indicesOrig[closestIndices]][closerThanRadius]
+    bothDistInRadiusSize = np.concatenate((distCloserThanRadiusInRadiusSizeOrig, distCloserThanRadiusInRadiusSize))
 
     AverageDistanceCloserThanRadiusInRadiusSizeOrig = np.mean(distCloserThanRadiusInRadiusSizeOrig)
     AverageDistanceCloserThanRadiusInRadiusSizeOrigStd = np.std(distCloserThanRadiusInRadiusSizeOrig)
@@ -1905,14 +1906,17 @@ def doComputeOverlapMeasure(args):
     AverageDistanceCloserThanRadius = np.mean(distCloserThanRadius)
     AverageDistanceCloserThanRadiusStd = np.std(distCloserThanRadius)
     
-    AverageInside = np.mean(distInside)
-    AverageInsideStd = np.std(distInside)
+    AverageInside = np.mean(bothDist)
+    AverageInsideStd = np.std(bothDist)
+
+    AverageInsideInRadiusSize = np.mean(bothDistInRadiusSize)
+    AverageInsideInRadiusSizeStd = np.std(bothDistInRadiusSize)
 
     keyValPairs = [(name,eval(name)) for name in ('NumberOfPointsCloserThanRadiusOrig', 'NumberOfPointsOrig','NumberOfPointsCloserThanRadius','NumberOfPoints',
         'PercentageOfPointsCloserThanRadiusOrig','PercentageOfPointsCloserThanRadius','OverlapMeasure','AverageDistanceOrig','AverageDistanceOrigStd', 'AverageDistanceCloserThanRadiusInRadiusSizeOrig',
         'AverageDistanceCloserThanRadiusInRadiusSizeOrigStd', 'AverageDistanceCloserThanRadiusInRadiusSize', 'AverageDistanceCloserThanRadiusInRadiusSizeStd',
         'AverageDistanceCloserThanRadiusOrig', 'AverageDistanceCloserThanRadiusOrigStd','AverageDistance', 'AverageDistanceStd', 'AverageDistanceCloserThanRadius',
-        'AverageDistanceCloserThanRadiusStd', 'AverageInside', 'AverageInsideStd')]
+        'AverageDistanceCloserThanRadiusStd', 'AverageInside', 'AverageInsideStd', 'AverageInsideInRadiusSize', 'AverageInsideInRadiusSizeStd')]
 
     if (doOutputHeader):
         print prependHeaderStr + (",".join(kvp[0] for kvp in keyValPairs))
@@ -1997,7 +2001,8 @@ def analyzeOverlapMeasure(df, voxelSize):
         'PercentageOfPointsCloserThanRadius','PercentageOfPointsCloserThanRadiusStd','OverlapMeasure','OverlapMeasureStd',
         'AverageInsideInVoxelSize', 'AverageInsideInVoxelSizeStd', 'AverageDistanceCloserThanRadiusInVoxelSizeOrig','AverageDistanceCloserThanRadiusInVoxelSizeOrigStd',
         'AverageDistanceCloserThanRadiusInVoxelSize','AverageDistanceCloserThanRadiusInVoxelSizeStd', 'AverageDistanceCloserThanRadiusInRadiusSizeOrig', 
-        'AverageDistanceCloserThanRadiusInRadiusSizeOrigStd', 'AverageDistanceCloserThanRadiusInRadiusSize', 'AverageDistanceCloserThanRadiusInRadiusSizeStd'])
+        'AverageDistanceCloserThanRadiusInRadiusSizeOrigStd', 'AverageDistanceCloserThanRadiusInRadiusSize', 'AverageDistanceCloserThanRadiusInRadiusSizeStd', 
+        'AverageInsideInRadiusSize','AverageInsideInRadiusSizeStd'])
 
     for i, (ThresholdValue,g) in enumerate(df.groupby(['ThresholdValue'])):
         PercentageOfPointsCloserThanRadiusOrig = g['PercentageOfPointsCloserThanRadiusOrig']
@@ -2011,6 +2016,8 @@ def analyzeOverlapMeasure(df, voxelSize):
         AverageDistanceCloserThanRadiusInRadiusSizeOrig = g['AverageDistanceCloserThanRadiusInRadiusSizeOrig']
         AverageDistanceCloserThanRadiusInRadiusSize = g['AverageDistanceCloserThanRadiusInRadiusSize']
         
+        AverageInsideInRadiusSize = g['AverageInsideInRadiusSize']
+
         outResult.loc[i] = (ThresholdValue,
             np.mean(PercentageOfPointsCloserThanRadiusOrig), np.std(PercentageOfPointsCloserThanRadiusOrig), 
             np.mean(PercentageOfPointsCloserThanRadius), np.std(PercentageOfPointsCloserThanRadius), 
@@ -2021,7 +2028,9 @@ def analyzeOverlapMeasure(df, voxelSize):
             np.mean(AverageDistanceCloserThanRadiusInVoxelSize), np.std(AverageDistanceCloserThanRadiusInVoxelSize), 
 
             np.mean(AverageDistanceCloserThanRadiusInRadiusSizeOrig), np.std(AverageDistanceCloserThanRadiusInRadiusSizeOrig), 
-            np.mean(AverageDistanceCloserThanRadiusInRadiusSize), np.std(AverageDistanceCloserThanRadiusInRadiusSize))
+            np.mean(AverageDistanceCloserThanRadiusInRadiusSize), np.std(AverageDistanceCloserThanRadiusInRadiusSize),
+
+            np.mean(AverageInsideInRadiusSize), np.std(AverageInsideInRadiusSize))
 
     return outResult
 
