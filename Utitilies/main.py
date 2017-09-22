@@ -2071,7 +2071,7 @@ def doAnalyzeOurOverlapMeasureCsv(args):
 def doLevenbergMarquardtMinimizer(args):
     dirname = args.dirname
     basename = args.basename
-    lambdaValue = args['lambda']
+    lambdaValue = args.lambdaValue
 
     filename = os.path.join(dirname, basename)
     dataset = IO.readH5File(filename)
@@ -2081,7 +2081,7 @@ def doLevenbergMarquardtMinimizer(args):
     
     measurements = dataset['measurements']
     radiuses = dataset['radiuses']
-    objectnessMeasure = dataset['objectnessMeasure']
+    #objectnessMeasure = dataset['objectnessMeasure']
 
     indices1 = dataset['indices1']
     indices2 = dataset['indices2']
@@ -2388,7 +2388,7 @@ if __name__ == '__main__':
     subparser = subparsers.add_parser('doLevenbergMarquardtMinimizer')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
-    subparser.add_argument('lambda', type=float)
+    subparser.add_argument('lambdaValue', type=float)
     subparser.set_defaults(func=doLevenbergMarquardtMinimizer)
 
     # parse the args and call whatever function was selected
