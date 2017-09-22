@@ -18,6 +18,7 @@ import vtk
 
 from sklearn.neighbors import KDTree,NearestNeighbors,radius_neighbors_graph
 from xml.etree import ElementTree
+from LevenbergMarquardtMinimizer import ProblemBuilder,InexactLevenbergMarquardtMinimizer
 
 def doConvertRawToH5(args):
     dirname = args.dirname
@@ -1588,7 +1589,7 @@ def doCreateTreeStructureH5File(args):
 def doConvertTubeTKFileToH5File(args):
     dirname = args.dirname
     basename = args.basename
-    voxelWidth = args.voxelWidth
+    elementSpacing = tuple(args.elementSpacing)
 
     filename = os.path.join(dirname, basename)
     allPoints = []    
@@ -1603,7 +1604,7 @@ def doConvertTubeTKFileToH5File(args):
             assert NPoints == len(Points)
             allPoints.extend(Points)
 
-    pattern = re.compile("^(?P<x>{fpn})\s(?P<y>{fpn})\s(?P<z>{fpn})\s(?P<r>{fpn})\s.*\s(?P<tx>{fpn})\s(?P<ty>{fpn})\s(?P<tz>{fpn})\s(?P<a1>{fpn})\s(?P<a2>{fpn})\s(?P<a3>{fpn})\s(?P<red>\d+)\s(?P<green>\d+)\s(?P<blue>\d+)\s(?P<alpha>\d+)\s(?P<id>\d+)\s$".format(fpn="[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?"))
+    pattern = re.compile("^(?P<x>{fpn})\s(?P<y>{fpn})\s(?P<z>{fpn})\s(?P<r>{fpn})\s.*\s(?P<tx>{fpn})\s(?P<ty>{fpn})\s(?P<tz>{fpn})\s(?P<a1>{fpn})\s(?P<a2>{fpn})\s(?P<a3>{fpn})\s(?P<red>\d+)\s(?P<green>\d+)\s(?P<blue>\d+)\s(?P<alpha>\d+)\s(?P<id>-?\d+)\s$".format(fpn="[-+]?[0-9]+(\.?[0-9]+([eE][-+]?[0-9]+)?)?"))
 
     positions = []
     radiuses = []
@@ -1613,14 +1614,14 @@ def doConvertTubeTKFileToH5File(args):
     for str in allPoints:
         m = re.match(pattern, str)
 
-        x = float(m.group('x')) * voxelWidth
-        y = float(m.group('y')) * voxelWidth
-        z = float(m.group('z')) * voxelWidth
-        r = float(m.group('r')) * voxelWidth
+        x = float(m.group('x')) * elementSpacing[0]
+        y = float(m.group('y')) * elementSpacing[1]
+        z = float(m.group('z')) * elementSpacing[2]
+        r = float(m.group('r'))
 
-        tx = float(m.group('tx')) * voxelWidth
-        ty = float(m.group('ty')) * voxelWidth
-        tz = float(m.group('tz')) * voxelWidth
+        tx = float(m.group('tx')) #* elementSpacing[0]
+        ty = float(m.group('ty')) #* elementSpacing[1]
+        tz = float(m.group('tz')) #* elementSpacing[2]
 
         id = int(m.group('id'))
 
@@ -2040,13 +2041,64 @@ def doAnalyzeTheirOverlapMeasureCsv(args):
     voxelSize = args.voxelSize
 
     df = pd.read_csv(os.path.join(dirname, basename))
-    
-    outResult = analyzeOverlapMeasure(df, voxelSize)
 
     basename,_ = os.path.splitext(basename)
     filename   = os.path.join(dirname, basename + 'Average.csv')
 
-    outResult.to_csv(filename, index=False)
+    overlapMeasure = analyzeOverlapMeasure(df, voxelSize)
+    overlapMeasure.to_csv(filename, index=False)
+
+def doAnalyzeOurOverlapMeasureCsv(args):
+    dirname   = args.dirname
+    basename  = args.basename
+    voxelSize = args.voxelSize
+
+    df = pd.read_csv(os.path.join(dirname, basename))
+
+    overlapMeasure = pd.DataFrame()
+
+    for i, (ParValue,g) in enumerate(df.groupby(['ParValue'])):
+        g = analyzeOverlapMeasure(g, voxelSize)
+        g.insert(1, 'ParValue', ParValue)
+
+        overlapMeasure = pd.concat((overlapMeasure, g))
+
+    basename,_ = os.path.splitext(basename)
+    filename   = os.path.join(dirname, basename + 'Average.csv')
+    overlapMeasure.sort_values(['ThresholdValue', 'ParValue'], inplace=True)
+    overlapMeasure.to_csv(filename, index=False)
+
+def doLevenbergMarquardtMinimizer(args):
+    dirname = args.dirname
+    basename = args.basename
+    lambdaValue = args['lambda']
+
+    filename = os.path.join(dirname, basename)
+    dataset = IO.readH5File(filename)
+
+    tangentLinesPoints1 = dataset['tangentLinesPoints1']
+    tangentLinesPoints2 = dataset['tangentLinesPoints2']
+    
+    measurements = dataset['measurements']
+    radiuses = dataset['radiuses']
+    objectnessMeasure = dataset['objectnessMeasure']
+
+    indices1 = dataset['indices1']
+    indices2 = dataset['indices2']
+
+    builder = ProblemBuilder(measurements, tangentLinesPoints1, tangentLinesPoints2, radiuses, indices1, indices2, lambdaValue)
+    minimizer = InexactLevenbergMarquardtMinimizer(builder)
+
+    tangentLinesPoints1, tangentLinesPoints2, positions = minimizer.minimize()
+
+    dataset['tangentLinesPoints1'] = tangentLinesPoints1
+    dataset['tangentLinesPoints2'] = tangentLinesPoints2
+    dataset['positions'] = positions
+
+    basename,_ = os.path.splitext(basename)
+    filename = os.path.join(dirname, basename + 'Curv.h5')
+
+    IO.writeH5File(filename, dataset)
 
 if __name__ == '__main__':
     # create the top-level parser
@@ -2259,7 +2311,7 @@ if __name__ == '__main__':
     subparser = subparsers.add_parser('doConvertTubeTKFileToH5File')
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
-    subparser.add_argument('voxelWidth', type=float)
+    subparser.add_argument('elementSpacing', nargs=3, type=float)
     subparser.set_defaults(func=doConvertTubeTKFileToH5File)
 
     # create the parser for the "doComputeLengthOfMinimumSpanningTree" command
@@ -2324,6 +2376,20 @@ if __name__ == '__main__':
     subparser.add_argument('basename')
     subparser.add_argument('voxelSize', type=float)
     subparser.set_defaults(func=doAnalyzeTheirOverlapMeasureCsv)
+
+    # create the parser for the "doAnalyzeOurOverlapMeasureCsv" command
+    subparser = subparsers.add_parser('doAnalyzeOurOverlapMeasureCsv')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.add_argument('voxelSize', type=float)
+    subparser.set_defaults(func=doAnalyzeOurOverlapMeasureCsv)
+
+    # create the parser for the "doLevenbergMarquardtMinimizer" command
+    subparser = subparsers.add_parser('doLevenbergMarquardtMinimizer')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.add_argument('lambda', type=float)
+    subparser.set_defaults(func=doLevenbergMarquardtMinimizer)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
