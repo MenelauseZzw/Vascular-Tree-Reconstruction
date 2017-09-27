@@ -9,16 +9,22 @@ def CreateRenderer(renWin):
     return renderer
 
 class DataSource:
-    def __init__(self, sourceDirName):
-        self.originalVolumeReader                  = self.CreateMetaImageReader(os.path.join(sourceDirName, "original_image.mhd"))
-        self.objectnessMeasureVolumeReader         = self.CreateMetaImageReader(os.path.join(sourceDirName, "ObjectnessMeasureVolume.mhd"))
-        self.objectnessMeasureVolumeTangentsReader = self.CreatePolyDataReader(os.path.join(sourceDirName, "ObjectnessMeasureVolumeTangents.vtp"))
-        self.nonMaximumSuppressionVolumeReader = self.CreateMetaImageReader(os.path.join(sourceDirName, "NonMaximumSuppressionVolume.mhd"))
-        #self.groundTruthTreeReader             = self.CreatePolyDataReader(os.path.join(sourceDirName, "GroundTruthTree.vtp"))
-        #self.tangentsReader                    = self.CreatePolyDataReader(os.path.join(sourceDirName, "NonMaximumSuppressionVolumeTangents.vtp"))
-        self.tangentsCurvReader                = self.CreatePolyDataReader(os.path.join(sourceDirName, "1.95/NonMaximumSuppressionCurvVolumeEMST.vtp"))
-        #self.resultTreeReader                  = self.CreatePolyDataReader(os.path.join(sourceDirName, "NonMaximumSuppressionCurvVolumeEMST.vtp"))
+    def __init__(self, args):
+        sourceDirName = args.sourceDirName
 
+        self.originalVolumeReader = self.CreateMetaImageReader(os.path.join(sourceDirName, args.originalVolumeFileName))
+        self.groundTruthPolyDataReader = self.CreatePolyDataReader(os.path.join(sourceDirName, args.groundTruthPolyDataFileName))
+
+        self.objectnessMeasureVolumeReader = self.CreateMetaImageReader(os.path.join(sourceDirName, args.objectnessMeasureVolumeFileName))
+        self.objectnessMeasureVolumePolyDataReader = self.CreatePolyDataReader(os.path.join(sourceDirName, args.objectnessMeasureVolumePolyDataFileName))
+
+        self.nonMaximumSuppressionVolumeReader = self.CreateMetaImageReader(os.path.join(sourceDirName, args.nonMaximumSuppressionVolumeFileName))
+        self.nonMaximumSuppressionVolumePolyDataReader = self.CreatePolyDataReader(os.path.join(sourceDirName, args.nonMaximumSuppressionVolumePolyDataFileName))
+
+        self.nonMaximumSuppressionCurvVolumePolyDataReader = self.CreatePolyDataReader(os.path.join(sourceDirName, args.nonMaximumSuppressionCurvVolumePolyDataFileName))
+
+        self.resultPolyDataReader = self.CreatePolyDataReader(os.path.join(sourceDirName, args.resultPolyDataFileName))
+        
     def CreatePolyDataReader(self, polyDataFileName):
         polyDataReader = vtk.vtkXMLPolyDataReader()
         polyDataReader.SetFileName(polyDataFileName)
@@ -32,26 +38,26 @@ class DataSource:
     def GetOriginalVolumeReader(self): 
         return self.originalVolumeReader
 
+    def GetGroundTruthTreePolyDataReader(self):
+        return self.groundTruthPolyDataReader
+
     def GetObjectnessMeasureVolumeReader(self):
         return self.objectnessMeasureVolumeReader
-   
-    def GetObjectnessMeasureVolumeTangentsReader(self):
-        return self.objectnessMeasureVolumeTangentsReader
+
+    def GetObjectnessMeasureVolumePolyDataReader(self):
+        return self.objectnessMeasureVolumePolyDataReader
 
     def GetNonMaximumSuppressionVolumeReader(self):
         return self.nonMaximumSuppressionVolumeReader
 
-    def GetGroundTruthTreeReader(self):
-        return self.groundTruthTreeReader
+    def GetNonMaximumSuppressionVolumePolyDataReader(self):
+        return self.nonMaximumSuppressionVolumePolyDataReader
 
-    def GetTangentsReader(self):
-        return self.tangentsReader
+    def GetNonMaximumSuppressionCurvVolumePolyDataReader(self):
+        return self.nonMaximumSuppressionCurvVolumePolyDataReader
 
-    def GetTangentsCurvReader(self):
-        return self.tangentsCurvReader
-
-    def GetResultTreeReader(self):
-        return self.resultTreeReader
+    def GetResultPolyDataReader(self):
+        return self.resultPolyDataReader
 
 class PresentationModel:
     def GetDataSource(self):
@@ -61,24 +67,24 @@ class PresentationModel:
         self.src = src
 
     def CreateVolumeRayCastMapper(self, volumeSrc):
-	volumeMapper = vtk.vtkSmartVolumeMapper()
-	volumeMapper.SetInputConnection(volumeSrc.GetOutputPort())
-	volumeMapper.SetRequestedRenderModeToRayCast()	
-	volumeMapper.SetBlendModeToMaximumIntensity()
-	volumeMapper.SetInterpolationModeToLinear ()
+        volumeMapper = vtk.vtkSmartVolumeMapper()
+        volumeMapper.SetInputConnection(volumeSrc.GetOutputPort())
+        volumeMapper.SetRequestedRenderModeToRayCast()	
+        volumeMapper.SetBlendModeToMaximumIntensity()
+        volumeMapper.SetInterpolationModeToLinear()
 
         return volumeMapper
 
     def CreatePolyDataMapper(self, polyDataProvider):
         polyDataMapper = vtk.vtkPolyDataMapper()
         polyDataMapper.SetInputConnection(polyDataProvider.GetOutputPort())
+        polyDataMapper.SetScalarModeToUseCellData()
         return polyDataMapper
 
     def CreateOriginalVolume(self, volumeReader):
         volumeReader.Update()
 
         valueMin,valueMax = volumeReader.GetOutput().GetPointData().GetArray('MetaImage').GetValueRange()
-
 
         toUnsignedShort = vtk.vtkImageShiftScale()
         toUnsignedShort.ClampOverflowOn()
@@ -147,154 +153,225 @@ class PresentationModel:
 
     def CreateOriginalVolumeActor(self):
         volumeReader = self.src.GetOriginalVolumeReader()
-        volume       = self.CreateOriginalVolume(volumeReader)
+        volume = self.CreateOriginalVolume(volumeReader)
         return self.CreateVolumeActor(self.CreateVolumeRayCastMapper(volume), self.CreateVolumeProperty())
+
+    def CreateGroundTruthTreePolyDataActor(self):
+        polyDataReader = self.src.GetGroundTruthTreePolyDataReader()
+        actor = vtk.vtkActor()
+        actor.GetProperty().SetColor(1 / 3., 1, 0.5)
+        actor.GetProperty().SetOpacity(0.8)
+        actor.SetMapper(self.CreatePolyDataMapper(polyDataReader))
+        return actor
 
     def CreateObjectnessMeasureVolumeActor(self):
         volumeReader = self.src.GetObjectnessMeasureVolumeReader()
-        volume       = self.CreateObjectnessMeasureVolume(volumeReader)
+        volume = self.CreateObjectnessMeasureVolume(volumeReader)
         return self.CreateVolumeActor(self.CreateVolumeRayCastMapper(volume), self.CreateVolumeProperty())
+
+    def CreateObjectnessMeasureVolumePolyDataActor(self):
+        polyDataReader = self.src.GetObjectnessMeasureVolumePolyDataReader()
+        actor = vtk.vtkActor()
+        actor.GetProperty().SetColor(1, 1, 0.5)
+        actor.GetProperty().SetOpacity(0.8)
+        actor.SetMapper(self.CreatePolyDataMapper(polyDataReader))
+        return actor
 
     def CreateNonMaximumSuppressionVolumeActor(self):
         volumeReader = self.src.GetNonMaximumSuppressionVolumeReader()
-        volume       = self.CreateObjectnessMeasureVolume(volumeReader)
+        volume = self.CreateObjectnessMeasureVolume(volumeReader)
         return self.CreateVolumeActor(self.CreateVolumeRayCastMapper(volume), self.CreateVolumeProperty())
 
-    def CreateGroundTruthTreeActor(self):
-        polyDataReader = self.src.GetGroundTruthTreeReader()
+    def CreateNonMaximumSuppressionVolumePolyDataActor(self):
+        polyDataReader = self.src.GetNonMaximumSuppressionVolumePolyDataReader()
         actor = vtk.vtkActor()
-        actor.GetProperty().SetColor(0, 1, 0)
-        actor.GetProperty().SetLineWidth(0.5)
+        actor.GetProperty().SetColor(1 / 3., 2 / 3., 1)
+        actor.GetProperty().SetOpacity(0.8)
         actor.SetMapper(self.CreatePolyDataMapper(polyDataReader))
         return actor
 
-    def CreatebjectnessMeasureVolumeTangentsActor(self):
-        polyDataReader = self.src.GetObjectnessMeasureVolumeTangentsReader() 
+    def CreateNonMaximumSuppressionCurvVolumePolyDataActor(self):
+        polyDataReader = self.src.GetNonMaximumSuppressionCurvVolumePolyDataReader()
         actor = vtk.vtkActor()
-        actor.GetProperty().SetColor(1, 0, 0)
+        actor.GetProperty().SetColor(1, 2 / 3., 1)
+        actor.GetProperty().SetOpacity(0.8)
         actor.SetMapper(self.CreatePolyDataMapper(polyDataReader))
         return actor
 
-    def CreateTangentsActor(self):
-        polyDataReader = self.src.GetTangentsReader() 
+    def CreateResultPolyDataActor(self):
+        polyDataReader = self.src.GetResultPolyDataReader()
         actor = vtk.vtkActor()
-        actor.GetProperty().SetColor(1, 0, 0)
+        actor.GetProperty().SetColor(1, 1, 1)
+        actor.GetProperty().SetOpacity(1)
         actor.SetMapper(self.CreatePolyDataMapper(polyDataReader))
         return actor
 
-    def CreateTangentsCurvActor(self):
-        polyDataReader = self.src.GetTangentsCurvReader() 
-        actor = vtk.vtkActor()
-        actor.GetProperty().SetColor(85 / 255., 170 / 255., 255 / 255.)
-        actor.SetMapper(self.CreatePolyDataMapper(polyDataReader))
-        return actor
+class Application:
+    def __init__(self):
+        renWin = vtk.vtkRenderWindow()
+        renWin.LineSmoothingOn()
+        renWin.SetSize(1280, 720)
 
-    def CreateResultTreeActor(self):
-        polyDataReader = self.src.GetResultTreeReader()
-        actor = vtk.vtkActor()
-        actor.GetProperty().SetColor(1, 1, 0)
-        actor.SetMapper(self.CreatePolyDataMapper(polyDataReader))
-        return actor
+        iren = vtk.vtkRenderWindowInteractor()
+        iren.SetRenderWindow(renWin)
 
-def OnKeyPress(obj, e):
-    keySym = obj.GetKeySym()
-    if keySym == 's':
-         print 's'
-    return
-
-
-def DoMaximumIntensityProjection(args):
-    sourceDirName = args.sourceDirName
-
-    renWin = vtk.vtkRenderWindow()
-    #renWin.FullScreenOn()
-    renWin.SetSize(1000, 800)
-    renWin.LineSmoothingOn()
-
-    iren = vtk.vtkRenderWindowInteractor()
-    iren.SetRenderWindow(renWin)
+        self.iren = iren
+        self.renWin = renWin
     
-    src = DataSource(sourceDirName)
+    def RenderOutputToImage(self):
+        w2i = vtk.vtkWindowToImageFilter()
+        writer = vtk.vtkPNGWriter()
 
-    presModel = PresentationModel()
-    presModel.SetDataSource(src)
+        w2i.SetInput(self.renWin)
+        w2i.Update()
+        writer.SetInputConnection(w2i.GetOutputPort())
+        writer.SetFileName('image.png')
+        writer.Write()
 
-    originalVolumeActor = presModel.CreateOriginalVolumeActor()
+    def OnKeyPress(self, obj, e):
+        keySym = obj.GetKeySym()
+        renWin = self.renWin
 
-    numRows, numCols = 2, 2
-    viewports = []
+        def TogglePolyDataActorVisibility(polyDataActor):
+            polyDataActor.SetVisibility(not polyDataActor.GetVisibility())
+            renWin.Render()
 
-    for row in xrange(numRows - 1, -1, -1):
-        ymin = float(row) / numRows
-	ymax = (row + 1.0) / numRows
+        if '1' == keySym:
+            TogglePolyDataActorVisibility(self.groundTruthTreePolyDataActor)
+        elif '2' == keySym:
+            TogglePolyDataActorVisibility(self.objectnessMeasureVolumePolyDataActor)
+        elif '3' == keySym:
+            TogglePolyDataActorVisibility(self.nonMaximumSuppressionVolumePolyDataActor)
+        elif '4' == keySym:
+            TogglePolyDataActorVisibility(self.nonMaximumSuppressionCurvVolumePolyDataActor)
+        elif 'S' == keySym:
+            self.RenderOutputToImage()
 
-        for col in xrange(numCols):
-            xmin = float(col) / numCols
-            xmax = (col + 1.0) / numCols
-            viewports.append((xmin,ymin,xmax,ymax))
+    def Run(self, args):
+        renWin = self.renWin
+        iren = self.iren
 
-    originalVolumeRenderer = CreateRenderer(renWin)
-    originalVolumeRenderer.SetViewport(viewports[0])
+        src = DataSource(args)
+        
 
-    originalVolumeRenderer.AddVolume(originalVolumeActor)
+        pm = PresentationModel()
+        pm.SetDataSource(src)
 
-    objectnessMeasureVolumeRenderer = CreateRenderer(renWin)
-    objectnessMeasureVolumeRenderer.AddVolume(presModel.CreateObjectnessMeasureVolumeActor())
-    #objectnessMeasureVolumeRenderer.AddActor(presModel.CreatebjectnessMeasureVolumeTangentsActor())
-    objectnessMeasureVolumeRenderer.SetViewport(viewports[1])
+        originalVolumeActor = pm.CreateOriginalVolumeActor()
 
-    nonMaximumSuppressionVolumeRenderer = CreateRenderer(renWin)
-    nonMaximumSuppressionVolumeRenderer.AddVolume(presModel.CreateNonMaximumSuppressionVolumeActor())
-    nonMaximumSuppressionVolumeRenderer.SetViewport(viewports[2])
+        numRows, numCols = 2, 2
+        viewports = []
 
-    #tangentsRenderer = CreateRenderer(renWin)
-    #tangentsRenderer.AddActor(presModel.CreateTangentsActor())
-    #tangentsRenderer.AddActor(presModel.CreateGroundTruthTreeActor())
-    #tangentsRenderer.SetViewport((0, 0, 1 / 3., 0.5))
+        for row in xrange(numRows - 1, -1, -1):
+            ymin = float(row) / numRows
+            ymax = (row + 1.0) / numRows
 
-    #tangentsCurvRenderer = CreateRenderer(renWin)
-    #tangentsCurvRenderer.AddActor(presModel.CreateTangentsCurvActor())
-    #tangentsCurvRenderer.SetViewport(viewports[5])
+            for col in xrange(numCols):
+                xmin = float(col) / numCols
+                xmax = (col + 1.0) / numCols
+                viewports.append((xmin,ymin,xmax,ymax))
 
-    #resultTreeRenderer = CreateRenderer(renWin)
-    #resultTreeRenderer.AddActor(presModel.CreateResultTreeActor())
-    #resultTreeRenderer.AddActor(presModel.CreateGroundTruthTreeActor())
-    #resultTreeRenderer.SetViewport((2 / 3., 0, 1, 0.5))
+        originalVolumeRenderer = CreateRenderer(renWin)
+        originalVolumeRenderer.SetViewport(viewports[0])
 
-    objectnessMeasureVolumeRenderer.SetActiveCamera(originalVolumeRenderer.GetActiveCamera())
-    nonMaximumSuppressionVolumeRenderer.SetActiveCamera(originalVolumeRenderer.GetActiveCamera())
-    #tangentsRenderer.SetActiveCamera(originalVolumeRenderer.GetActiveCamera())
-    #tangentsCurvRenderer.SetActiveCamera(originalVolumeRenderer.GetActiveCamera())
-    #resultTreeRenderer.SetActiveCamera(originalVolumeRenderer.GetActiveCamera())
 
-    camera =  originalVolumeRenderer.GetActiveCamera()
-    c = originalVolumeActor.GetCenter()
+        self.originalVolumeRenderer = originalVolumeRenderer
+
+        self.objectnessMeasureVolumeActor = pm.CreateObjectnessMeasureVolumeActor()
+        self.objectnessMeasureVolumePolyDataActor = pm.CreateObjectnessMeasureVolumePolyDataActor()
+        self.nonMaximumSuppressionVolumePolyDataActor = pm.CreateNonMaximumSuppressionVolumePolyDataActor()
+        self.nonMaximumSuppressionCurvVolumePolyDataActor = pm.CreateNonMaximumSuppressionCurvVolumePolyDataActor()
+        self.groundTruthTreePolyDataActor = pm.CreateGroundTruthTreePolyDataActor()
+        self.resultPolyDataActor = pm.CreateResultPolyDataActor()
+
+        self.groundTruthTreePolyDataActor.VisibilityOff()
+        self.objectnessMeasureVolumePolyDataActor.VisibilityOff()
+        self.nonMaximumSuppressionVolumePolyDataActor.VisibilityOff()
+        self.nonMaximumSuppressionCurvVolumePolyDataActor.VisibilityOff()
+
+        originalVolumeRenderer.AddVolume(originalVolumeActor)
+        originalVolumeRenderer.AddActor(self.groundTruthTreePolyDataActor)
+        originalVolumeRenderer.AddActor(self.objectnessMeasureVolumePolyDataActor)
+        originalVolumeRenderer.AddActor(self.nonMaximumSuppressionVolumePolyDataActor)
+        originalVolumeRenderer.AddActor(self.nonMaximumSuppressionCurvVolumePolyDataActor)
+
+        originalVolumeRenderer.AddActor(self.objectnessMeasureVolumePolyDataActor)
+
+        objectnessMeasureVolumeRenderer = CreateRenderer(renWin)
+        objectnessMeasureVolumeRenderer.AddVolume(self.objectnessMeasureVolumeActor)
+
+        objectnessMeasureVolumeRenderer.AddActor(self.groundTruthTreePolyDataActor)
+        objectnessMeasureVolumeRenderer.AddActor(self.objectnessMeasureVolumePolyDataActor)
+        objectnessMeasureVolumeRenderer.AddActor(self.nonMaximumSuppressionVolumePolyDataActor)
+        objectnessMeasureVolumeRenderer.AddActor(self.nonMaximumSuppressionCurvVolumePolyDataActor)
+
+        objectnessMeasureVolumeRenderer.SetViewport(viewports[1])
+
+        self.objectnessMeasureVolumeRenderer = objectnessMeasureVolumeRenderer
+
+        self.nonMaximumSuppressionVolumeActor = pm.CreateNonMaximumSuppressionVolumeActor()
+
+        nonMaximumSuppressionVolumeRenderer = CreateRenderer(renWin)
+
+        self.nonMaximumSuppressionVolumeRenderer = nonMaximumSuppressionVolumeRenderer
+
+        nonMaximumSuppressionVolumeRenderer.AddVolume(self.nonMaximumSuppressionVolumeActor)
+
+        nonMaximumSuppressionVolumeRenderer.AddActor(self.groundTruthTreePolyDataActor)
+        nonMaximumSuppressionVolumeRenderer.AddActor(self.objectnessMeasureVolumePolyDataActor)
+        nonMaximumSuppressionVolumeRenderer.AddActor(self.nonMaximumSuppressionVolumePolyDataActor)
+        nonMaximumSuppressionVolumeRenderer.AddActor(self.nonMaximumSuppressionCurvVolumePolyDataActor)
+        nonMaximumSuppressionVolumeRenderer.SetViewport(viewports[2])
+
+        resultRenderer = CreateRenderer(renWin)
+
+        resultRenderer.AddActor(self.resultPolyDataActor)
+        resultRenderer.AddActor(self.groundTruthTreePolyDataActor)
+        resultRenderer.AddActor(self.objectnessMeasureVolumePolyDataActor)
+        resultRenderer.AddActor(self.nonMaximumSuppressionVolumePolyDataActor)
+        resultRenderer.AddActor(self.nonMaximumSuppressionCurvVolumePolyDataActor)
+        resultRenderer.SetViewport(viewports[3])
+
+        objectnessMeasureVolumeRenderer.SetActiveCamera(originalVolumeRenderer.GetActiveCamera())
+        nonMaximumSuppressionVolumeRenderer.SetActiveCamera(originalVolumeRenderer.GetActiveCamera())
+        resultRenderer.SetActiveCamera(originalVolumeRenderer.GetActiveCamera())
+
+        camera = originalVolumeRenderer.GetActiveCamera()
+        c = originalVolumeActor.GetCenter()
     
-    camera.SetFocalPoint(c[0], c[1], c[2])
-    camera.SetPosition(c[0], c[1], c[2] + 10) 
-    camera.SetViewUp(0, 1, 0)
+        camera.ParallelProjectionOff()
 
-    camera.SetViewAngle(30)
-    #camera.SetParallelScale(647.113669754781)
-    #camera.SetParallelProjection(0)
+        camera.SetFocalPoint(c[0], c[1], c[2])
+        camera.SetPosition(c[0], c[1], c[2] + 10) 
+        camera.SetViewAngle(30)
+        camera.SetViewUp(0, 1, 0)
 
-    style = vtk.vtkInteractorStyleTrackballCamera()
-    style.SetCurrentRenderer(originalVolumeRenderer)
-    style.SetMotionFactor(5)
-    iren.SetInteractorStyle(style)
+        style = vtk.vtkInteractorStyleTrackballCamera()
+        style.SetCurrentRenderer(originalVolumeRenderer)
+        style.SetMotionFactor(5)
+        iren.SetInteractorStyle(style)
 
-    iren.AddObserver('KeyPressEvent', OnKeyPress)
+        iren.AddObserver('KeyPressEvent', self.OnKeyPress)
 
-    iren.Initialize()
-    renWin.Render()
-    iren.Start()
+        iren.Initialize()
+        renWin.Render()
+        iren.Start()
 
 if __name__ == '__main__':
-    # create the top-level parser
+    app = Application()
+
     argparser = argparse.ArgumentParser()
     argparser.add_argument('sourceDirName')
-    argparser.set_defaults(func=DoMaximumIntensityProjection)
-    # parse the args and call whatever function was selected
+    argparser.add_argument('--originalVolumeFileName', default='original_image.mhd')
+    argparser.add_argument('--groundTruthPolyDataFileName', default='tree_structure.vtp')
+    argparser.add_argument('--objectnessMeasureVolumeFileName', default='ObjectnessMeasureVolume.mhd')
+    argparser.add_argument('--objectnessMeasureVolumePolyDataFileName', default='ObjectnessMeasureVolumeTangents.vtp')
+    argparser.add_argument('--nonMaximumSuppressionVolumeFileName', default='NonMaximumSuppressionVolume.mhd')
+    argparser.add_argument('--nonMaximumSuppressionVolumePolyDataFileName', default='NonMaximumSuppressionVolumeTangents.vtp')
+    argparser.add_argument('--nonMaximumSuppressionCurvVolumePolyDataFileName', default='1.95/NonMaximumSuppressionCurvVolumeTangents.vtp')
+    argparser.add_argument('--resultPolyDataFileName', default='1.95/NonMaximumSuppressionCurvVolumeEMST.vtp')
+    argparser.set_defaults(func=app.Run)
+
     args = argparser.parse_args()
     args.func(args)
 
