@@ -221,11 +221,19 @@ class ApplicationBuilder:
         maxRow = 0
         maxColumn = 0
 
+        volumesByPosition = dict()
+
         for volume in self.volumes:
             if volume.Row > maxRow:
                 maxRow = volume.Row
             if volume.Column > maxColumn:
                 maxColumn = volume.Column
+
+            pos = (volume.Row,volume.Column)
+            if pos in volumesByPosition:
+                volumesByPosition.append(volume)
+            else:
+                volumesByPosition[pos] = [volume]
 
         app = Application()
 
@@ -234,31 +242,38 @@ class ApplicationBuilder:
 
         firstRenderer = None
 
-        for volume in self.volumes:
-            renderer = app.CreateRenderer()
-            viewport = self.CreateViewport(volume.Row, numRows, volume.Column, numColumns)
-            renderer.SetViewport(viewport)
-            volumeProp = volume.CreateVolume()
-            renderer.AddVolume(volumeProp)
-            if firstRenderer is None:
-                firstRenderer = renderer
-                camera = firstRenderer.GetActiveCamera()
+        for row in xrange(numRows):
+            for column in xrange(numColumns):
+                renderer = app.CreateRenderer()
+                viewport = self.CreateViewport(row, numRows, column, numColumns)
+                renderer.SetViewport(viewport) 
+
+                pos = (row,column)
+                if pos in volumesByPosition:
+                    volumes = volumesByPosition[pos]
+                    for volume in volumes:
+                        volumeProp = volume.CreateVolume()
+                        renderer.AddVolume(volumeProp)
                 
-                c = volumeProp.GetCenter()
+                if firstRenderer is None:
+                    firstRenderer = renderer
+                    camera = firstRenderer.GetActiveCamera()
+                
+                    c = volumeProp.GetCenter()
 
-                camera.ParallelProjectionOff()
-                camera.SetFocalPoint(c[0], c[1], c[2])
-                camera.SetPosition(c[0], c[1], c[2] + 10) 
-                camera.SetViewAngle(30)
-                camera.SetViewUp(0, 1, 0)
-            else:
-                renderer.SetActiveCamera(firstRenderer.GetActiveCamera())
+                    camera.ParallelProjectionOff()
+                    camera.SetFocalPoint(c[0], c[1], c[2])
+                    camera.SetPosition(c[0], c[1], c[2] + 10) 
+                    camera.SetViewAngle(30)
+                    camera.SetViewUp(0, 1, 0)
+                else:
+                    renderer.SetActiveCamera(firstRenderer.GetActiveCamera())
 
-            for polyDataFile in self.polyDataFiles:
-                polyDataActor = polyDataFile.CreatePolyDataActor()
-                polyDataActor.VisibilityOff()
-                renderer.AddActor(polyDataActor)
-                app.RegisterToggleVisibilityCommand(polyDataActor, polyDataFile.KeySym)
+                for polyDataFile in self.polyDataFiles:
+                    polyDataActor = polyDataFile.CreatePolyDataActor()
+                    polyDataActor.VisibilityOff()
+                    renderer.AddActor(polyDataActor)
+                    app.RegisterToggleVisibilityCommand(polyDataActor, polyDataFile.KeySym)
 
         style = vtk.vtkInteractorStyleTrackballCamera()
         style.SetCurrentRenderer(firstRenderer)
