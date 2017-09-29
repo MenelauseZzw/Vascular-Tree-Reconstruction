@@ -33,7 +33,7 @@ class Application:
         elif keySym == 'space':
             self.Save()
 
-    def Save():
+    def Save(self):
         print 'Save'
 #    def RenderOutputToImage(self):
 #        w2i = vtk.vtkWindowToImageFilter()
