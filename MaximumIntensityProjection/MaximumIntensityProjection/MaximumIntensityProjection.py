@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import datetime
 import math
 import os.path
 import re
@@ -31,20 +32,20 @@ class Application:
                 command()
             self.iren.Render()
         elif keySym == 'space':
-            self.Save()
+            self.SaveCommand()
 
-    def Save(self):
-        print 'Save'
-#    def RenderOutputToImage(self):
-#        w2i = vtk.vtkWindowToImageFilter()
-#        writer = vtk.vtkPNGWriter()
+    def SaveCommand(self):
+        windowToImage = vtk.vtkWindowToImageFilter()
+        windowToImage.SetInput(self.renWin)
+        windowToImage.Update()
 
-#        w2i.SetInput(self.renWin)
-#        w2i.Update()
-#        writer.SetInputConnection(w2i.GetOutputPort())
-#        writer.SetFileName('image.png')
-#        writer.Write()
+        now = datetime.datetime.now()
+        imageFileName = now.strftime('IMG-%Y%m%d-%H%M%S.png')
 
+        imageWriter = vtk.vtkPNGWriter()
+        imageWriter.SetInputData(windowToImage.GetOutput())
+        imageWriter.SetFileName(imageFileName)
+        imageWriter.Write()
 
     def SetInteractorStyle(self, style):
         self.iren.SetInteractorStyle(style)
