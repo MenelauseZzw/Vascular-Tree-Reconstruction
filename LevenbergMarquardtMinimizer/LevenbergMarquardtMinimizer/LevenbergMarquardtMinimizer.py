@@ -1,13 +1,10 @@
-import argparse
-import IO
-import h5py
 import numpy as np
 import numpy.linalg as linalg
 from scipy.sparse.linalg import LinearOperator,lsqr
 import tensorflow as tf
 
 class ProblemBuilder:
-    def __init__(self, measurements, tangentLinesPoints1, tangentLinesPoints2, radiuses, indices1, indices2, lambd):
+    def __init__(self, measurements, tangentLinesPoints1, tangentLinesPoints2, radiuses, indices1, indices2, lambdaValue, voxelPhysicalSize):
         self.numDimensions = measurements.shape[1]
         self.measurements = measurements
         self.tangentLinesPoints1 = tangentLinesPoints1
@@ -16,7 +13,8 @@ class ProblemBuilder:
         self.radiuses = radiuses
         self.indices1 = indices1
         self.indices2 = indices2
-        self.lambd = lambd
+        self.lambdaValue = lambdaValue
+        self.voxelPhysicalSize = voxelPhysicalSize
 
     def getVariablePlaceholder(self, dtype):
         numVars = self.Parametrization.numParams(self.numDimensions) * self.numPoints
@@ -47,7 +45,7 @@ class ProblemBuilder:
         num = q.euclideanDistance(p.projection(p0)) + p.euclideanDistance(q.projection(q0))
         den = tf.norm(p.projection(p0) - q.projection(q0), ord='euclidean', axis=1)
 
-        return tf.concat([dist, self.lambd * num / den], axis=0)
+        return tf.concat([dist, self.lambdaValue * num / den], axis=0)
 
     def getVectorJacobianProduct(self, x, v):
         func = self.getFunction(x)
@@ -174,44 +172,3 @@ class InexactLevenbergMarquardtMinimizer:
     @staticmethod
     def getKthEta(k):
         return 0.5
-
-def DoLevenbergMarquardtMinimizer(args):
-    inputFileName     = args.inputFileName
-    outputFileName    = args.outputFileName
-    lambdaValue       = args.lambdaValue
-    voxelPhysicalSize = args.voxelPhysicalSize
-
-    dataset = IO.readH5File(inputFileName)
-
-    measurements        = dataset['measurements']
-    tangentLinesPoints1 = dataset['tangentLinesPoints1']
-    tangentLinesPoints2 = dataset['tangentLinesPoints2']
-    radiuses            = dataset['radiuses']
-    objectnessMeasure   = dataset['objectnessMeasure']
-    indices1            = dataset['indices1']
-    indices2            = dataset['indices2']
-
-    builder = ProblemBuilder(measurements, tangentLinesPoints1, tangentLinesPoints2, radiuses, indices1, indices2, lambdaValue)
-    minimizer = InexactLevenbergMarquardtMinimizer(builder)
-
-    tangentLinesPoints1, tangentLinesPoints2, positions = minimizer.minimize()
-
-    dataset['tangentLinesPoints1'] = tangentLinesPoints1
-    dataset['tangentLinesPoints2'] = tangentLinesPoints2
-    dataset['positions']           = positions
-
-    IO.writeH5File(outputFileName, dataset)
-
-if __name__ == '__main__':
-    # create the top-level parser
-    argparser = argparse.ArgumentParser()
-    
-    argparser.set_defaults(func=DoLevenbergMarquardtMinimizer)
-    argparser.add_argument('--inputFileName')
-    argparser.add_argument('--outputFileName')
-    argparser.add_argument('--lambdaValue', type=float)
-    argparser.add_argument('--voxelPhysicalSize', type=float)
-
-    # parse the args and call whatever function was selected
-    args = argparser.parse_args()
-    args.func(args)

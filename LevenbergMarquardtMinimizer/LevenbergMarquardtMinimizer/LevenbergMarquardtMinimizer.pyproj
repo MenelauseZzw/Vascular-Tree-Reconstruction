@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>c2009e3c-e23e-4691-abc1-2ae522d2bab3</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>LevenbergMarquardtMinimizer.py</StartupFile>
+    <StartupFile>main.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -29,6 +29,9 @@
   <ItemGroup>
     <Compile Include="IO.py" />
     <Compile Include="LevenbergMarquardtMinimizer.py" />
+    <Compile Include="main.py">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="{853633fa-a949-45c7-951b-07c10ea9847a}\3.5" />
