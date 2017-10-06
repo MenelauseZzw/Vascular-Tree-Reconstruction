@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>e2df30ac-3797-4929-b87e-5e1b78b771e7</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>MaximumIntensityProjection.py</StartupFile>
+    <StartupFile>main.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -25,7 +25,9 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="MaximumIntensityProjection - Copy.py" />
+    <Compile Include="main.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="MaximumIntensityProjection.py" />
   </ItemGroup>
   <PropertyGroup>
