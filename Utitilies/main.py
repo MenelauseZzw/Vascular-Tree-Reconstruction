@@ -205,143 +205,143 @@ def DoCreateTreeStructureH5File(args):
 
     IO.writeH5File(outputFileName, dataset)
 
-def doConvertRawToH5(args):
-    dirname = args.dirname
-    basename = args.basename
-    shape = tuple(args.shape)
-    weight = args.weight
+#def doConvertRawToH5(args):
+#    dirname = args.dirname
+#    basename = args.basename
+#    shape = tuple(args.shape)
+#    weight = args.weight
 
-    filename = os.path.join(dirname, basename)
-    dataset = IO.readRawFile(filename, shape=shape)
+#    filename = os.path.join(dirname, basename)
+#    dataset = IO.readRawFile(filename, shape=shape)
 
-    measurements = dataset['measurements']
+#    measurements = dataset['measurements']
 
-    conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
-    indices1, indices2 = np.nonzero(conn)
+#    conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
+#    indices1, indices2 = np.nonzero(conn)
 
-    dataset['indices1'] = indices1
-    dataset['indices2'] = indices2
+#    dataset['indices1'] = indices1
+#    dataset['indices2'] = indices2
 
-    weights = np.full(len(indices1), weight, dtype=np.float)
+#    weights = np.full(len(indices1), weight, dtype=np.float)
 
-    dataset['weights'] = weights
+#    dataset['weights'] = weights
 
-    filename, _ = os.path.splitext(filename)
-    filename = filename + '.h5'
+#    filename, _ = os.path.splitext(filename)
+#    filename = filename + '.h5'
     
-    IO.writeH5File(filename, dataset)
+#    IO.writeH5File(filename, dataset)
 
-def doConvertRawToH5Ignor(args):
-    dirname = args.dirname
-    basename = args.basename
-    shape = tuple(args.shape)
-    weight = args.weight
+#def doConvertRawToH5Ignor(args):
+#    dirname = args.dirname
+#    basename = args.basename
+#    shape = tuple(args.shape)
+#    weight = args.weight
 
-    filename = os.path.join(dirname, basename)
-    dataset = IO.readRawFile(filename, shape=shape)
+#    filename = os.path.join(dirname, basename)
+#    dataset = IO.readRawFile(filename, shape=shape)
 
-    measurements = dataset['measurements']
-    tangentLinesPoints1 = dataset['tangentLinesPoints1']
-    tangentLinesPoints2 = dataset['tangentLinesPoints2']
-    radiuses = dataset['radiuses']
-    responses = dataset['responses']
+#    measurements = dataset['measurements']
+#    tangentLinesPoints1 = dataset['tangentLinesPoints1']
+#    tangentLinesPoints2 = dataset['tangentLinesPoints2']
+#    radiuses = dataset['radiuses']
+#    responses = dataset['responses']
  
-    conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
-    indices1, indices2 = np.nonzero(conn)
+#    conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
+#    indices1, indices2 = np.nonzero(conn)
 
-    ignor = np.full_like(radiuses, True, dtype=np.bool)
-    ignor[indices1] = False
-    ignor[indices2] = False
+#    ignor = np.full_like(radiuses, True, dtype=np.bool)
+#    ignor[indices1] = False
+#    ignor[indices2] = False
 
-    measurements = measurements[~ignor]
-    tangentLinesPoints1 = tangentLinesPoints1[~ignor]
-    tangentLinesPoints2 = tangentLinesPoints2[~ignor]
-    radiuses = radiuses[~ignor]
-    responses = responses[~ignor]
+#    measurements = measurements[~ignor]
+#    tangentLinesPoints1 = tangentLinesPoints1[~ignor]
+#    tangentLinesPoints2 = tangentLinesPoints2[~ignor]
+#    radiuses = radiuses[~ignor]
+#    responses = responses[~ignor]
 
-    dataset = dict()
+#    dataset = dict()
 
-    dataset['measurements'] = measurements
-    dataset['tangentLinesPoints1'] = tangentLinesPoints1
-    dataset['tangentLinesPoints2'] = tangentLinesPoints2
-    dataset['radiuses'] = radiuses
+#    dataset['measurements'] = measurements
+#    dataset['tangentLinesPoints1'] = tangentLinesPoints1
+#    dataset['tangentLinesPoints2'] = tangentLinesPoints2
+#    dataset['radiuses'] = radiuses
     
-    conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
-    indices1, indices2 = np.nonzero(conn)
+#    conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
+#    indices1, indices2 = np.nonzero(conn)
 
-    dataset['indices1'] = indices1
-    dataset['indices2'] = indices2
+#    dataset['indices1'] = indices1
+#    dataset['indices2'] = indices2
     
-    weights = np.full(len(indices1), weight, dtype=np.float)
+#    weights = np.full(len(indices1), weight, dtype=np.float)
 
-    dataset['weights'] = weights
+#    dataset['weights'] = weights
 
-    filename, _ = os.path.splitext(filename)
-    filename = filename + '.h5'
+#    filename, _ = os.path.splitext(filename)
+#    filename = filename + '.h5'
 
-    IO.writeH5File(filename, dataset)
+#    IO.writeH5File(filename, dataset)
 
-def doConvertRawToH5NoBifurc(args):
-    dirname = args.dirname
-    basename = args.basename
+#def doConvertRawToH5NoBifurc(args):
+#    dirname = args.dirname
+#    basename = args.basename
 
-    filename = os.path.join(dirname, 'tree_structure.xml')
-    dataset = IO.readGxlFile(filename)
+#    filename = os.path.join(dirname, 'tree_structure.xml')
+#    dataset = IO.readGxlFile(filename)
 
-    positions = dataset['positions']
-    nodeTypes = dataset['nodeTypes']
+#    positions = dataset['positions']
+#    nodeTypes = dataset['nodeTypes']
 
-    bifurcs = positions[nodeTypes == 'b']
-    bifurcnn = KDTree(bifurcs)
+#    bifurcs = positions[nodeTypes == 'b']
+#    bifurcnn = KDTree(bifurcs)
 
-    filename = os.path.join(dirname, basename)
-    dataset = IO.readRawFile(filename, shape=(101,101,101))
+#    filename = os.path.join(dirname, basename)
+#    dataset = IO.readRawFile(filename, shape=(101,101,101))
 
-    measurements = dataset['measurements']
-    tangentLinesPoints1 = dataset['tangentLinesPoints1']
-    tangentLinesPoints2 = dataset['tangentLinesPoints2']
-    radiuses = dataset['radiuses']
-    responses = dataset['responses']
+#    measurements = dataset['measurements']
+#    tangentLinesPoints1 = dataset['tangentLinesPoints1']
+#    tangentLinesPoints2 = dataset['tangentLinesPoints2']
+#    radiuses = dataset['radiuses']
+#    responses = dataset['responses']
  
-    dist, _ = bifurcnn.query(measurements, k=1)
-    ignor = dist[:,0] < (np.sqrt(3) + 2) / 2
+#    dist, _ = bifurcnn.query(measurements, k=1)
+#    ignor = dist[:,0] < (np.sqrt(3) + 2) / 2
 
-    measurements = measurements[~ignor]
-    tangentLinesPoints1 = tangentLinesPoints1[~ignor]
-    tangentLinesPoints2 = tangentLinesPoints2[~ignor]
-    radiuses = radiuses[~ignor]
-    responses = responses[~ignor]
+#    measurements = measurements[~ignor]
+#    tangentLinesPoints1 = tangentLinesPoints1[~ignor]
+#    tangentLinesPoints2 = tangentLinesPoints2[~ignor]
+#    radiuses = radiuses[~ignor]
+#    responses = responses[~ignor]
 
-    dataset = dict()
+#    dataset = dict()
 
-    dataset['measurements'] = measurements
-    dataset['tangentLinesPoints1'] = tangentLinesPoints1
-    dataset['tangentLinesPoints2'] = tangentLinesPoints2
-    dataset['radiuses'] = radiuses
+#    dataset['measurements'] = measurements
+#    dataset['tangentLinesPoints1'] = tangentLinesPoints1
+#    dataset['tangentLinesPoints2'] = tangentLinesPoints2
+#    dataset['radiuses'] = radiuses
 
-    conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
-    indices1, indices2 = np.nonzero(conn)
+#    conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
+#    indices1, indices2 = np.nonzero(conn)
 
-    dataset['indices1'] = indices1
-    dataset['indices2'] = indices2
+#    dataset['indices1'] = indices1
+#    dataset['indices2'] = indices2
     
-    weights = np.full(len(indices1), 2.0, dtype=np.float)
+#    weights = np.full(len(indices1), 2.0, dtype=np.float)
 
-    dataset['weights'] = weights
+#    dataset['weights'] = weights
 
-    filename, _ = os.path.splitext(filename)
-    filename = filename + '_nobifurc.h5'
+#    filename, _ = os.path.splitext(filename)
+#    filename = filename + '_nobifurc.h5'
 
-    IO.writeH5File(filename, dataset)
+#    IO.writeH5File(filename, dataset)
 
-def doEMST(args):
-    dirname = args.dirname
-    basename = args.basename
+def DoGenerateEuclideanMinimumSpanningTree(args):
+    inputFileName  = args.inputFileName
+    outputFileName = args.outputFileName
+    pointsArrName  = args.pointsArrName
+
     maxradius = args.maxradius
-    pointsArrName = args.points
 
-    filename = os.path.join(dirname, basename)
-    dataset = IO.readH5File(filename)
+    dataset = IO.readH5File(inputFileName)
 
     positions = dataset[pointsArrName]
 
@@ -370,10 +370,7 @@ def doEMST(args):
     dataset['indices1'] = np.array(indices1, dtype=np.int)
     dataset['indices2'] = np.array(indices2, dtype=np.int)
     
-    filename, _ = os.path.splitext(filename)
-    filename = filename + 'EMST.h5'
-
-    IO.writeH5File(filename, dataset)
+    IO.writeH5File(outputFileName, dataset)
 
 def getArcCenter(p, lp, q):
     chord = q - p
@@ -659,48 +656,48 @@ def doCreateCubicSplinePolyDataFile(args):
 
     IO.writePolyDataFile(filename, polyData)
 
-def doConvertRawToH5Responses(args):
-    dirname = args.dirname
-    basename = args.basename
-    shape = tuple(args.shape)
-    weight = args.weight
+#def doConvertRawToH5Responses(args):
+#    dirname = args.dirname
+#    basename = args.basename
+#    shape = tuple(args.shape)
+#    weight = args.weight
 
-    filename = os.path.join(dirname, basename)
-    dataset = IO.readRawFile(filename, shape=shape)
+#    filename = os.path.join(dirname, basename)
+#    dataset = IO.readRawFile(filename, shape=shape)
 
-    measurements = dataset['measurements']
-    radiuses = dataset['radiuses']
-    responses = dataset['responses']
+#    measurements = dataset['measurements']
+#    radiuses = dataset['radiuses']
+#    responses = dataset['responses']
 
-    conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
-    # conn = radius_neighbors_graph(measurements, radius=(1 + np.sqrt(2)) / 2,
-    # metric='euclidean', include_self=False)
-    indices1, indices2 = np.nonzero(conn)
+#    conn = radius_neighbors_graph(measurements, radius=(np.sqrt(3) + 2) / 2, metric='euclidean', include_self=False)
+#    # conn = radius_neighbors_graph(measurements, radius=(1 + np.sqrt(2)) / 2,
+#    # metric='euclidean', include_self=False)
+#    indices1, indices2 = np.nonzero(conn)
 
-    # Sort in ascending order
-    # indices1, indices2 = zip(*sorted(zip(indices1,indices2)))
+#    # Sort in ascending order
+#    # indices1, indices2 = zip(*sorted(zip(indices1,indices2)))
 
-    # Sort in descending order
-    # indices1, indices2 = zip(*sorted(zip(indices1,indices2), key=lambda x:
-    # x[1], reverse=True))
-    # indices1, indices2 = zip(*sorted(zip(indices1,indices2), key=lambda x:
-    # x[0]))
+#    # Sort in descending order
+#    # indices1, indices2 = zip(*sorted(zip(indices1,indices2), key=lambda x:
+#    # x[1], reverse=True))
+#    # indices1, indices2 = zip(*sorted(zip(indices1,indices2), key=lambda x:
+#    # x[0]))
 
-    indices1 = np.array(indices1, dtype=np.int)
-    indices2 = np.array(indices2, dtype=np.int)
+#    indices1 = np.array(indices1, dtype=np.int)
+#    indices2 = np.array(indices2, dtype=np.int)
 
-    dataset['indices1'] = indices1
-    dataset['indices2'] = indices2
-    dataset['radiuses'] = radiuses
+#    dataset['indices1'] = indices1
+#    dataset['indices2'] = indices2
+#    dataset['radiuses'] = radiuses
 
-    weights = np.multiply(weight, responses[indices1])
+#    weights = np.multiply(weight, responses[indices1])
 
-    dataset['weights'] = weights
+#    dataset['weights'] = weights
 
-    filename, _ = os.path.splitext(filename)
-    filename = filename + '.h5'
+#    filename, _ = os.path.splitext(filename)
+#    filename = filename + '.h5'
     
-    IO.writeH5File(filename, dataset)
+#    IO.writeH5File(filename, dataset)
 
 def doROC(args):
     dirname = args.dirname
@@ -1957,46 +1954,46 @@ if __name__ == '__main__':
     subparser.add_argument('--outputFileName', default='tree_structure.h5')
     subparser.add_argument('--voxelPhysicalSize', type=float)
 
-
-    # create the parser for the "doConvertRawToH5" command
-    subparser = subparsers.add_parser('doConvertRawToH5')
-    subparser.add_argument('dirname')
-    subparser.add_argument('basename')
-    subparser.add_argument('--shape', nargs=3, type=int, default=[101,101,101])
-    subparser.add_argument('--weight', type=float, default=1.0)
-    subparser.add_argument('--thresholdBelow', type=float, default=0.05)
-    subparser.set_defaults(func=doConvertRawToH5)
-
-    # create the parser for the "doConvertRawToH5Ignor" command
-    subparser = subparsers.add_parser('doConvertRawToH5Ignor')
-    subparser.add_argument('dirname')
-    subparser.add_argument('basename')
-    subparser.add_argument('--shape', nargs=3, type=int, default=[101,101,101])
-    subparser.add_argument('--weight', default=1.0)
-    subparser.set_defaults(func=doConvertRawToH5Ignor)
-
-    # create the parser for the "doConvertRawToH5NoBifurc" command
-    subparser = subparsers.add_parser('doConvertRawToH5NoBifurc')
-    subparser.add_argument('dirname')
-    subparser.add_argument('basename')
-    subparser.set_defaults(func=doConvertRawToH5NoBifurc)
-
-    # create the parser for the "doConvertRawToH5Responses" command
-    subparser = subparsers.add_parser('doConvertRawToH5Responses')
-    subparser.add_argument('dirname')
-    subparser.add_argument('basename')
-    subparser.add_argument('--shape', nargs=3, type=int, default=[101,101,101])
-    subparser.add_argument('--weight', default=1.0, type=float)
-    subparser.set_defaults(func=doConvertRawToH5Responses)
-
-
-    # create the parser for the "doEMST" command
-    subparser = subparsers.add_parser('doEMST')
-    subparser.add_argument('dirname')
-    subparser.add_argument('basename')
+    # create the parser for the "DoGenerateEuclideanMinimumSpanningTree" command
+    subparser = subparsers.add_parser('DoGenerateEuclideanMinimumSpanningTree')
+    subparser.set_defaults(func=DoGenerateEuclideanMinimumSpanningTree)
+    subparser.add_argument('--inputFileName')
+    subparser.add_argument('--outputFileName')
+    subparser.add_argument('--pointsArrName', default='positions')
     subparser.add_argument('--maxradius', default=np.inf)
-    subparser.add_argument('--points', default='positions')
-    subparser.set_defaults(func=doEMST)
+
+    ## create the parser for the "doConvertRawToH5" command
+    #subparser = subparsers.add_parser('doConvertRawToH5')
+    #subparser.add_argument('dirname')
+    #subparser.add_argument('basename')
+    #subparser.add_argument('--shape', nargs=3, type=int, default=[101,101,101])
+    #subparser.add_argument('--weight', type=float, default=1.0)
+    #subparser.add_argument('--thresholdBelow', type=float, default=0.05)
+    #subparser.set_defaults(func=doConvertRawToH5)
+
+    ## create the parser for the "doConvertRawToH5Ignor" command
+    #subparser = subparsers.add_parser('doConvertRawToH5Ignor')
+    #subparser.add_argument('dirname')
+    #subparser.add_argument('basename')
+    #subparser.add_argument('--shape', nargs=3, type=int, default=[101,101,101])
+    #subparser.add_argument('--weight', default=1.0)
+    #subparser.set_defaults(func=doConvertRawToH5Ignor)
+
+    ## create the parser for the "doConvertRawToH5NoBifurc" command
+    #subparser = subparsers.add_parser('doConvertRawToH5NoBifurc')
+    #subparser.add_argument('dirname')
+    #subparser.add_argument('basename')
+    #subparser.set_defaults(func=doConvertRawToH5NoBifurc)
+
+    ## create the parser for the "doConvertRawToH5Responses" command
+    #subparser = subparsers.add_parser('doConvertRawToH5Responses')
+    #subparser.add_argument('dirname')
+    #subparser.add_argument('basename')
+    #subparser.add_argument('--shape', nargs=3, type=int, default=[101,101,101])
+    #subparser.add_argument('--weight', default=1.0, type=float)
+    #subparser.set_defaults(func=doConvertRawToH5Responses)
+
+
 
     # create the parser for the "doArcMST" command
     subparser = subparsers.add_parser('doArcMST')
