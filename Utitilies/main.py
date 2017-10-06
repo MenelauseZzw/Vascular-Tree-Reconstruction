@@ -18,7 +18,6 @@ import vtk
 
 from sklearn.neighbors import KDTree,NearestNeighbors,radius_neighbors_graph
 from xml.etree import ElementTree
-from LevenbergMarquardtMinimizer import ProblemBuilder,InexactLevenbergMarquardtMinimizer
 
 def doConvertRawToH5(args):
     dirname = args.dirname
@@ -2068,38 +2067,6 @@ def doAnalyzeOurOverlapMeasureCsv(args):
     overlapMeasure.sort_values(['ThresholdValue', 'ParValue'], inplace=True)
     overlapMeasure.to_csv(filename, index=False)
 
-def doLevenbergMarquardtMinimizer(args):
-    dirname = args.dirname
-    basename = args.basename
-    lambdaValue = args.lambdaValue
-
-    filename = os.path.join(dirname, basename)
-    dataset = IO.readH5File(filename)
-
-    tangentLinesPoints1 = dataset['tangentLinesPoints1']
-    tangentLinesPoints2 = dataset['tangentLinesPoints2']
-    
-    measurements = dataset['measurements']
-    radiuses = dataset['radiuses']
-    #objectnessMeasure = dataset['objectnessMeasure']
-
-    indices1 = dataset['indices1']
-    indices2 = dataset['indices2']
-
-    builder = ProblemBuilder(measurements, tangentLinesPoints1, tangentLinesPoints2, radiuses, indices1, indices2, lambdaValue)
-    minimizer = InexactLevenbergMarquardtMinimizer(builder)
-
-    tangentLinesPoints1, tangentLinesPoints2, positions = minimizer.minimize()
-
-    dataset['tangentLinesPoints1'] = tangentLinesPoints1
-    dataset['tangentLinesPoints2'] = tangentLinesPoints2
-    dataset['positions'] = positions
-
-    basename,_ = os.path.splitext(basename)
-    filename = os.path.join(dirname, basename + 'Curv.h5')
-
-    IO.writeH5File(filename, dataset)
-
 if __name__ == '__main__':
     # create the top-level parser
     argparser = argparse.ArgumentParser()
@@ -2383,13 +2350,6 @@ if __name__ == '__main__':
     subparser.add_argument('basename')
     subparser.add_argument('voxelSize', type=float)
     subparser.set_defaults(func=doAnalyzeOurOverlapMeasureCsv)
-
-    # create the parser for the "doLevenbergMarquardtMinimizer" command
-    subparser = subparsers.add_parser('doLevenbergMarquardtMinimizer')
-    subparser.add_argument('dirname')
-    subparser.add_argument('basename')
-    subparser.add_argument('lambdaValue', type=float)
-    subparser.set_defaults(func=doLevenbergMarquardtMinimizer)
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
