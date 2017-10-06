@@ -109,9 +109,7 @@ class InexactLevenbergMarquardtMinimizer:
         init = tf.global_variables_initializer()
         sess.run(init)
 
-        # 0:
         x = builder.getVariableValue()
-
         f = sess.run(func, {xArg: x})
 
         uArg = tf.placeholder(tf.float64, shape=x.shape)
@@ -154,7 +152,6 @@ class InexactLevenbergMarquardtMinimizer:
                 f = fnew
 
                 if xconv or fconv or gconv:
-                    print('fnorm : {0:.3f}'.format(Fnew))
                     break
 
                 k = k + 1

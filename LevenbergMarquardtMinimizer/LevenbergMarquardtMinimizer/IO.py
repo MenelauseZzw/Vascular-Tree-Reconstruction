@@ -17,8 +17,8 @@ def ReadFile(fileName, numDimensions=3):
 
     return dataset
 
-def WriteFile(filename, dataset):
-    with h5py.File(filename, mode='w') as f:
+def WriteFile(fileName, dataset):
+    with h5py.File(fileName, mode='w') as f:
         for name in dataset:
             item = dataset[name]
             f.create_dataset(name, data=item.flatten())

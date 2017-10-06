@@ -41,4 +41,8 @@ if __name__ == '__main__':
 
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
+    print('inputFileName = \"{args.inputFileName}\"\n'
+        'outputFileName = \"{args.outputFileName}\"\n'
+        'lambdaValue={args.lambdaValue}\n'
+        'voxelPhysicalSize={args.voxelPhysicalSize}'.format(args=args))
     args.func(args)
