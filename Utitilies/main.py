@@ -205,6 +205,43 @@ def DoCreateTreeStructureH5File(args):
 
     IO.writeH5File(outputFileName, dataset)
 
+def DoGenerateEuclideanMinimumSpanningTree(args):
+    inputFileName  = args.inputFileName
+    outputFileName = args.outputFileName
+    pointsArrName  = args.pointsArrName
+    maxDistance    = args.maxDistance
+
+    dataset = IO.readH5File(inputFileName)
+
+    positions = dataset[pointsArrName]
+
+    n = len(positions)
+    G = dict()
+
+    for i in xrange(n):
+        p = positions[i]
+        for k in xrange(i + 1, n):
+            q = positions[k]
+            dist = linalg.norm(p - q)
+            if dist > maxDistance: continue
+
+            if not i in G:
+                G[i] = dict()
+
+            if not k in G:
+                G[k] = dict()
+
+            G[i][k] = dist
+            G[k][i] = dist
+
+    T = MinimumSpanningTree.MinimumSpanningTree(G)
+    indices1,indices2 = zip(*T)
+
+    dataset['indices1'] = np.array(indices1, dtype=np.int)
+    dataset['indices2'] = np.array(indices2, dtype=np.int)
+    
+    IO.writeH5File(outputFileName, dataset)
+
 #def doConvertRawToH5(args):
 #    dirname = args.dirname
 #    basename = args.basename
@@ -333,44 +370,6 @@ def DoCreateTreeStructureH5File(args):
 #    filename = filename + '_nobifurc.h5'
 
 #    IO.writeH5File(filename, dataset)
-
-def DoGenerateEuclideanMinimumSpanningTree(args):
-    inputFileName  = args.inputFileName
-    outputFileName = args.outputFileName
-    pointsArrName  = args.pointsArrName
-
-    maxradius = args.maxradius
-
-    dataset = IO.readH5File(inputFileName)
-
-    positions = dataset[pointsArrName]
-
-    n = len(positions)
-    G = dict()
-
-    for i in xrange(n):
-        p = positions[i]
-        for k in xrange(i + 1, n):
-            q = positions[k]
-            dist = linalg.norm(p - q)
-            if dist > maxradius: continue
-
-            if not i in G:
-                G[i] = dict()
-
-            if not k in G:
-                G[k] = dict()
-
-            G[i][k] = dist
-            G[k][i] = dist
-
-    T = MinimumSpanningTree.MinimumSpanningTree(G)
-    indices1,indices2 = zip(*T)
-
-    dataset['indices1'] = np.array(indices1, dtype=np.int)
-    dataset['indices2'] = np.array(indices2, dtype=np.int)
-    
-    IO.writeH5File(outputFileName, dataset)
 
 def getArcCenter(p, lp, q):
     chord = q - p
@@ -1960,7 +1959,7 @@ if __name__ == '__main__':
     subparser.add_argument('--inputFileName')
     subparser.add_argument('--outputFileName')
     subparser.add_argument('--pointsArrName', default='positions')
-    subparser.add_argument('--maxradius', default=np.inf)
+    subparser.add_argument('--maxDistance', default=np.inf)
 
     ## create the parser for the "doConvertRawToH5" command
     #subparser = subparsers.add_parser('doConvertRawToH5')
