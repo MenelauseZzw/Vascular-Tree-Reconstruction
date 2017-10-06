@@ -744,19 +744,6 @@ def doROC(args):
     filename = os.path.join(dirname, basename1 + '.' + basename2 + 'ROC.png')
     fig.savefig(filename)
 
-def doAUC(args):
-    dirname = args.dirname
-    basename = args.basename
-
-    filename = os.path.join(dirname, basename)
-
-    sourceToTargetGraphsDistance = np.genfromtxt(filename, delimiter=',', usecols=1, skip_header=1) # source-to-target-graphs-distance
-    sourceGraphsLengthRatio = np.genfromtxt(filename, delimiter=',', usecols=2, skip_header=1) # source-graphs-length-ratio
-    targetGraphsLengthRatio = np.genfromtxt(filename, delimiter=',', usecols=3, skip_header=1) # target-graphs-length-ratio
-
-    print('{:18.16f}'.format(integrate.trapz(sourceGraphsLengthRatio, sourceToTargetGraphsDistance)))
-    print('{:18.16f}'.format(integrate.trapz(targetGraphsLengthRatio, sourceToTargetGraphsDistance)))
-
 def doMST(dirname):
     filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
     dataset = IO.readH5File(filename)
@@ -1970,6 +1957,7 @@ if __name__ == '__main__':
     subparser.add_argument('--outputFileName', default='tree_structure.h5')
     subparser.add_argument('--voxelPhysicalSize', type=float)
 
+
     # create the parser for the "doConvertRawToH5" command
     subparser = subparsers.add_parser('doConvertRawToH5')
     subparser.add_argument('dirname')
@@ -2042,12 +2030,6 @@ if __name__ == '__main__':
     subparser.add_argument('basename1')
     subparser.add_argument('basename2')
     subparser.set_defaults(func=doROC)
-
-    # create the parser for the "doAUC" command
-    subparser = subparsers.add_parser('doAUC')
-    subparser.add_argument('dirname')
-    subparser.add_argument('basename')
-    subparser.set_defaults(func=doAUC)
 
     # create the parser for the "doAnalyzeLabeling" command
     subparser = subparsers.add_parser('doAnalyzeLabeling')
