@@ -8,7 +8,6 @@ import pandas as pd
 # Force matplotlib to not use any Xwindows backend.
 #matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-#import maxflow
 import os.path
 import re
 import numpy as np
@@ -19,14 +18,92 @@ import vtk
 from sklearn.neighbors import KDTree,NearestNeighbors,radius_neighbors_graph
 from xml.etree import ElementTree
 
+def CreateLinePolyData(point1, point2):
+    lineSrc = vtk.vtkLineSource()
+    lineSrc.SetPoint1(point1)
+    lineSrc.SetPoint2(point2)
+    lineSrc.Update()
+    polyData = lineSrc.GetOutput()
+    return polyData
+
+def CreateGraphPolyData(points, indices1, indices2, connectedComponents):
+    pointsArr = vtk.vtkPoints()
+
+    for p in points:
+        pointsArr.InsertNextPoint(p)
+    
+    graph = vtk.vtkMutableUndirectedGraph()
+
+    graph.SetNumberOfVertices(pointsArr.GetNumberOfPoints())
+    graph.SetPoints(pointsArr)
+
+    for index1,index2 in zip(indices1, indices2):
+        graph.AddGraphEdge(index1, index2)
+
+    graphToPolyData = vtk.vtkGraphToPolyData()
+    graphToPolyData.SetInputData(graph)
+    graphToPolyData.Update()
+
+    polyData = graphToPolyData.GetOutput()
+
+    colorIndexArray = vtk.vtkDoubleArray()
+    colorIndexArray.SetNumberOfValues(graph.GetNumberOfVertices())
+    colorIndexArray.SetName("ConnectedComponent")
+
+    for i in xrange(graph.GetNumberOfVertices()):
+        colorIndexArray.SetValue(i, connectedComponents[i])
+
+    polyData.GetPointData().SetScalars(colorIndexArray)
+
+    return polyData
+
+def CreateTangentsPolyData(tangentLinesPoints1, tangentLinesPoints2):
+    appendPolyData = vtk.vtkAppendPolyData()
+
+    for point1,point2 in zip(tangentLinesPoints1, tangentLinesPoints2):
+        polyData = CreateLinePolyData(point1,point2)
+        appendPolyData.AddInputData(polyData)
+
+    appendPolyData.Update()
+    polyData = appendPolyData.GetOutput()
+
+    return polyData
+
+def CreateRadiusesPolyData(pointsArr, tangentLinesPoints1, tangentLinesPoints2, radiusesArr):
+    polygonSrc = vtk.vtkRegularPolygonSource()
+    polygonSrc.GeneratePolygonOff()
+
+    appendPolyData = vtk.vtkAppendPolyData()
+
+    for i,p in enumerate(pointsArr):
+        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
+        radius = radiusesArr[i]
+
+        polygonSrc.SetCenter(p)
+        polygonSrc.SetNormal(lp)
+        polygonSrc.SetNumberOfSides(36)
+        polygonSrc.SetRadius(radius)
+        polygonSrc.Update()
+
+        polyData = vtk.vtkPolyData()
+        polyData.DeepCopy(polygonSrc.GetOutput())
+        appendPolyData.AddInputData(polyData)
+    
+    appendPolyData.Update()
+    polyData = appendPolyData.GetOutput()
+
+    return polyData
+
 def DoCreateTangentsPolyDataFile(args):
-    inputFileName  = args.inputFileName
-    outputFileName = args.outputFileName
-    pointsArrName  = args.pointsArrName
+    inputFileName     = args.inputFileName
+    outputFileName    = args.outputFileName
+    pointsArrName     = args.pointsArrName
+    voxelPhysicalSize = args.voxelPhysicalSize
 
     print('inputFileName = \"{args.inputFileName}\"\n'
         'outputFileName = \"{args.outputFileName}\"\n'
-        'pointsArrName = \"{args.pointsArrName}\"'.format(args=args))
+        'pointsArrName = \"{args.pointsArrName}\"\n'
+        'voxelPhysicalSize = {args.voxelPhysicalSize}'.format(args=args))
 
     dataset = IO.readH5File(inputFileName)
 
@@ -37,6 +114,7 @@ def DoCreateTangentsPolyDataFile(args):
 
     tangentLines = tangentLinesPoints2 - tangentLinesPoints1
     tangentLines /= linalg.norm(tangentLines, axis=1, keepdims=True)
+    tangentLines *= voxelPhysicalSize
     
     n = len(positions)
 
@@ -50,7 +128,7 @@ def DoCreateTangentsPolyDataFile(args):
         s = p + 0.5 * tangentLines[i]
         t = p - 0.5 * tangentLines[i]
 
-        linePolyData = createLinePolyData(s,t)
+        linePolyData = CreateLinePolyData(s,t)
         appendPolyData.AddInputData(linePolyData)
         scaleDataArray.SetValue(i * 2, scale[i])
         scaleDataArray.SetValue(i * 2 + 1, scale[i])
@@ -80,10 +158,52 @@ def DoCreateGraphPolyDataFile(args):
     indices2 = dataset['indices2']
     connectedComponentsIndices = dataset[connectedComponentsName] if connectedComponentsName in dataset else np.zeros(len(positions), dtype="double")
 
-    polyData = createGraphPolyData(positions, indices1, indices2, connectedComponentsIndices)
+    polyData = CreateGraphPolyData(positions, indices1, indices2, connectedComponentsIndices)
 
     IO.writePolyDataFile(outputFileName, polyData)
 
+def DoCreateRadiusesPolyDataFile(args):
+    inputFileName  = args.inputFileName
+    outputFileName = args.outputFileName
+    pointsArrName  = args.pointsArrName
+
+    print('inputFileName = \"{args.inputFileName}\"\n'
+        'outputFileName = \"{args.outputFileName}\"\n'
+        'pointsArrName = \"{args.pointsArrName}\"'.format(args=args))
+
+    dataset = IO.readH5File(inputFileName)
+
+    points = dataset[pointsArrName]
+    tangentLinesPoints1 = dataset['tangentLinesPoints1']
+    tangentLinesPoints2 = dataset['tangentLinesPoints2']
+    radiuses = dataset['radiuses']
+
+    polyData = CreateRadiusesPolyData(points, tangentLinesPoints1, tangentLinesPoints2, radiuses)
+
+    IO.writePolyDataFile(outputFileName, polyData)
+
+def DoCreateTreeStructureH5File(args):
+    inputFileName     = args.inputFileName
+    outputFileName    = args.outputFileName
+    voxelPhysicalSize = args.voxelPhysicalSize
+    
+    dataset = IO.readGxlFile(inputFileName)
+     
+    positions = dataset['positions']
+    indices1  = dataset['indices1']   
+    indices2  = dataset['indices2']   
+    radiuses  = dataset['radiusPrime']
+    
+    positions = voxelPhysicalSize * positions
+
+    dataset = dict()
+
+    dataset['positions'] = positions
+    dataset['indices1']  = indices1
+    dataset['indices2']  = indices2
+    dataset['radiuses']  = radiuses
+
+    IO.writeH5File(outputFileName, dataset)
 
 def doConvertRawToH5(args):
     dirname = args.dirname
@@ -213,38 +333,6 @@ def doConvertRawToH5NoBifurc(args):
     filename = filename + '_nobifurc.h5'
 
     IO.writeH5File(filename, dataset)
-
-def createGraphPolyData(points, indices1, indices2, connectedComponents):
-    pointsArr = vtk.vtkPoints()
-
-    for p in points:
-        pointsArr.InsertNextPoint(p)
-    
-    graph = vtk.vtkMutableUndirectedGraph()
-
-    graph.SetNumberOfVertices(pointsArr.GetNumberOfPoints())
-    graph.SetPoints(pointsArr)
-
-    for index1,index2 in zip(indices1, indices2):
-        graph.AddGraphEdge(index1, index2)
-
-    graphToPolyData = vtk.vtkGraphToPolyData()
-    graphToPolyData.SetInputData(graph)
-    graphToPolyData.Update()
-
-    polyData = graphToPolyData.GetOutput()
-
-
-    colorIndexArray = vtk.vtkDoubleArray()
-    colorIndexArray.SetNumberOfValues(graph.GetNumberOfVertices())
-    colorIndexArray.SetName("ConnectedComponent")
-
-    for i in xrange(graph.GetNumberOfVertices()):
-        colorIndexArray.SetValue(i, connectedComponents[i])
-
-    polyData.GetPointData().SetScalars(colorIndexArray)
-
-    return polyData
 
 def doEMST(args):
     dirname = args.dirname
@@ -669,70 +757,6 @@ def doAUC(args):
     print('{:18.16f}'.format(integrate.trapz(sourceGraphsLengthRatio, sourceToTargetGraphsDistance)))
     print('{:18.16f}'.format(integrate.trapz(targetGraphsLengthRatio, sourceToTargetGraphsDistance)))
 
-def createLinePolyData(s, t):
-    lineSrc = vtk.vtkLineSource()
-    lineSrc.SetPoint1(s)
-    lineSrc.SetPoint2(t)
-    lineSrc.Update()
-    polyData = lineSrc.GetOutput()
-    return polyData
-
-def createTangentsPolyData(tangentLinesPoints1, tangentLinesPoints2):
-    appendPolyData = vtk.vtkAppendPolyData()
-
-    for p,q in zip(tangentLinesPoints1, tangentLinesPoints2):
-        polyData = createLinePolyData(p,q)
-        appendPolyData.AddInputData(polyData)
-
-    appendPolyData.Update()
-    polyData = appendPolyData.GetOutput()
-
-    return polyData
-
-def createCircularPolyData(pointsArr, tangentLinesPoints1, tangentLinesPoints2, radiusesArr):
-    polygonSrc = vtk.vtkRegularPolygonSource()
-    polygonSrc.GeneratePolygonOff()
-
-    appendPolyData = vtk.vtkAppendPolyData()
-
-    for i,p in enumerate(pointsArr):
-        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
-        radius = radiusesArr[i]
-
-        polygonSrc.SetCenter(p)
-        polygonSrc.SetNormal(lp)
-        polygonSrc.SetNumberOfSides(36)
-        polygonSrc.SetRadius(radius)
-        polygonSrc.Update()
-
-        polyData = vtk.vtkPolyData()
-        polyData.DeepCopy(polygonSrc.GetOutput())
-        appendPolyData.AddInputData(polyData)
-    
-    appendPolyData.Update()
-    polyData = appendPolyData.GetOutput()
-
-    return polyData
-
-def doCreateRadiusesPolyDataFile(args):
-    dirname = args.dirname
-    basename = args.basename
-    pointsArrName = args.points
-
-    filename = os.path.join(dirname, basename)
-    dataset = IO.readH5File(filename)
-
-    points = dataset[pointsArrName]
-    tangentLinesPoints1 = dataset['tangentLinesPoints1']
-    tangentLinesPoints2 = dataset['tangentLinesPoints2']
-    radiuses = dataset['radiuses']
-
-    polyData = createCircularPolyData(points, tangentLinesPoints1, tangentLinesPoints2, radiuses)
-    
-    filename, _ = os.path.splitext(filename)
-    filename = filename + 'Radiuses.vtp'
-    IO.writePolyDataFile(filename, polyData)
-
 def doMST(dirname):
     filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
     dataset = IO.readH5File(filename)
@@ -798,140 +822,6 @@ def doMST(dirname):
     filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.vtp')
     IO.writePolyDataFile(filename, polyData)
 
-#def doGraphCut(dirname):
-#    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.h5')
-#    dataset = IO.readH5File(filename)
-
-#    positions = dataset['positions']
-#    tangentLinesPoints1 = dataset['tangentLinesPoints1']
-#    tangentLinesPoints2 = dataset['tangentLinesPoints2']
-    
-#    indices1 = dataset['indices1']
-#    indices2 = dataset['indices2']
-
-#    n = len(positions)
-#    g = maxflow.Graph[float]()
-
-#    nodes = g.add_nodes(n)
-
-#    appendPolyData = vtk.vtkAppendPolyData()
-
-#    indices1 = []
-#    indices2 = []
-
-#    for i in xrange(n):
-#        for k in xrange(i + 1, n):
-#            if linalg.norm(positions[i] - positions[k]) < 2:
-#                indices1.append(i)
-#                indices2.append(k)
-
-#    for i,k in zip(indices1, indices2):
-#        if k < i: continue
-
-#        p = positions[i]
-#        q = positions[k]
-#        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
-#        lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
-
-#        lp = lp / linalg.norm(lp)
-#        lq = lq / linalg.norm(lq)
-#        dist = linalg.norm(p - q)
-#        lp = lp * dist
-#        lq = lq * dist
-   
-#        for lpsgn,lqsgn in [(-lp,-lq), (-lp, lq), (lp,-lq), (lp, lq)]:
-#            spline = createSpline(p,lpsgn, q, lqsgn)
-#            splineLen = splineLength(spline, num_points=100)
-
-#        A = splineLength(createSpline(p,-lp, q,-lq), num_points=100)
-#        B = splineLength(createSpline(p,-lp, q, lq), num_points=100)
-#        C = splineLength(createSpline(p, lp, q,-lq), num_points=100)
-#        D = splineLength(createSpline(p, lp, q, lq), num_points=100)
-
-#        #assert A + D <= B + C
-
-#        g.add_tedge(nodes[i], C, A)
-#        g.add_tedge(nodes[k], D - C, 0)
-#        g.add_edge(nodes[i], nodes[k], B + C - A - D, 0)
-
-#    flow = g.maxflow()
-
-#    G = dict()
-
-#    for i,k in zip(indices1, indices2):
-#        if k < i: continue
-
-#        p = positions[i]
-#        q = positions[k]
-#        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
-#        lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
-
-#        lp = lp / linalg.norm(lp)
-#        lq = lq / linalg.norm(lq)
-#        dist = linalg.norm(p - q)
-        
-#        lp = lp * dist
-#        lq = lq * dist
-
-#        if g.get_segment(nodes[i]) == 1:
-#            lpsgn = lp
-#        else:
-#            lpsgn = -lp
-
-#        if g.get_segment(nodes[k]) == 1:
-#            lqsgn = lq
-#        else:
-#            lqsgn = -lq
-   
-#        spline = createSpline(p, lpsgn, q, lqsgn)
-#        splineLen = splineLength(spline, num_points=100)
-
-#        if not i in G:
-#            G[i] = dict()
-
-#        if not k in G:
-#            G[k] = dict()
-        
-#        G[i][k] = splineLen
-#        G[k][i] = splineLen
-
-#    T = MinimumSpanningTree.MinimumSpanningTree(G)
-
-#    for i,k in T:
-#        p = positions[i]
-#        q = positions[k]
-#        lp = tangentLinesPoints2[i] - tangentLinesPoints1[i]
-#        lq = tangentLinesPoints2[k] - tangentLinesPoints1[k]
-
-#        lp = lp / linalg.norm(lp)
-#        lq = lq / linalg.norm(lq)
-#        dist = linalg.norm(p - q)
-        
-#        lp = lp * dist
-#        lq = lq * dist
-
-#        if g.get_segment(nodes[i]) == 1:
-#            lpsgn = lp
-#        else:
-#            lpsgn = -lp
-
-#        if g.get_segment(nodes[k]) == 1:
-#            lqsgn = lq
-#        else:
-#            lqsgn = -lq
-   
-#        spline = createSpline(p, lpsgn, q, lqsgn)
-#        splinePolyData = createSplinePolyData(spline, num_points=100)
-
-#        polyData = vtk.vtkPolyData()
-#        polyData.DeepCopy(splinePolyData)
-#        appendPolyData.AddInputData(polyData)
-        
-#    appendPolyData.Update()
-#    polyData = appendPolyData.GetOutput()
-
-#    filename = os.path.join(dirname, 'canny2_image_nobifurc_curv.vtp')
-#    IO.writePolyDataFile(filename, polyData)
 def doAnalyzeLabeling(args):
     dirname = args.dirname
     basename = args.basename
@@ -1052,7 +942,7 @@ def doProjectionOntoSourceTreePolyDataFile(args):
         indices1.extend(xrange(startIndex, startIndex + numProjections - 1))
         indices2.extend(xrange(startIndex + 1, startIndex + numProjections))
 
-    polyData = createGraphPolyData(positions, indices1, indices2)
+    polyData = CreateGraphPolyData(positions, indices1, indices2)
     
     filename, _ = os.path.splitext(targetFileBasename)
     filename = os.path.join(dirname, filename + 'OptimalTree.vtp')
@@ -1066,7 +956,7 @@ def doProjectionOntoSourceTreePolyDataFile(args):
     indices1 = list(xrange(0, pOrigLen))
     indices2 = list(xrange(pOrigLen, len(positions)))
 
-    polyData = createGraphPolyData(positions, indices1, indices2)
+    polyData = CreateGraphPolyData(positions, indices1, indices2)
     
     filename, _ = os.path.splitext(targetFileBasename)
     filename = os.path.join(dirname, filename + 'ProjectionOntoSourceTree.vtp')
@@ -1247,7 +1137,7 @@ def doCreateProjectionsOntoGroundTruthTreeGraphPolyDataFile(args):
     indices2 = list(xrange(numberOfPoints, 2 * numberOfPoints))
 
     pointsArr = np.vstack((points, projections))
-    polyData = createGraphPolyData(pointsArr, indices1, indices2)
+    polyData = CreateGraphPolyData(pointsArr, indices1, indices2)
 
     filename, _ = os.path.splitext(filename)
     filename = filename + 'ProjectionsOntoGroundTruthTree.vtp'
@@ -1563,30 +1453,6 @@ def doCreateFrangiDistanceComparisonChart(args):
     filename = valDataSetName + 'Vs' + argDataSetName + '.png'
     filename = os.path.join(dirname, filename)
     plt.savefig(filename)
-
-def doCreateTreeStructureH5File(args):
-    dirname = args.dirname
-    voxelWidth = args.voxelWidth
-    
-    filename = os.path.join(dirname, 'tree_structure.xml')
-    dataset = IO.readGxlFile(filename)
-     
-    positions = dataset['positions']
-    indices1 = dataset['indices1']   
-    indices2 = dataset['indices2']   
-    radiuses = dataset['radiusPrime']
-    
-    positions = voxelWidth * positions
-
-    dataset = dict()
-
-    dataset['positions'] = positions
-    dataset['indices1'] = indices1
-    dataset['indices2'] = indices2
-    dataset['radiuses'] = radiuses
-
-    filename = os.path.join(dirname, 'tree_structure.h5')
-    IO.writeH5File(filename, dataset)
 
 def doConvertTubeTKFileToH5File(args):
     dirname = args.dirname
@@ -1945,13 +1811,13 @@ def doComputeOverlapMeasure(args):
                     pointsFP1.append(point1)
                     pointsFP2.append(point2)
 
-        polyData   = createTangentsPolyData(pointsTP1, pointsTP2)
+        polyData   = CreateTangentsPolyData(pointsTP1, pointsTP2)
         basename,_ = os.path.splitext(basename)
         filename = os.path.join(dirname, basename + 'TrPoGrTr.vtp')
 
         IO.writePolyDataFile(filename, polyData)
 
-        polyData   = createTangentsPolyData(pointsFP1, pointsFP2)
+        polyData   = CreateTangentsPolyData(pointsFP1, pointsFP2)
         basename,_ = os.path.splitext(basename)
         filename = os.path.join(dirname, basename + 'FaPoGrTr.vtp')
 
@@ -1975,25 +1841,25 @@ def doComputeOverlapMeasure(args):
                     pointsFP1.append(point1)
                     pointsFP2.append(point2)
 
-        polyData   = createTangentsPolyData(pointsTP1, pointsTP2)
+        polyData   = CreateTangentsPolyData(pointsTP1, pointsTP2)
         basename,_ = os.path.splitext(basename)
         filename = os.path.join(dirname, basename + 'TrPoReTr.vtp')
 
         IO.writePolyDataFile(filename, polyData)
 
-        polyData   = createTangentsPolyData(pointsFP1, pointsFP2)
+        polyData   = CreateTangentsPolyData(pointsFP1, pointsFP2)
         basename,_ = os.path.splitext(basename)
         filename = os.path.join(dirname, basename + 'FaPoReTr.vtp')
 
         IO.writePolyDataFile(filename, polyData)
 
-        polyData   = createTangentsPolyData(pointsOrig[closerThanRadiusOrig], points[closestIndicesOrig[closerThanRadiusOrig]])
+        polyData   = CreateTangentsPolyData(pointsOrig[closerThanRadiusOrig], points[closestIndicesOrig[closerThanRadiusOrig]])
         basename,_ = os.path.splitext(basename)
         filename = os.path.join(dirname, basename + 'GrTrToReTr.vtp')
 
         IO.writePolyDataFile(filename, polyData)
 
-        polyData   = createTangentsPolyData(points[closerThanRadius], pointsOrig[closestIndices[closerThanRadius]])
+        polyData   = CreateTangentsPolyData(points[closerThanRadius], pointsOrig[closestIndices[closerThanRadius]])
         basename,_ = os.path.splitext(basename)
         filename = os.path.join(dirname, basename + 'ReTrToGrTr.vtp')
 
@@ -2075,14 +1941,13 @@ if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
     subparsers = argparser.add_subparsers()
 
-
     # create the parser for the "DoCreateTangentsPolyDataFile" command
     subparser = subparsers.add_parser('DoCreateTangentsPolyDataFile')
     subparser.set_defaults(func=DoCreateTangentsPolyDataFile)
     subparser.add_argument('--inputFileName')
     subparser.add_argument('--outputFileName')
     subparser.add_argument('--pointsArrName', default='positions')
-
+    subparser.add_argument('--voxelPhysicalSize', type=float)
 
     # create the parser for the "DoCreateGraphPolyDataFile" command
     subparser = subparsers.add_parser('DoCreateGraphPolyDataFile')
@@ -2091,6 +1956,19 @@ if __name__ == '__main__':
     subparser.add_argument('--outputFileName')
     subparser.add_argument('--pointsArrName', default='positions')
 
+    # create the parser for the "DoCreateRadiusesPolyDataFile" command
+    subparser = subparsers.add_parser('DoCreateRadiusesPolyDataFile')
+    subparser.set_defaults(func=DoCreateRadiusesPolyDataFile)
+    subparser.add_argument('--inputFileName')
+    subparser.add_argument('--outputFileName')
+    subparser.add_argument('--pointsArrName', default='positions')
+
+    # create the parser for the "DoCreateTreeStructureH5File" command
+    subparser = subparsers.add_parser('DoCreateTreeStructureH5File')
+    subparser.set_defaults(func=DoCreateTreeStructureH5File)
+    subparser.add_argument('--inputFileName', default='tree_structure.xml')
+    subparser.add_argument('--outputFileName', default='tree_structure.h5')
+    subparser.add_argument('--voxelPhysicalSize', type=float)
 
     # create the parser for the "doConvertRawToH5" command
     subparser = subparsers.add_parser('doConvertRawToH5')
@@ -2157,13 +2035,6 @@ if __name__ == '__main__':
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.set_defaults(func=doCreateCubicSplinePolyDataFile)
-
-    # create the parser for the "doCreateRadiusesPolyDataFile" command
-    subparser = subparsers.add_parser('doCreateRadiusesPolyDataFile')
-    subparser.add_argument('dirname')
-    subparser.add_argument('basename')
-    subparser.add_argument('--points', default='positions')
-    subparser.set_defaults(func=doCreateRadiusesPolyDataFile)
 
     # create the parser for the "doROC" command
     subparser = subparsers.add_parser('doROC')
@@ -2274,12 +2145,6 @@ if __name__ == '__main__':
     subparser.add_argument('--arg')
     subparser.add_argument('--val')
     subparser.set_defaults(func=doCreateFrangiDistanceComparisonChart)
-
-    # create the parser for the "doCreateTreeStructureH5File" command
-    subparser = subparsers.add_parser('doCreateTreeStructureH5File')
-    subparser.add_argument('dirname')
-    subparser.add_argument('voxelWidth', type=float)
-    subparser.set_defaults(func=doCreateTreeStructureH5File)
 
     # create the parser for the "doConvertTubeTKFileToH5File" command
     subparser = subparsers.add_parser('doConvertTubeTKFileToH5File')

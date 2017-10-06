@@ -22,7 +22,7 @@
 void DoGenerateNeighborhoodGraph(
   const std::string& inputFileName,
   const std::string& outputFileName,
-  float thresholdBelow)
+  float thresholdValue)
 {
   using namespace boost;
 
@@ -149,7 +149,7 @@ void DoGenerateNeighborhoodGraph(
     const PixelType* pValueAtCenterPixel = imageRegionIterator.GetCenterPointer();
     const InputValueType objectnessMeasureValueAtCenter = pValueAtCenterPixel->GetElement(ObjectnessMeasureValueComponentIndex);
 
-    if (objectnessMeasureValueAtCenter < thresholdBelow) continue;
+    if (objectnessMeasureValueAtCenter < thresholdValue) continue;
     const IndexType indexOfCenterPixel = imageRegionIterator.GetIndex();
     OutputIndexType outputIndexOfCenterPixel;
 
@@ -165,7 +165,7 @@ void DoGenerateNeighborhoodGraph(
       const PixelType valueAtNeighbor = neighborhoodIterator.Get();
       const InputValueType objectnessMeasureValueAtNeighbor = valueAtNeighbor.GetElement(ObjectnessMeasureValueComponentIndex);
 
-      if (objectnessMeasureValueAtNeighbor < thresholdBelow) continue;
+      if (objectnessMeasureValueAtNeighbor < thresholdValue) continue;
      
       if (!indexOfCenterPixelValid)
       {
@@ -217,12 +217,12 @@ int main(int argc, char *argv[])
   std::string inputFileName;
   std::string outputFileName;
 
-  double thresholdBelow = 0.05;
+  double thresholdValue = 0.05;
   po::options_description desc;
 
   desc.add_options()
     ("help", "print usage message")
-    ("thresholdBelow", po::value(&thresholdBelow), "the values below the threshold will be ignored")
+    ("thresholdValue", po::value(&thresholdValue), "the values below the threshold will be ignored")
     ("inputFileName", po::value(&inputFileName)->required(), "the name of the input file")
     ("outputFileName", po::value(&outputFileName)->required(), "the name of the output file");
 
@@ -238,7 +238,7 @@ int main(int argc, char *argv[])
 
   try
   {
-    DoGenerateNeighborhoodGraph(inputFileName, outputFileName, thresholdBelow);
+    DoGenerateNeighborhoodGraph(inputFileName, outputFileName, thresholdValue);
     return EXIT_SUCCESS;
   }
   catch (itk::ExceptionObject& e)
