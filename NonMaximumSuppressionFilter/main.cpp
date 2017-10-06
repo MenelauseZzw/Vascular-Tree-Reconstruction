@@ -145,7 +145,7 @@ bool LineIntervalIntersectsPlane(const itk::Index<NumDimensions>& indexOfCenter,
   else return false;
 }
 
-void DoNonMaximumSuppressionFilter(const std::string& inputFileName, const std::string& outputFileName, double thresholdBelow)
+void DoNonMaximumSuppressionFilter(const std::string& inputFileName, const std::string& outputFileName, double thresholdValue)
 {
   typedef float ValueType;
 
@@ -198,7 +198,7 @@ void DoNonMaximumSuppressionFilter(const std::string& inputFileName, const std::
     const IndexType indexOfCenter = it.GetIndex();
     const ValueType objectnessMeasureValueAtCenter = inputImage->GetPixel(indexOfCenter).GetElement(ObjectnessMeasureValueComponentIndex);
 
-    if (objectnessMeasureValueAtCenter < thresholdBelow)
+    if (objectnessMeasureValueAtCenter < thresholdValue)
     {
       it.Set(zeroVector);
       continue;
@@ -253,7 +253,7 @@ void DoNonMaximumSuppressionFilter(const std::string& inputFileName, const std::
 
   MetaDataDictionaryType outMetaData;
 
-  EncapsulateMetaData(outMetaData, "(ThresholdBelow)", thresholdBelow);
+  EncapsulateMetaData(outMetaData, "(ThresholdValue)", thresholdValue);
 
   outputImage->SetOrigin(inputImage->GetOrigin());
   outputImage->SetSpacing(inputImage->GetSpacing());
@@ -276,13 +276,13 @@ int main(int argc, char* argv[])
   std::string inputFileName;
   std::string outputFileName;
 
-  double thresholdBelow = 0.01;
+  double thresholdValue = 0.01;
 
   po::options_description desc;
 
   desc.add_options()
     ("help", "print usage message")
-    ("thresholdBelow", po::value(&thresholdBelow), "the values below the threshold will be ignored")
+    ("thresholdValue", po::value(&thresholdValue), "the values below the threshold will be ignored")
     ("inputFileName", po::value(&inputFileName)->required(), "the name of the input file")
     ("outputFileName", po::value(&outputFileName)->required(), "the name of the output file");
 
@@ -298,7 +298,7 @@ int main(int argc, char* argv[])
 
   try
   {
-    DoNonMaximumSuppressionFilter(inputFileName, outputFileName, thresholdBelow);
+    DoNonMaximumSuppressionFilter(inputFileName, outputFileName, thresholdValue);
     return EXIT_SUCCESS;
   }
   catch (itk::ExceptionObject& e)

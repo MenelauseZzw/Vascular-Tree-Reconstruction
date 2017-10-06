@@ -57,7 +57,7 @@ private:
 void DoObjectnessMeasureImageFilter(
   const std::string& inputFileName,
   const std::string& outputFileName,
-  double thresholdBelow,
+  double thresholdValue,
   double sigmaMaximum,
   double sigmaMinimum,
   unsigned int numberOfSigmaSteps,
@@ -173,7 +173,7 @@ void DoObjectnessMeasureImageFilter(
   for (it.GoToBegin(); !it.IsAtEnd(); ++it)
   {
     const IndexType index = it.GetIndex();
-    const bool isBelowThreshold = inputImage->GetPixel(index) < thresholdBelow;
+    const bool isBelowThreshold = inputImage->GetPixel(index) < thresholdValue;
 
     if (isBelowThreshold)
     {
@@ -206,7 +206,7 @@ void DoObjectnessMeasureImageFilter(
 
   MetaDataDictionaryType outMetaData;
 
-  EncapsulateMetaData(outMetaData, "(ThresholdBelow)", thresholdBelow);
+  EncapsulateMetaData(outMetaData, "(ThresholdValue)", thresholdValue);
   EncapsulateMetaData(outMetaData, "(SigmaMaximum)", sigmaMaximum);
   EncapsulateMetaData(outMetaData, "(SigmaMinimum)", sigmaMinimum);
   EncapsulateMetaData(outMetaData, "(NumberOfSigmaSteps)", numberOfSigmaSteps);
@@ -243,7 +243,7 @@ int main(int argc, char* argv[])
   std::string inputFileName;
   std::string outputFileName;
 
-  double thresholdBelow = 0;
+  double thresholdValue = 0;
 
   double sigmaMaximum = 5.0;
   double sigmaMinimum = 0.5;
@@ -262,7 +262,7 @@ int main(int argc, char* argv[])
 
   desc.add_options()
     ("help", "print usage message")
-    ("thresholdBelow", po::value(&thresholdBelow), "the values below the threshold will be ignored")
+    ("thresholdValue", po::value(&thresholdValue), "the values below the threshold will be ignored")
     ("sigmaMaximum", po::value(&sigmaMaximum), "the minimum sigma value")
     ("sigmaMinimum", po::value(&sigmaMinimum), "the maximum sigma value")
     ("numberOfSigmaSteps", po::value(&numberOfSigmaSteps), "the number of scale levels")
@@ -288,7 +288,7 @@ int main(int argc, char* argv[])
 
   try
   {
-    DoObjectnessMeasureImageFilter(inputFileName, outputFileName, thresholdBelow, sigmaMaximum, sigmaMinimum, numberOfSigmaSteps, alpha, beta, gamma, objectDimension, scaleObjectnessMeasure, outputMaximum, outputMinimum);
+    DoObjectnessMeasureImageFilter(inputFileName, outputFileName, thresholdValue, sigmaMaximum, sigmaMinimum, numberOfSigmaSteps, alpha, beta, gamma, objectDimension, scaleObjectnessMeasure, outputMaximum, outputMinimum);
     return EXIT_SUCCESS;
   }
   catch (itk::ExceptionObject& e)
