@@ -19,6 +19,72 @@ import vtk
 from sklearn.neighbors import KDTree,NearestNeighbors,radius_neighbors_graph
 from xml.etree import ElementTree
 
+def DoCreateTangentsPolyDataFile(args):
+    inputFileName  = args.inputFileName
+    outputFileName = args.outputFileName
+    pointsArrName  = args.pointsArrName
+
+    print('inputFileName = \"{args.inputFileName}\"\n'
+        'outputFileName = \"{args.outputFileName}\"\n'
+        'pointsArrName = \"{args.pointsArrName}\"'.format(args=args))
+
+    dataset = IO.readH5File(inputFileName)
+
+    positions = dataset[pointsArrName]
+    tangentLinesPoints1 = dataset['tangentLinesPoints1']
+    tangentLinesPoints2 = dataset['tangentLinesPoints2']
+    scale = dataset['radiuses']
+
+    tangentLines = tangentLinesPoints2 - tangentLinesPoints1
+    tangentLines /= linalg.norm(tangentLines, axis=1, keepdims=True)
+    
+    n = len(positions)
+
+    appendPolyData = vtk.vtkAppendPolyData()
+    scaleDataArray = vtk.vtkDoubleArray()
+    scaleDataArray.SetNumberOfValues(n * 2)
+    scaleDataArray.SetName("Radius")
+
+    for i in xrange(n):
+        p = positions[i]
+        s = p + 0.5 * tangentLines[i]
+        t = p - 0.5 * tangentLines[i]
+
+        linePolyData = createLinePolyData(s,t)
+        appendPolyData.AddInputData(linePolyData)
+        scaleDataArray.SetValue(i * 2, scale[i])
+        scaleDataArray.SetValue(i * 2 + 1, scale[i])
+    
+    appendPolyData.Update()
+    polyData = appendPolyData.GetOutput()
+
+    polyData.GetPointData().SetScalars(scaleDataArray)
+
+    IO.writePolyDataFile(outputFileName, polyData)
+
+def DoCreateGraphPolyDataFile(args):
+    inputFileName  = args.inputFileName
+    outputFileName = args.outputFileName
+    pointsArrName  = args.pointsArrName
+
+    print('inputFileName = \"{args.inputFileName}\"\n'
+        'outputFileName = \"{args.outputFileName}\"\n'
+        'pointsArrName = \"{args.pointsArrName}\"'.format(args=args))
+
+    dataset = IO.readH5File(inputFileName)
+
+    connectedComponentsName = 'connectedComponentsIndices'
+
+    positions = dataset[pointsArrName]
+    indices1 = dataset['indices1']
+    indices2 = dataset['indices2']
+    connectedComponentsIndices = dataset[connectedComponentsName] if connectedComponentsName in dataset else np.zeros(len(positions), dtype="double")
+
+    polyData = createGraphPolyData(positions, indices1, indices2, connectedComponentsIndices)
+
+    IO.writePolyDataFile(outputFileName, polyData)
+
+
 def doConvertRawToH5(args):
     dirname = args.dirname
     basename = args.basename
@@ -179,27 +245,6 @@ def createGraphPolyData(points, indices1, indices2, connectedComponents):
     polyData.GetPointData().SetScalars(colorIndexArray)
 
     return polyData
-
-def doCreateGraphPolyDataFile(args):
-    dirname = args.dirname
-    basename = args.basename
-    pointsArrName = args.points
-
-    filename = os.path.join(dirname, basename)
-    dataset = IO.readH5File(filename)
-
-    connectedComponentsName = 'connectedComponentsIndices'
-
-    positions = dataset[pointsArrName]
-    indices1 = dataset['indices1']
-    indices2 = dataset['indices2']
-    connectedComponentsIndices = dataset[connectedComponentsName] if connectedComponentsName in dataset else np.zeros(len(positions), dtype="double")
-
-    polyData = createGraphPolyData(positions, indices1, indices2, connectedComponentsIndices)
-    
-    filename, _ = os.path.splitext(filename)
-    filename = filename + '.vtp'
-    IO.writePolyDataFile(filename, polyData)
 
 def doEMST(args):
     dirname = args.dirname
@@ -643,48 +688,6 @@ def createTangentsPolyData(tangentLinesPoints1, tangentLinesPoints2):
     polyData = appendPolyData.GetOutput()
 
     return polyData
-
-def doCreateTangentsPolyDataFile(args):
-    dirname = args.dirname
-    basename = args.basename
-    pointsArrName = args.points
-
-    filename = os.path.join(dirname, basename)
-    dataset = IO.readH5File(filename)
-
-    positions = dataset[pointsArrName]
-    tangentLinesPoints1 = dataset['tangentLinesPoints1']
-    tangentLinesPoints2 = dataset['tangentLinesPoints2']
-    scale = dataset['radiuses']
-
-    tangentLines = tangentLinesPoints2 - tangentLinesPoints1
-    tangentLines /= linalg.norm(tangentLines, axis=1, keepdims=True)
-    
-    n = len(positions)
-
-    appendPolyData = vtk.vtkAppendPolyData()
-    scaleDataArray = vtk.vtkDoubleArray()
-    scaleDataArray.SetNumberOfValues(n * 2)
-    scaleDataArray.SetName("Radius")
-
-    for i in xrange(n):
-        p = positions[i]
-        s = p + 0.5 * tangentLines[i]
-        t = p - 0.5 * tangentLines[i]
-
-        linePolyData = createLinePolyData(s,t)
-        appendPolyData.AddInputData(linePolyData)
-        scaleDataArray.SetValue(i * 2, scale[i])
-        scaleDataArray.SetValue(i * 2 + 1, scale[i])
-    
-    appendPolyData.Update()
-    polyData = appendPolyData.GetOutput()
-
-    polyData.GetPointData().SetScalars(scaleDataArray)
-
-    filename, _ = os.path.splitext(filename)
-    filename = filename + 'Tangents.vtp'
-    IO.writePolyDataFile(filename, polyData)
 
 def createCircularPolyData(pointsArr, tangentLinesPoints1, tangentLinesPoints2, radiusesArr):
     polygonSrc = vtk.vtkRegularPolygonSource()
@@ -2072,6 +2075,23 @@ if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
     subparsers = argparser.add_subparsers()
 
+
+    # create the parser for the "DoCreateTangentsPolyDataFile" command
+    subparser = subparsers.add_parser('DoCreateTangentsPolyDataFile')
+    subparser.set_defaults(func=DoCreateTangentsPolyDataFile)
+    subparser.add_argument('--inputFileName')
+    subparser.add_argument('--outputFileName')
+    subparser.add_argument('--pointsArrName', default='positions')
+
+
+    # create the parser for the "DoCreateGraphPolyDataFile" command
+    subparser = subparsers.add_parser('DoCreateGraphPolyDataFile')
+    subparser.set_defaults(func=DoCreateGraphPolyDataFile)
+    subparser.add_argument('--inputFileName')
+    subparser.add_argument('--outputFileName')
+    subparser.add_argument('--pointsArrName', default='positions')
+
+
     # create the parser for the "doConvertRawToH5" command
     subparser = subparsers.add_parser('doConvertRawToH5')
     subparser.add_argument('dirname')
@@ -2103,12 +2123,6 @@ if __name__ == '__main__':
     subparser.add_argument('--weight', default=1.0, type=float)
     subparser.set_defaults(func=doConvertRawToH5Responses)
 
-    # create the parser for the "doCreateGraphPolyDataFile" command
-    subparser = subparsers.add_parser('doCreateGraphPolyDataFile')
-    subparser.add_argument('dirname')
-    subparser.add_argument('basename')
-    subparser.add_argument('--points', default='positions')
-    subparser.set_defaults(func=doCreateGraphPolyDataFile)
 
     # create the parser for the "doEMST" command
     subparser = subparsers.add_parser('doEMST')
@@ -2143,13 +2157,6 @@ if __name__ == '__main__':
     subparser.add_argument('dirname')
     subparser.add_argument('basename')
     subparser.set_defaults(func=doCreateCubicSplinePolyDataFile)
-
-    # create the parser for the "doCreateTangentsPolyDataFile" command
-    subparser = subparsers.add_parser('doCreateTangentsPolyDataFile')
-    subparser.add_argument('dirname')
-    subparser.add_argument('basename')
-    subparser.add_argument('--points', default='positions')
-    subparser.set_defaults(func=doCreateTangentsPolyDataFile)
 
     # create the parser for the "doCreateRadiusesPolyDataFile" command
     subparser = subparsers.add_parser('doCreateRadiusesPolyDataFile')

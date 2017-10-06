@@ -43,6 +43,6 @@ if __name__ == '__main__':
     args = argparser.parse_args()
     print('inputFileName = \"{args.inputFileName}\"\n'
         'outputFileName = \"{args.outputFileName}\"\n'
-        'lambdaValue={args.lambdaValue}\n'
-        'voxelPhysicalSize={args.voxelPhysicalSize}'.format(args=args))
+        'lambdaValue = {args.lambdaValue}\n'
+        'voxelPhysicalSize = {args.voxelPhysicalSize}'.format(args=args))
     args.func(args)
