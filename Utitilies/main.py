@@ -242,6 +242,188 @@ def DoGenerateEuclideanMinimumSpanningTree(args):
     
     IO.writeH5File(outputFileName, dataset)
 
+def DoComputeOverlapMeasure(args):
+    sourceDirName     = args.sourceDirName
+    inputFileName     = args.inputFileName
+    voxelPhysicalSize = args.voxelPhysicalSize
+    samplingStep      = args.samplingStep
+    pointsArrName     = args.pointsArrName
+
+    doOutputHeader   = args.doOutputHeader
+    prependHeaderStr = args.prependHeaderStr
+    prependRowStr    = args.prependRowStr
+
+    debugMode = args.debugMode
+
+    filename = os.path.join(sourceDirName, 'tree_structure.xml')
+    dataset  = IO.readGxlFile(filename)
+
+    positions = dataset['positions']
+    positions *= voxelPhysicalSize
+
+    indicesOrig1 = dataset['indices1']
+    indicesOrig2 = dataset['indices2']
+    radiuses     = dataset['radiusPrime'] 
+
+    inputFileName = os.path.join(sourceDirName, inputFileName)
+    dataset = IO.readH5File(inputFileName)
+
+    points = dataset[pointsArrName]
+ 
+    indices1 = dataset['indices1']
+    indices2 = dataset['indices2']
+
+    pointsOrig,indicesOrig = resamplePoints(positions, indicesOrig1, indicesOrig2, samplingStep)
+    points,indices         = resamplePoints(points, indices1, indices2, samplingStep)
+
+    learner = NearestNeighbors(n_neighbors=1)
+    learner.fit(points)
+
+    distOrig,closestIndicesOrig = learner.kneighbors(pointsOrig)
+    distOrig           = np.ravel(distOrig)
+    closestIndicesOrig = np.ravel(closestIndicesOrig)
+
+    closerThanRadiusOrig = distOrig < radiuses[indicesOrig]
+    numCloserThanRadiusOrig = np.count_nonzero(closerThanRadiusOrig) # number of points {p_i} \in GroundTruthTree such that {q_j} is closest \in ReconstructedTree and ||p_i - q_j|| < radiusAt(p_i)
+    numOrig = len(pointsOrig)
+    
+    learner = NearestNeighbors(n_neighbors=1)
+    learner.fit(pointsOrig)
+
+    dist,closestIndices = learner.kneighbors(points)
+    dist           = np.ravel(dist)
+    closestIndices = np.ravel(closestIndices)
+
+    closerThanRadius = dist < radiuses[indicesOrig[closestIndices]]
+
+    numCloserThanRadius = np.count_nonzero(closerThanRadius) # number of points {q_j} \in ReconstructedTree such that {p_i} is closest \in GroundTruthTree and ||p_i - q_j|| < radiusAt(p_i)
+    num = len(points)
+    
+
+    NumberOfPointsCloserThanRadiusOrig = numCloserThanRadiusOrig
+    NumberOfPointsOrig = numOrig
+    NumberOfPointsCloserThanRadius = numCloserThanRadius
+    NumberOfPoints = num
+    PercentageOfPointsCloserThanRadiusOrig = numCloserThanRadiusOrig / float(numOrig)
+    PercentageOfPointsCloserThanRadius = numCloserThanRadius / float(num)
+    OverlapMeasure = (numCloserThanRadiusOrig + numCloserThanRadius) / (float(numOrig) + num)
+
+    AverageDistanceOrig = np.mean(distOrig)
+    AverageDistanceOrigStd = np.std(distOrig)
+
+    distCloserThanRadiusOrig = distOrig[closerThanRadiusOrig]
+    distCloserThanRadius = dist[closerThanRadius]
+    bothDist = np.concatenate((distCloserThanRadiusOrig, distCloserThanRadius))
+    
+    AverageDistanceCloserThanRadiusOrig = np.mean(distCloserThanRadiusOrig)
+    AverageDistanceCloserThanRadiusOrigStd = np.std(distCloserThanRadiusOrig)
+        
+    distCloserThanRadiusInRadiusSizeOrig = distCloserThanRadiusOrig / radiuses[indicesOrig][closerThanRadiusOrig]
+    distCloserThanRadiusInRadiusSize = distCloserThanRadius / radiuses[indicesOrig[closestIndices]][closerThanRadius]
+    bothDistInRadiusSize = np.concatenate((distCloserThanRadiusInRadiusSizeOrig, distCloserThanRadiusInRadiusSize))
+
+    AverageDistanceCloserThanRadiusInRadiusSizeOrig = np.mean(distCloserThanRadiusInRadiusSizeOrig)
+    AverageDistanceCloserThanRadiusInRadiusSizeOrigStd = np.std(distCloserThanRadiusInRadiusSizeOrig)
+
+    AverageDistanceCloserThanRadiusInRadiusSize = np.mean(distCloserThanRadiusInRadiusSize)
+    AverageDistanceCloserThanRadiusInRadiusSizeStd = np.std(distCloserThanRadiusInRadiusSize)
+
+    AverageDistance = np.mean(dist)
+    AverageDistanceStd = np.std(dist)
+
+    AverageDistanceCloserThanRadius = np.mean(distCloserThanRadius)
+    AverageDistanceCloserThanRadiusStd = np.std(distCloserThanRadius)
+    
+    AverageInside = np.mean(bothDist)
+    AverageInsideStd = np.std(bothDist)
+
+    AverageInsideInRadiusSize = np.mean(bothDistInRadiusSize)
+    AverageInsideInRadiusSizeStd = np.std(bothDistInRadiusSize)
+
+    keyValPairs = [(name,eval(name)) for name in ('NumberOfPointsCloserThanRadiusOrig', 'NumberOfPointsOrig','NumberOfPointsCloserThanRadius','NumberOfPoints',
+        'PercentageOfPointsCloserThanRadiusOrig','PercentageOfPointsCloserThanRadius','OverlapMeasure','AverageDistanceOrig','AverageDistanceOrigStd', 'AverageDistanceCloserThanRadiusInRadiusSizeOrig',
+        'AverageDistanceCloserThanRadiusInRadiusSizeOrigStd', 'AverageDistanceCloserThanRadiusInRadiusSize', 'AverageDistanceCloserThanRadiusInRadiusSizeStd',
+        'AverageDistanceCloserThanRadiusOrig', 'AverageDistanceCloserThanRadiusOrigStd','AverageDistance', 'AverageDistanceStd', 'AverageDistanceCloserThanRadius',
+        'AverageDistanceCloserThanRadiusStd', 'AverageInside', 'AverageInsideStd', 'AverageInsideInRadiusSize', 'AverageInsideInRadiusSizeStd')]
+
+    if (doOutputHeader):
+        print prependHeaderStr + (",".join(kvp[0] for kvp in keyValPairs))
+
+    print prependRowStr + (",".join(str(kvp[1]) for kvp in keyValPairs))
+
+    if debugMode:
+        pointsTP1 = []
+        pointsTP2 = []
+
+        pointsFP1 = []
+        pointsFP2 = []
+
+        for i in xrange(1, len(indicesOrig)):
+            if indicesOrig[i - 1] == indicesOrig[i]:
+                point1 = pointsOrig[i - 1]
+                point2 = pointsOrig[i]
+
+                if closerThanRadiusOrig[i - 1] and closerThanRadiusOrig[i]:
+                    pointsTP1.append(point1)
+                    pointsTP2.append(point2)
+                else:
+                    pointsFP1.append(point1)
+                    pointsFP2.append(point2)
+
+        polyData   = CreateTangentsPolyData(pointsTP1, pointsTP2)
+        basename,_ = os.path.splitext(basename)
+        filename = os.path.join(sourceDirName, basename + 'TrPoGrTr.vtp')
+
+        IO.writePolyDataFile(filename, polyData)
+
+        polyData   = CreateTangentsPolyData(pointsFP1, pointsFP2)
+        basename,_ = os.path.splitext(basename)
+        filename = os.path.join(sourceDirName, basename + 'FaPoGrTr.vtp')
+
+        IO.writePolyDataFile(filename, polyData)
+
+        pointsTP1 = []
+        pointsTP2 = []
+
+        pointsFP1 = []
+        pointsFP2 = []
+
+        for i in xrange(1, len(indices)):
+            if indices[i - 1] == indices[i]:
+                point1 = points[i - 1]
+                point2 = points[i]
+
+                if closerThanRadius[i - 1] and closerThanRadius[i]:
+                    pointsTP1.append(point1)
+                    pointsTP2.append(point2)
+                else:
+                    pointsFP1.append(point1)
+                    pointsFP2.append(point2)
+
+        polyData   = CreateTangentsPolyData(pointsTP1, pointsTP2)
+        basename,_ = os.path.splitext(basename)
+        filename = os.path.join(sourceDirName, basename + 'TrPoReTr.vtp')
+
+        IO.writePolyDataFile(filename, polyData)
+
+        polyData   = CreateTangentsPolyData(pointsFP1, pointsFP2)
+        basename,_ = os.path.splitext(basename)
+        filename = os.path.join(sourceDirName, basename + 'FaPoReTr.vtp')
+
+        IO.writePolyDataFile(filename, polyData)
+
+        polyData   = CreateTangentsPolyData(pointsOrig[closerThanRadiusOrig], points[closestIndicesOrig[closerThanRadiusOrig]])
+        basename,_ = os.path.splitext(basename)
+        filename = os.path.join(sourceDirName, basename + 'GrTrToReTr.vtp')
+
+        IO.writePolyDataFile(filename, polyData)
+
+        polyData   = CreateTangentsPolyData(points[closerThanRadius], pointsOrig[closestIndices[closerThanRadius]])
+        basename,_ = os.path.splitext(basename)
+        filename = os.path.join(sourceDirName, basename + 'ReTrToGrTr.vtp')
+
+        IO.writePolyDataFile(filename, polyData)
+
 #def doConvertRawToH5(args):
 #    dirname = args.dirname
 #    basename = args.basename
@@ -1666,188 +1848,6 @@ def resamplePoints(points, indices1, indices2, samplingStep):
 
     return np.array(resampledPoints),np.array(resampledIndices)
 
-def doComputeOverlapMeasure(args):
-    dirname       = args.dirname
-    basename      = args.basename
-    voxelSize     = args.voxelWidth
-    samplingStep  = args.samplingStep
-    pointsArrName = args.points
-
-    doOutputHeader   = args.doOutputHeader
-    prependHeaderStr = args.prependHeaderStr
-    prependRowStr    = args.prependRowStr
-
-    debugMode = args.debugMode
-
-    filename = os.path.join(dirname, 'tree_structure.xml')
-    dataset  = IO.readGxlFile(filename)
-
-    positions = dataset['positions']
-    positions = voxelSize * positions
-
-    indicesOrig1 = dataset['indices1']
-    indicesOrig2 = dataset['indices2']
-    radiuses     = dataset['radiusPrime'] 
-
-    filename = os.path.join(dirname, basename)
-    dataset = IO.readH5File(filename)
-
-    points = dataset[pointsArrName]
- 
-    indices1 = dataset['indices1']
-    indices2 = dataset['indices2']
-
-    pointsOrig,indicesOrig = resamplePoints(positions, indicesOrig1, indicesOrig2, samplingStep)
-    points,indices         = resamplePoints(points, indices1, indices2, samplingStep)
-
-    learner = NearestNeighbors(n_neighbors=1)
-    learner.fit(points)
-
-    distOrig,closestIndicesOrig = learner.kneighbors(pointsOrig)
-    distOrig           = np.ravel(distOrig)
-    closestIndicesOrig = np.ravel(closestIndicesOrig)
-
-    closerThanRadiusOrig = distOrig < radiuses[indicesOrig]
-    numCloserThanRadiusOrig = np.count_nonzero(closerThanRadiusOrig) # number of points {p_i} \in GroundTruthTree such that {q_j} is closest \in ReconstructedTree and ||p_i - q_j|| < radiusAt(p_i)
-    numOrig = len(pointsOrig)
-    
-    learner = NearestNeighbors(n_neighbors=1)
-    learner.fit(pointsOrig)
-
-    dist,closestIndices = learner.kneighbors(points)
-    dist           = np.ravel(dist)
-    closestIndices = np.ravel(closestIndices)
-
-    closerThanRadius = dist < radiuses[indicesOrig[closestIndices]]
-
-    numCloserThanRadius = np.count_nonzero(closerThanRadius) # number of points {q_j} \in ReconstructedTree such that {p_i} is closest \in GroundTruthTree and ||p_i - q_j|| < radiusAt(p_i)
-    num = len(points)
-    
-
-    NumberOfPointsCloserThanRadiusOrig = numCloserThanRadiusOrig
-    NumberOfPointsOrig = numOrig
-    NumberOfPointsCloserThanRadius = numCloserThanRadius
-    NumberOfPoints = num
-    PercentageOfPointsCloserThanRadiusOrig = numCloserThanRadiusOrig / float(numOrig)
-    PercentageOfPointsCloserThanRadius = numCloserThanRadius / float(num)
-    OverlapMeasure = (numCloserThanRadiusOrig + numCloserThanRadius) / (float(numOrig) + num)
-
-    AverageDistanceOrig = np.mean(distOrig)
-    AverageDistanceOrigStd = np.std(distOrig)
-
-    distCloserThanRadiusOrig = distOrig[closerThanRadiusOrig]
-    distCloserThanRadius = dist[closerThanRadius]
-    bothDist = np.concatenate((distCloserThanRadiusOrig, distCloserThanRadius))
-    
-    AverageDistanceCloserThanRadiusOrig = np.mean(distCloserThanRadiusOrig)
-    AverageDistanceCloserThanRadiusOrigStd = np.std(distCloserThanRadiusOrig)
-        
-    distCloserThanRadiusInRadiusSizeOrig = distCloserThanRadiusOrig / radiuses[indicesOrig][closerThanRadiusOrig]
-    distCloserThanRadiusInRadiusSize = distCloserThanRadius / radiuses[indicesOrig[closestIndices]][closerThanRadius]
-    bothDistInRadiusSize = np.concatenate((distCloserThanRadiusInRadiusSizeOrig, distCloserThanRadiusInRadiusSize))
-
-    AverageDistanceCloserThanRadiusInRadiusSizeOrig = np.mean(distCloserThanRadiusInRadiusSizeOrig)
-    AverageDistanceCloserThanRadiusInRadiusSizeOrigStd = np.std(distCloserThanRadiusInRadiusSizeOrig)
-
-    AverageDistanceCloserThanRadiusInRadiusSize = np.mean(distCloserThanRadiusInRadiusSize)
-    AverageDistanceCloserThanRadiusInRadiusSizeStd = np.std(distCloserThanRadiusInRadiusSize)
-
-    AverageDistance = np.mean(dist)
-    AverageDistanceStd = np.std(dist)
-
-    AverageDistanceCloserThanRadius = np.mean(distCloserThanRadius)
-    AverageDistanceCloserThanRadiusStd = np.std(distCloserThanRadius)
-    
-    AverageInside = np.mean(bothDist)
-    AverageInsideStd = np.std(bothDist)
-
-    AverageInsideInRadiusSize = np.mean(bothDistInRadiusSize)
-    AverageInsideInRadiusSizeStd = np.std(bothDistInRadiusSize)
-
-    keyValPairs = [(name,eval(name)) for name in ('NumberOfPointsCloserThanRadiusOrig', 'NumberOfPointsOrig','NumberOfPointsCloserThanRadius','NumberOfPoints',
-        'PercentageOfPointsCloserThanRadiusOrig','PercentageOfPointsCloserThanRadius','OverlapMeasure','AverageDistanceOrig','AverageDistanceOrigStd', 'AverageDistanceCloserThanRadiusInRadiusSizeOrig',
-        'AverageDistanceCloserThanRadiusInRadiusSizeOrigStd', 'AverageDistanceCloserThanRadiusInRadiusSize', 'AverageDistanceCloserThanRadiusInRadiusSizeStd',
-        'AverageDistanceCloserThanRadiusOrig', 'AverageDistanceCloserThanRadiusOrigStd','AverageDistance', 'AverageDistanceStd', 'AverageDistanceCloserThanRadius',
-        'AverageDistanceCloserThanRadiusStd', 'AverageInside', 'AverageInsideStd', 'AverageInsideInRadiusSize', 'AverageInsideInRadiusSizeStd')]
-
-    if (doOutputHeader):
-        print prependHeaderStr + (",".join(kvp[0] for kvp in keyValPairs))
-
-    print prependRowStr + (",".join(str(kvp[1]) for kvp in keyValPairs))
-
-    if debugMode:
-        pointsTP1 = []
-        pointsTP2 = []
-
-        pointsFP1 = []
-        pointsFP2 = []
-
-        for i in xrange(1, len(indicesOrig)):
-            if indicesOrig[i - 1] == indicesOrig[i]:
-                point1 = pointsOrig[i - 1]
-                point2 = pointsOrig[i]
-
-                if closerThanRadiusOrig[i - 1] and closerThanRadiusOrig[i]:
-                    pointsTP1.append(point1)
-                    pointsTP2.append(point2)
-                else:
-                    pointsFP1.append(point1)
-                    pointsFP2.append(point2)
-
-        polyData   = CreateTangentsPolyData(pointsTP1, pointsTP2)
-        basename,_ = os.path.splitext(basename)
-        filename = os.path.join(dirname, basename + 'TrPoGrTr.vtp')
-
-        IO.writePolyDataFile(filename, polyData)
-
-        polyData   = CreateTangentsPolyData(pointsFP1, pointsFP2)
-        basename,_ = os.path.splitext(basename)
-        filename = os.path.join(dirname, basename + 'FaPoGrTr.vtp')
-
-        IO.writePolyDataFile(filename, polyData)
-
-        pointsTP1 = []
-        pointsTP2 = []
-
-        pointsFP1 = []
-        pointsFP2 = []
-
-        for i in xrange(1, len(indices)):
-            if indices[i - 1] == indices[i]:
-                point1 = points[i - 1]
-                point2 = points[i]
-
-                if closerThanRadius[i - 1] and closerThanRadius[i]:
-                    pointsTP1.append(point1)
-                    pointsTP2.append(point2)
-                else:
-                    pointsFP1.append(point1)
-                    pointsFP2.append(point2)
-
-        polyData   = CreateTangentsPolyData(pointsTP1, pointsTP2)
-        basename,_ = os.path.splitext(basename)
-        filename = os.path.join(dirname, basename + 'TrPoReTr.vtp')
-
-        IO.writePolyDataFile(filename, polyData)
-
-        polyData   = CreateTangentsPolyData(pointsFP1, pointsFP2)
-        basename,_ = os.path.splitext(basename)
-        filename = os.path.join(dirname, basename + 'FaPoReTr.vtp')
-
-        IO.writePolyDataFile(filename, polyData)
-
-        polyData   = CreateTangentsPolyData(pointsOrig[closerThanRadiusOrig], points[closestIndicesOrig[closerThanRadiusOrig]])
-        basename,_ = os.path.splitext(basename)
-        filename = os.path.join(dirname, basename + 'GrTrToReTr.vtp')
-
-        IO.writePolyDataFile(filename, polyData)
-
-        polyData   = CreateTangentsPolyData(points[closerThanRadius], pointsOrig[closestIndices[closerThanRadius]])
-        basename,_ = os.path.splitext(basename)
-        filename = os.path.join(dirname, basename + 'ReTrToGrTr.vtp')
-
-        IO.writePolyDataFile(filename, polyData)
-
 def analyzeOverlapMeasure(df, voxelSize):
     outResult = pd.DataFrame(columns=['ThresholdValue','PercentageOfPointsCloserThanRadiusOrig','PercentageOfPointsCloserThanRadiusOrigStd',
         'PercentageOfPointsCloserThanRadius','PercentageOfPointsCloserThanRadiusStd','OverlapMeasure','OverlapMeasureStd',
@@ -1960,6 +1960,19 @@ if __name__ == '__main__':
     subparser.add_argument('--outputFileName')
     subparser.add_argument('--pointsArrName', default='positions')
     subparser.add_argument('--maxDistance', default=np.inf)
+
+    # create the parser for the "DoComputeOverlapMeasure" command
+    subparser = subparsers.add_parser('DoComputeOverlapMeasure')
+    subparser.set_defaults(func=DoComputeOverlapMeasure)
+    subparser.add_argument('--sourceDirName')
+    subparser.add_argument('--inputFileName')
+    subparser.add_argument('--voxelPhysicalSize', type=float)
+    subparser.add_argument('--samplingStep', type=float)
+    subparser.add_argument('--pointsArrName', default='positions')
+    subparser.add_argument('--doOutputHeader', default=False, action='store_true')
+    subparser.add_argument('--prependHeaderStr', default="")
+    subparser.add_argument('--prependRowStr', default="")
+    subparser.add_argument('--debugMode', default=False, action='store_true')
 
     ## create the parser for the "doConvertRawToH5" command
     #subparser = subparsers.add_parser('doConvertRawToH5')
@@ -2173,19 +2186,6 @@ if __name__ == '__main__':
     subparser.add_argument('--minRadiusIncl', default=0, type=float)
     subparser.add_argument('--maxRadiusExcl', default=np.inf, type=float)
     subparser.set_defaults(func=doComputeDistanceToClosestPointsCsv)
-
-    # create the parser for the "doComputeOverlapMeasure" command
-    subparser = subparsers.add_parser('doComputeOverlapMeasure')
-    subparser.add_argument('dirname')
-    subparser.add_argument('basename')
-    subparser.add_argument('voxelWidth', type=float)
-    subparser.add_argument('samplingStep', type=float)
-    subparser.add_argument('--points', default='positions')
-    subparser.add_argument('--doOutputHeader', default=False, action='store_true')
-    subparser.add_argument('--prependHeaderStr', default="")
-    subparser.add_argument('--prependRowStr', default="")
-    subparser.add_argument('--debugMode', default=False, action='store_true')
-    subparser.set_defaults(func=doComputeOverlapMeasure)
 
     # create the parser for the "doAnalyzeTheirOverlapMeasureCsv" command
     subparser = subparsers.add_parser('doAnalyzeTheirOverlapMeasureCsv')

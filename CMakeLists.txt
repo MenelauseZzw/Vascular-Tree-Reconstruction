@@ -40,4 +40,6 @@ add_subdirectory(IO)
 add_subdirectory(LevenbergMarquardtMinimizer)
 add_subdirectory(NonMaximumSuppressionFilter)
 add_subdirectory(ObjectnessMeasureImageFilter)
+add_subdirectory(Scripts)
 add_subdirectory(ThresholdObjectnessMeasureImageFilter)
+

@@ -1,0 +1,30 @@
+@echo off
+
+set thresholdValue=0.001
+set voxelPhysicalSize=0.046
+
+"@CMAKE_INSTALL_PREFIX@/Bin/NonMaximumSuppressionFilter.exe" ^
+--inputFileName "./image001/ObjectnessMeasureVolume.mhd" ^
+--outputFileName "./image001/NonMaximumSuppressionVolume.mhd" ^
+--thresholdValue %thresholdValue%
+
+"@CMAKE_INSTALL_PREFIX@/Bin/GenerateNeighborhoodGraph.exe" ^
+--inputFileName "./image001/NonMaximumSuppressionVolume.mhd" ^
+--outputFileName "./image001/NonMaximumSuppressionVolume.h5" ^
+--thresholdValue %thresholdValue%
+
+"@PYTHON_EXECUTABLE@" "@CMAKE_SOURCE_DIR@/Utitilies/main.py" "DoCreateGraphPolyDataFile" ^
+--inputFileName "./image001/NonMaximumSuppressionVolume.h5" ^
+--outputFileName "./image001/NonMaximumSuppressionVolume.vtp" ^
+--pointsArrName "measurements"
+
+"@PYTHON_EXECUTABLE@" "@CMAKE_SOURCE_DIR@/Utitilies/main.py" "DoCreateTangentsPolyDataFile" ^
+--inputFileName "./image001/NonMaximumSuppressionVolume.h5" ^
+--outputFileName "./image001/NonMaximumSuppressionVolumeTangents.vtp" ^
+--pointsArrName "measurements" ^
+--voxelPhysicalSize %voxelPhysicalSize%
+
+"@PYTHON_EXECUTABLE@" "@CMAKE_SOURCE_DIR@/Utitilies/main.py" "DoCreateRadiusesPolyDataFile" ^
+--inputFileName "./image001/NonMaximumSuppressionVolume.h5" ^
+--outputFileName "./image001/NonMaximumSuppressionVolumeRadiuses.vtp" ^
+--pointsArrName "measurements"

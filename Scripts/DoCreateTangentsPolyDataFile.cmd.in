@@ -1,0 +1,22 @@
+@echo off
+
+set lambdaValue=1.95
+set voxelPhysicalSize=0.046
+
+"@PYTHON_EXECUTABLE@" "@CMAKE_SOURCE_DIR@/Utitilies/main.py" "DoCreateTangentsPolyDataFile" ^
+--inputFileName "./image001/ObjectnessMeasureVolume.h5" ^
+--outputFileName "./image001/ObjectnessMeasureVolumeTangents.vtp" ^
+--pointsArrName "measurements" ^
+--voxelPhysicalSize %voxelPhysicalSize%
+
+"@PYTHON_EXECUTABLE@" "@CMAKE_SOURCE_DIR@/Utitilies/main.py" "DoCreateTangentsPolyDataFile" ^
+--inputFileName "./image001/NonMaximumSuppressionVolume.h5" ^
+--outputFileName "./image001/NonMaximumSuppressionVolumeTangents.vtp" ^
+--pointsArrName "measurements" ^
+--voxelPhysicalSize %voxelPhysicalSize%
+
+"@PYTHON_EXECUTABLE@" "@CMAKE_SOURCE_DIR@/Utitilies/main.py" "DoCreateTangentsPolyDataFile" ^
+--inputFileName "./image001/%lambdaValue%/NonMaximumSuppressionCurvVolume.h5" ^
+--outputFileName "./image001/%lambdaValue%/NonMaximumSuppressionCurvVolumeTangents.vtp" ^
+--pointsArrName "positions" ^
+--voxelPhysicalSize %voxelPhysicalSize%
