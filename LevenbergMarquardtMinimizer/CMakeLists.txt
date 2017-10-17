@@ -3,7 +3,7 @@
 #==========================================================================
 project(LevenbergMarquardtMinimizer)
 
-find_package(CUDA REQUIRED)
+find_package(CUDA 8 EXACT REQUIRED)
 
 include_directories(${Boost_INCLUDE_DIRS})
 
