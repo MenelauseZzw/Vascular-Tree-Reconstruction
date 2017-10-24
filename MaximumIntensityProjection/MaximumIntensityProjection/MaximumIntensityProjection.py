@@ -1,4 +1,5 @@
 import datetime
+import json
 import math
 import vtk
 
@@ -28,9 +29,38 @@ class Application:
                 command()
             self.iren.Render()
         elif keySym == 'space':
-            self.SaveCommand()
+            self.SaveImageToFileCommand()
+        elif keySym == 'K':
+            self.SaveCameraPositionToFileCommand()
 
-    def SaveCommand(self):
+    def SaveCameraPositionToFileCommand(self):
+        firstRenderer = self.renWin.GetRenderers().GetFirstRenderer()
+        camera = firstRenderer.GetActiveCamera()
+
+        focalPoint         = camera.GetFocalPoint()
+        parallelScale      = camera.GetParallelScale()
+        parallelProjection = camera.GetParallelProjection()
+        position           = camera.GetPosition() 
+        viewAngle          = camera.GetViewAngle()
+        viewUp             = camera.GetViewUp()
+        
+        jsonDict = dict()
+
+        now = datetime.datetime.now()
+        jsonFileName = now.strftime('CAM-%Y%m%d-%H%M%S.json')
+
+        jsonDict['CameraPosition'] = position
+        jsonDict['CameraFocalPoint'] = focalPoint
+        jsonDict['CameraViewUp'] = viewUp
+        jsonDict['CameraViewAngle'] = viewAngle
+        jsonDict['CameraParallelScale'] = parallelScale
+        jsonDict['CameraParallelProjection'] = parallelProjection
+
+        with open(jsonFileName, 'w') as jsonFile:
+            json.dump(jsonDict, jsonFile)
+        
+
+    def SaveImageToFileCommand(self):
         windowToImage = vtk.vtkWindowToImageFilter()
         windowToImage.SetInput(self.renWin)
         windowToImage.Update()
