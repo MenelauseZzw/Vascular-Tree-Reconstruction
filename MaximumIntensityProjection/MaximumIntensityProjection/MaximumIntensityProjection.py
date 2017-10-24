@@ -85,6 +85,28 @@ class Application:
         else:
             self.commandsByKeySym[keySym] = [ToggleVisibility]
 
+    def TryInitCameraFromJsonFile(self, jsonFileName):
+        with open(jsonFileName, 'r') as jsonFile:
+            jsonDict = json.load(jsonFile)
+
+            position = jsonDict['CameraPosition']
+            focalPoint = jsonDict['CameraFocalPoint']
+            viewUp = jsonDict['CameraViewUp']
+            viewAngle = jsonDict['CameraViewAngle']
+            parallelScale = jsonDict['CameraParallelScale']
+            parallelProjection = jsonDict['CameraParallelProjection']
+
+        firstRenderer = self.renWin.GetRenderers().GetFirstRenderer()
+        camera = firstRenderer.GetActiveCamera()
+
+        camera.SetParallelProjection(parallelProjection)
+        camera.SetParallelScale(parallelScale)
+        camera.SetFocalPoint(focalPoint)
+        camera.SetPosition(position) 
+        camera.SetViewAngle(viewAngle)
+        camera.SetViewUp(viewUp)
+        
+
     def Start(self):
         self.iren.Initialize()
         self.renWin.Render()
@@ -307,5 +329,8 @@ class ApplicationBuilder:
         style.SetMotionFactor(5)
 
         app.SetInteractorStyle(style)
+
+        if not self.CameraJsonFileName is None:
+            app.TryInitCameraFromJsonFile(self.CameraJsonFileName)
 
         return app
