@@ -13,7 +13,7 @@
  
     Important `--thresholdValue` --- this is threshold for plots
  
- 3. DoLevenbergMarquardtMinimizer
+ 3. DoLevenbergMarquardtMinimizer (use GPU)
  
     → NonMaximumSuppressionCurvVolume.h5
  
