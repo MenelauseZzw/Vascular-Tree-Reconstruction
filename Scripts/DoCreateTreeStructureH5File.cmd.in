@@ -1,0 +1,13 @@
+@echo off
+
+set voxelPhysicalSize=0.046
+
+"@PYTHON_EXECUTABLE@" "@CMAKE_SOURCE_DIR@/Utitilies/main.py" "DoCreateTreeStructureH5File" ^
+--inputFileName "./image001/tree_structure.xml" ^
+--outputFileName "./image001/tree_structure.h5" ^
+--voxelPhysicalSize %voxelPhysicalSize%
+
+"@PYTHON_EXECUTABLE@" "@CMAKE_SOURCE_DIR@/Utitilies/main.py" "DoCreateGraphPolyDataFile" ^
+--inputFileName "./image001/tree_structure.h5" ^
+--outputFileName "./image001/tree_structure.vtp" ^
+--pointsArrName "positions"

@@ -1,0 +1,14 @@
+@echo off
+
+set lambdaValue=1.95
+
+"@CMAKE_INSTALL_PREFIX@/Bin/GenerateMinimumSpanningTree.exe" ^
+--knn -1 ^
+--optionNum 1 ^
+--inputFileName "./image001/%lambdaValue%/NonMaximumSuppressionCurvVolume.h5" ^
+--outputFileName "./image001/%lambdaValue%/NonMaximumSuppressionCurvVolumeEMST.h5"
+
+"@PYTHON_EXECUTABLE@" "@CMAKE_SOURCE_DIR@/Utitilies/main.py" "DoCreateGraphPolyDataFile" ^
+--pointsArrName "positions" ^
+--inputFileName "./image001/%lambdaValue%/NonMaximumSuppressionCurvVolumeEMST.h5" ^
+--outputFileName "./image001/%lambdaValue%/NonMaximumSuppressionCurvVolumeEMST.vtp"

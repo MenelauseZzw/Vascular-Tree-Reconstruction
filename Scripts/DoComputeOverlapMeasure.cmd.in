@@ -1,0 +1,10 @@
+@echo off
+
+set lambdaValue=1.95
+
+"@PYTHON_EXECUTABLE@" "@CMAKE_SOURCE_DIR@/Utitilies/main.py" "DoComputeOverlapMeasure" ^
+--sourceDirName "./image001" ^
+--inputFileName "%lambdaValue%/NonMaximumSuppressionCurvVolumeEMST.h5" ^
+--voxelPhysicalSize 0.046 ^
+--samplingStep 0.0046
+
