@@ -1,36 +1,28 @@
 
-# Vascular-Tree-Reconstruction
+# Vascular-Tree-Reconstruction (continue to be updated)
 
-## Where is everything?
- * here
- * copy is in tars:c:\echesakov\source\VascularTree...
+## How to use 
 
-    binary is in tars:c:\echesakov\Build
-
-    installed in tars:c:\echesakov\VascularTreeEstimationRelease
-
-## How to run
-
- 1. Do ObjectenessMasureImageFilter.cmd
+ 1. Do ObjectenessMasureImageFilter
  
     → ObjectnessMeasureVolume --- data
  
- 2. DoNonmaximumSuppressionVolume.cmd
+ 2. DoNonmaximumSuppressionVolume
  
     → NonMaximumSuppressionVolume.h5 --- graph
  
     Important `--thresholdValue` --- this is threshold for plots
  
- 3. DoLevenbergMarquardtMinimizer.cmd
+ 3. DoLevenbergMarquardtMinimizer
     → NonMaximumSuppressionCurvVolume.h5
  
     Important `--lambda` --- curvature coefficient
+	
+	`--beta` --- divergence coefficient
     
-    `--voxelPixelSize` --- defines allowed error in ||l_p - p||_+
+    `--voxelPhysicalSize` --- defines allowed error in ||l_p - p||_+
  
-    DoLevenbergMarquardtMinimizerP.cmd --- same but on TensorFlow
- 
- 4. DoGenerateMinimumSpanningTree.cmd
+ 4. DoGenerateMinimumSpanningTree
  
     → NonMaximumSuppressionCurvVolumeEMST.h5 --- tree
  
@@ -42,14 +34,3 @@
     * `Y=1` for Eucledian weights,
     * `Y=2` for sum of arcs' lengths,
     * `Y=3` for min of arcs' lengths.
- 
- 5. DoComputeOverlapMeasure.cmd
- 
-    → _to console_
-    
-    computes different metrics
-    
-6. DoAnalyzeOurOverlapMeasure
-
-    averages over volumes
- 

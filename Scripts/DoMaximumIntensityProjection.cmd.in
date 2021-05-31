@@ -1,6 +1,0 @@
-@echo off
-
-"@PYTHON_EXECUTABLE@" "@CMAKE_SOURCE_DIR@/MaximumIntensityProjection/MaximumIntensityProjection/main.py" ^
---sourceDirName "./image001" ^
---volumes "ScalarVolume(original_image.mhd,0,0)" "VectorVolumeComp(ObjectnessMeasureVolume.mhd,0,0,1)" "VectorVolumeComp(NonMaximumSuppressionVolume.mhd,0,1,0)" "VectorVolumeComp(ThresholdedObjectnessMeasureVolume.mhd,0,1,1)" ^
---polyDataFiles "PolyDataFile(tree_structure.vtp,1,85,255,127)" "PolyDataFile(ObjectnessMeasureVolumeTangents.vtp,2,255,255,127)" "PolyDataFile(NonMaximumSuppressionVolumeTangents.vtp,3,255,170,255)" "PolyDataFile(1.95/NonMaximumSuppressionCurvVolumeTangents.vtp,4,85,170,255)" "PolyDataFile(1.95/NonMaximumSuppressionCurvVolumeRadiuses.vtp,5,255,85,127)" "PolyDataFile(1.95/NonMaximumSuppressionCurvVolumeEMST.vtp,6,255,85,0)"

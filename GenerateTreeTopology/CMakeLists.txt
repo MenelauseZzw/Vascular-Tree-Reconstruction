@@ -1,4 +1,4 @@
-project(GenerateMinimumSpanningTree)
+project(GenerateTreeTopology)
 
 find_package(Eigen REQUIRED)
 find_package(Flann REQUIRED)
@@ -9,15 +9,15 @@ include_directories(
   ${FLANN_INCLUDE_DIRS})
 
 add_executable(
-  GenerateMinimumSpanningTree
+  GenerateTreeTopology
   main.cpp)
 
 target_link_libraries(
-  GenerateMinimumSpanningTree
+  GenerateTreeTopology
   IO
   ${Boost_LIBRARIES}
   ${FLANN_LIBRARIES})
 
 install(
-  TARGETS GenerateMinimumSpanningTree
+  TARGETS GenerateTreeTopology
   RUNTIME DESTINATION Bin)

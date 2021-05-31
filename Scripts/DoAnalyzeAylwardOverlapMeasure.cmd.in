@@ -1,8 +1,0 @@
-@echo off
-
-set voxelPhysicalSize=0.046
-
-"@PYTHON_EXECUTABLE@" "@CMAKE_SOURCE_DIR@/Utitilies/main.py" "DoAnalyzeTheirOverlapMeasure" ^
---inputFileName "./AylwardOverlapMeasure.csv" ^
---outputFileName "./AylwardOverlapMeasureAverage.csv" ^
---voxelPhysicalSize %voxelPhysicalSize%
