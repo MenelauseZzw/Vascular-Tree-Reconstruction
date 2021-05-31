@@ -1,21 +1,25 @@
 
-# Vascular-Tree-Reconstruction (continue to be updated)
+# Vascular-Tree-Reconstruction (to be updated)
 
 ## How to use 
 
- 1. Do ObjectenessMasureImageFilter
+ 1. Do ObjectenessMasureImageFilter (Frangi filtering)
  
-    → ObjectnessMeasureVolume --- data
+    → ObjectnessMeasureVolume --- volume data
  
- 2. DoNonmaximumSuppressionVolume
+ 2. Do NonmaximumSuppressionVolume
+ 
+    → NonMaximumSuppressionVolume --- volume data
+ 
+    Important `--thresholdValue` --- this is threshold for plots
+	
+ 3. DO GenerateNeighborhoodGraph
  
     → NonMaximumSuppressionVolume.h5 --- graph
  
-    Important `--thresholdValue` --- this is threshold for plots
+ 4. Do LevenbergMarquardtMinimizer (use GPU)
  
- 3. DoLevenbergMarquardtMinimizer (use GPU)
- 
-    → NonMaximumSuppressionCurvVolume.h5
+    → NonMaximumSuppressionCurvDivVolume.h5
  
     Important `--lambda` --- curvature coefficient
 	
@@ -23,9 +27,9 @@
     
     `--voxelPhysicalSize` --- defines allowed error in ||l_p - p||_+
  
- 4. DoGenerateMinimumSpanningTree
+ 5. Do GenerateTreeTopology
  
-    → NonMaximumSuppressionCurvVolumeEMST.h5 --- tree
+    → NonMaximumSuppressionCurvDivVolumeTree.h5 --- tree
  
     Important `--directedLabel`  --- a flag used to decide whether to use minimum arborescence or MST
 	
