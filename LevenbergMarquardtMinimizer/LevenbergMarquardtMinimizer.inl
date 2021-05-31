@@ -8,112 +8,121 @@
 
 template<typename JacobianMatrixType, typename VariableVectorType, typename ResidualVectorType, typename ValueType>
 void LevenbergMarquardtMinimizer(
-  const CostFunction<JacobianMatrixType, VariableVectorType, ResidualVectorType>& func,
-  VariableVectorType& x, ValueType& damp, ValueType dampmin, ValueType tolx, ValueType tolf, ValueType tolg, int& itn, int itnlim)
+	const CostFunction<JacobianMatrixType, VariableVectorType, ResidualVectorType>& func,
+	VariableVectorType& x, ValueType& damp, ValueType dampmin, ValueType tolx, ValueType tolf, ValueType tolg, int& itn, int itnlim,
+	std::vector<ValueType>& costValue, double tau)
 {
-  typedef typename JacobianMatrixType::memory_space MemorySpace;
-  typedef cusp::array1d<ValueType, MemorySpace> GradientVectorType;
+	typedef typename JacobianMatrixType::memory_space MemorySpace;
+	typedef cusp::array1d<ValueType, MemorySpace> GradientVectorType;
 
-  // Local constants
-  const ValueType E = 2;
-  const ValueType D = 0.5;
+	// Local constants
+	const ValueType E = 2;
+	const ValueType D = 0.5;
 
-  const ValueType pi1 = 0.01;
-  const ValueType pi2 = 0.75;
+	const ValueType pi1 = 0.01;
+	const ValueType pi2 = 0.75;
 
-  const ValueType damplim = 32000;
+	const ValueType damplim = 32000;
 
-  itn = 0;
+	itn = 0;
 
-  JacobianMatrixType jacobian;
-  func.ComputeJacobian(x, jacobian);
+	JacobianMatrixType jacobian;
+	func.ComputeJacobian(x, jacobian);
 
-  JacobianMatrixType jacobiant;
+	JacobianMatrixType jacobiant;
 
-  GradientVectorType gradient(jacobian.num_cols);
+	GradientVectorType gradient(jacobian.num_cols);
 
-  ResidualVectorType residualx(jacobian.num_rows);
-  ResidualVectorType residualxpy(jacobian.num_rows);
+	ResidualVectorType residualx(jacobian.num_rows);
+	ResidualVectorType residualxpy(jacobian.num_rows);
 
-  VariableVectorType y(jacobian.num_cols);
-  VariableVectorType xpy(jacobian.num_cols);
+	VariableVectorType y(jacobian.num_cols);
+	VariableVectorType xpy(jacobian.num_cols);
 
-  cusp::transpose(jacobian, jacobiant);
-  func.ComputeResidual(x, residualx);
+	cusp::transpose(jacobian, jacobiant);
 
-  ValueType normSqResidualx = cusp::blas::dot(residualx, residualx);
+	func.ComputeResidual(x, residualx);
 
-  for (;;)
-  {
-    ValueType rho;
-    ValueType normSqResidualxpy;
+	ValueType normSqResidualx = cusp::blas::dot(residualx, residualx);
 
-    {
-      // Local constants
-      const ValueType atol = 1e-3;
-      const ValueType btol = 1e-3;
-      const ValueType conlim = 0;
-      const int itnlim = 4 * jacobian.num_cols;
+	ValueType intialValue = normSqResidualx;
+	costValue.push_back(normSqResidualx);
 
-      // Local variables
-      ValueType Anorm, Acond, rnorm, Arnorm, xnorm;
-      int istop, itn;
+	for (;;)
+	{
+		ValueType rho;
+		ValueType normSqResidualxpy;
 
-      LSQR(jacobian, jacobiant, residualx, damp, y, atol, btol, conlim, itnlim, istop, itn, Anorm, Acond, rnorm, Arnorm, xnorm);
+		{
+			// Local constants
+			const ValueType atol = 1e-3;
+			const ValueType btol = 1e-3;
+			const ValueType conlim = 0;
+			const int itnlim = 4 * jacobian.num_cols;
 
-      cusp::blas::axpby(x, y, xpy, 1, -1);
+			// Local variables
+			ValueType Anorm, Acond, rnorm, Arnorm, xnorm;
+			int istop, itn;
 
-      func.ComputeResidual(xpy, residualxpy);
+			LSQR(jacobian, jacobiant, residualx, damp, y, atol, btol, conlim, itnlim, istop, itn, Anorm, Acond, rnorm, Arnorm, xnorm);
 
-      normSqResidualxpy = cusp::blas::dot(residualxpy, residualxpy);
-      rho = (normSqResidualx - normSqResidualxpy) / (normSqResidualx - rnorm * rnorm);
-    }
+			cusp::blas::axpby(x, y, xpy, 1, -1);
 
-    if (rho < pi1)
-    {
-      damp = damp ? (E * damp) : dampmin;
-    }
-    else
-    {
-      std::swap(xpy, x);
+			func.ComputeResidual(xpy, residualxpy);
 
-      bool convergence = false;
+			normSqResidualxpy = cusp::blas::dot(residualxpy, residualxpy);
+			rho = (normSqResidualx - normSqResidualxpy) / (normSqResidualx - rnorm * rnorm);
+            costValue.push_back(normSqResidualxpy);
 
-      if (false)
-      {
-        convergence = true;
-        BOOST_LOG_TRIVIAL(info) << "x-convergence criterion is signalled";
-      }
+		}
 
-      if ((normSqResidualx - normSqResidualxpy) / normSqResidualxpy <= tolf)
-      {
-        convergence = true;
-        BOOST_LOG_TRIVIAL(info) << "Function convergence criterion is signalled";
-      }
+		if (rho < pi1)
+		{
+			damp = damp ? (E * damp) : dampmin;
+		}
+		else
+		{
+			std::swap(xpy, x);
 
-      cusp::multiply(jacobiant, residualx, gradient);
+			bool convergence = false;
 
-      if (cusp::blas::nrm2(gradient) <= tolg)
-      {
-        convergence = true;
-        BOOST_LOG_TRIVIAL(info) << "Gradient convergence criterion is signalled";
-      }
+			if (false)
+			{
+				convergence = true;
+				BOOST_LOG_TRIVIAL(info) << "x-convergence criterion is signalled";
+			}
 
-      if (convergence) break;
+			if ((normSqResidualx - normSqResidualxpy) / normSqResidualxpy <= tolf)
+			{
+				convergence = true;
+				BOOST_LOG_TRIVIAL(info) << "Function convergence criterion is signalled";
+			}
 
-      std::swap(residualxpy, residualx);
-      normSqResidualx = normSqResidualxpy;
+			cusp::multiply(jacobiant, residualx, gradient);
 
-      func.ComputeJacobian(x, jacobian);
-      cusp::transpose(jacobian, jacobiant);
+			if (cusp::blas::nrm2(gradient) <= tolg)
+			{
+				convergence = true;
+				BOOST_LOG_TRIVIAL(info) << "Gradient convergence criterion is signalled";
+			}
 
-      itn = itn + 1;
+			if (convergence) break;
 
-      if (rho > pi2) damp = D * damp;
-      if (damp < dampmin) damp = 0;
-      if (itn > itnlim) break;
-    }
+			//costValue.push_back(normSqResidualxpy);
 
-    if (damp > damplim) break;
-  }
+			std::swap(residualxpy, residualx);
+			normSqResidualx = normSqResidualxpy;
+
+			func.ComputeJacobian(x, jacobian);
+			cusp::transpose(jacobian, jacobiant);
+
+			itn = itn + 1;
+
+			if (rho > pi2) damp = D * damp;
+			if (damp < dampmin) damp = 0;
+			if (itn > itnlim) break;
+		}
+
+		if (damp > damplim) break;
+	}
 }

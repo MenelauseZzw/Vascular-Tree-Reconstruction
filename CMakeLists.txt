@@ -1,7 +1,7 @@
 #==========================================================================
 #                         Vascular Tree Estimation                        #
 #==========================================================================
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.7 FATAL_ERROR)
 project(VascularTreeEstimation)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMake/")
@@ -17,7 +17,7 @@ set(Boost_USE_STATIC_LIBS    ON) # only find static libs
 set(Boost_USE_MULTITHREADED  ON)
 set(Boost_USE_STATIC_RUNTIME OFF)
 
-find_package(Boost REQUIRED COMPONENTS graph log log_setup program_options)
+find_package(Boost REQUIRED COMPONENTS graph log log_setup program_options system date_time filesystem thread)
 
 find_package(OpenMP)
 

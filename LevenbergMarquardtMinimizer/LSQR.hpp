@@ -365,6 +365,16 @@ void LSQR(const LinearOperator1& A, const LinearOperator2& At, const Vector1& b,
     cusp::blas::scal(u, 1 / beta);
     cusp::multiply(At, u, v); // v = A'*u
     alpha = cusp::blas::nrm2(v);
+
+	//if (cusp::blas::nrm2(b)-206.959<1){
+		//cusp::array1d < ValueType, cusp::host_memory> temp(A.num_rows);
+		//cusp::copy(v, temp);
+		//for (int i = 0; i < A.num_rows; i++)
+		//	if (isnan(temp[i]))
+		//		std::cout << "NAN!!!" << std::endl;
+		//std::cout << "alpha is NAN" << std::endl;
+		//system("pause");
+	//}
   }
 
   if (alpha > 0)

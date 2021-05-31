@@ -1,5 +1,4 @@
 import datetime
-import json
 import math
 import vtk
 
@@ -29,38 +28,9 @@ class Application:
                 command()
             self.iren.Render()
         elif keySym == 'space':
-            self.SaveImageToFileCommand()
-        elif keySym == 'K':
-            self.SaveCameraPositionToFileCommand()
+            self.SaveCommand()
 
-    def SaveCameraPositionToFileCommand(self):
-        firstRenderer = self.renWin.GetRenderers().GetFirstRenderer()
-        camera = firstRenderer.GetActiveCamera()
-
-        focalPoint         = camera.GetFocalPoint()
-        parallelScale      = camera.GetParallelScale()
-        parallelProjection = camera.GetParallelProjection()
-        position           = camera.GetPosition() 
-        viewAngle          = camera.GetViewAngle()
-        viewUp             = camera.GetViewUp()
-        
-        jsonDict = dict()
-
-        now = datetime.datetime.now()
-        jsonFileName = now.strftime('CAM-%Y%m%d-%H%M%S.json')
-
-        jsonDict['CameraPosition'] = position
-        jsonDict['CameraFocalPoint'] = focalPoint
-        jsonDict['CameraViewUp'] = viewUp
-        jsonDict['CameraViewAngle'] = viewAngle
-        jsonDict['CameraParallelScale'] = parallelScale
-        jsonDict['CameraParallelProjection'] = parallelProjection
-
-        with open(jsonFileName, 'w') as jsonFile:
-            json.dump(jsonDict, jsonFile)
-        
-
-    def SaveImageToFileCommand(self):
+    def SaveCommand(self):
         windowToImage = vtk.vtkWindowToImageFilter()
         windowToImage.SetInput(self.renWin)
         windowToImage.Update()
@@ -84,28 +54,6 @@ class Application:
             self.commandsByKeySym[keySym].append(ToggleVisibility)
         else:
             self.commandsByKeySym[keySym] = [ToggleVisibility]
-
-    def TryInitCameraFromJsonFile(self, jsonFileName):
-        with open(jsonFileName, 'r') as jsonFile:
-            jsonDict = json.load(jsonFile)
-
-            position = jsonDict['CameraPosition']
-            focalPoint = jsonDict['CameraFocalPoint']
-            viewUp = jsonDict['CameraViewUp']
-            viewAngle = jsonDict['CameraViewAngle']
-            parallelScale = jsonDict['CameraParallelScale']
-            parallelProjection = jsonDict['CameraParallelProjection']
-
-        firstRenderer = self.renWin.GetRenderers().GetFirstRenderer()
-        camera = firstRenderer.GetActiveCamera()
-
-        camera.SetParallelProjection(parallelProjection)
-        camera.SetParallelScale(parallelScale)
-        camera.SetFocalPoint(focalPoint)
-        camera.SetPosition(position) 
-        camera.SetViewAngle(viewAngle)
-        camera.SetViewUp(viewUp)
-        
 
     def Start(self):
         self.iren.Initialize()
@@ -209,7 +157,8 @@ class ApplicationBuilder:
             toUnsignedShort = vtk.vtkImageShiftScale()
             toUnsignedShort.ClampOverflowOn()
             toUnsignedShort.SetShift(-valueMin)
-            toUnsignedShort.SetScale(512.0 / (valueMax - valueMin))
+            if valueMax - valueMin != 0:
+                toUnsignedShort.SetScale(512.0 / (valueMax - valueMin)) #randomly cause error that "zerodivision"
             toUnsignedShort.SetInputConnection(compSrc.GetOutputPort())
             toUnsignedShort.SetOutputScalarTypeToUnsignedShort()
 
@@ -280,7 +229,7 @@ class ApplicationBuilder:
 
             pos = (volume.Row,volume.Column)
             if pos in volumesByPosition:
-                volumesByPosition.append(volume)
+                volumesByPosition[pos].append(volume) #modified by Rex
             else:
                 volumesByPosition[pos] = [volume]
 
@@ -293,6 +242,7 @@ class ApplicationBuilder:
 
         for row in xrange(numRows):
             for column in xrange(numColumns):
+                print(row,column)
                 renderer = app.CreateRenderer()
                 viewport = self.CreateViewport(row, numRows, column, numColumns)
                 renderer.SetViewport(viewport) 
@@ -317,7 +267,7 @@ class ApplicationBuilder:
                     camera.SetViewUp(0, 1, 0)
                 else:
                     renderer.SetActiveCamera(firstRenderer.GetActiveCamera())
-
+                
                 for polyDataFile in self.polyDataFiles:
                     polyDataActor = polyDataFile.CreatePolyDataActor()
                     polyDataActor.VisibilityOff()
@@ -329,8 +279,5 @@ class ApplicationBuilder:
         style.SetMotionFactor(5)
 
         app.SetInteractorStyle(style)
-
-        if not self.CameraJsonFileName is None:
-            app.TryInitCameraFromJsonFile(self.CameraJsonFileName)
 
         return app

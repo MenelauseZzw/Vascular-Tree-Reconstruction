@@ -17,6 +17,7 @@ import vtk
 
 from sklearn.neighbors import KDTree,NearestNeighbors,radius_neighbors_graph
 from xml.etree import ElementTree
+#from LevenbergMarquardtMinimizer import ProblemBuilder,InexactLevenbergMarquardtMinimizer
 
 def CreateLinePolyData(point1, point2):
     lineSrc = vtk.vtkLineSource()
@@ -722,8 +723,13 @@ def doCreateArcsPolyDataFile(args):
     tangentLinesPoints2 = dataset['tangentLinesPoints2']
 
     tangentLines = tangentLinesPoints2 - tangentLinesPoints1
+<<<<<<< HEAD
+    #tangentLines /= linalg.norm(tangentLines, axis=1, keepdims=True)
+    
+=======
     tangentLines /= linalg.norm(tangentLines, axis=1, keepdims=True)
 
+>>>>>>> echesakov/master
     n = len(positions)
 
     indices1 = dataset['indices1']
@@ -2196,6 +2202,41 @@ if __name__ == '__main__':
     subparser.add_argument('--maxRadiusExcl', default=np.inf, type=float)
     subparser.set_defaults(func=doComputeDistanceToClosestPointsCsv)
 
+'''
+    # create the parser for the "doComputeOverlapMeasure" command
+    subparser = subparsers.add_parser('doComputeOverlapMeasure')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.add_argument('voxelWidth', type=float)
+    subparser.add_argument('samplingStep', type=float)
+    subparser.add_argument('--points', default='positions')
+    subparser.add_argument('--doOutputHeader', default=False, action='store_true')
+    subparser.add_argument('--prependHeaderStr', default="")
+    subparser.add_argument('--prependRowStr', default="")
+    subparser.add_argument('--debugMode', default=False, action='store_true')
+    subparser.set_defaults(func=doComputeOverlapMeasure)
+
+    # create the parser for the "doAnalyzeTheirOverlapMeasureCsv" command
+    subparser = subparsers.add_parser('doAnalyzeTheirOverlapMeasureCsv')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.add_argument('voxelSize', type=float)
+    subparser.set_defaults(func=doAnalyzeTheirOverlapMeasureCsv)
+
+    # create the parser for the "doAnalyzeOurOverlapMeasureCsv" command
+    subparser = subparsers.add_parser('doAnalyzeOurOverlapMeasureCsv')
+    subparser.add_argument('dirname')
+    subparser.add_argument('basename')
+    subparser.add_argument('voxelSize', type=float)
+    subparser.set_defaults(func=doAnalyzeOurOverlapMeasureCsv)
+
+    ## create the parser for the "doLevenbergMarquardtMinimizer" command
+    #subparser = subparsers.add_parser('doLevenbergMarquardtMinimizer')
+    #subparser.add_argument('dirname')
+    #subparser.add_argument('basename')
+    #subparser.add_argument('lambdaValue', type=float)
+    #subparser.set_defaults(func=doLevenbergMarquardtMinimizer)
+'''
     # parse the args and call whatever function was selected
     args = argparser.parse_args()
     args.func(args)

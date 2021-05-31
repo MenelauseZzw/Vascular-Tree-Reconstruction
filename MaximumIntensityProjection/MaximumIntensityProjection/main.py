@@ -45,8 +45,6 @@ def DoMaximumIntensityProjection(args):
             polyDataFileName = os.path.join(sourceDirName, polyDataFileName)
             builder.AddPolyDataFile(polyDataFileName, keySym, red, green, blue)
 
-    builder.CameraJsonFileName = args.cameraJsonFile
-
     app = builder.BuildApp()
     app.Start()
 
@@ -57,7 +55,6 @@ if __name__ == '__main__':
     argparser.add_argument('--sourceDirName')
     argparser.add_argument('--volumes', nargs='*', default=['ScalarVolume(original_image.mhd,0,0)'])
     argparser.add_argument('--polyDataFiles', nargs='*', default=['PolyDataFile(tree_structure.vtp,1,85,255,127)'])
-    argparser.add_argument('--cameraJsonFile', default=None)
     args = argparser.parse_args()
     args.func(args)
 
