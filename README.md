@@ -14,6 +14,7 @@
     Important `--thresholdValue` --- this is threshold for plots
  
  3. DoLevenbergMarquardtMinimizer
+ 
     → NonMaximumSuppressionCurvVolume.h5
  
     Important `--lambda` --- curvature coefficient
@@ -26,11 +27,6 @@
  
     → NonMaximumSuppressionCurvVolumeEMST.h5 --- tree
  
-    Note: to use different graph set `--knn X` where
-    * `X=-1` uses complete graph
-    * `X>0` uses KNN graph with `X` neighbours
- 
-    `--optionNum Y`: 
-    * `Y=1` for Eucledian weights,
-    * `Y=2` for sum of arcs' lengths,
-    * `Y=3` for min of arcs' lengths.
+    Important `--directedLabel`  --- a flag used to decide whether to use minimum arborescence or MST
+	
+	Code for the minimum arborescence: https://github.com/atofigh/edmonds-alg.git
