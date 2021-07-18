@@ -8,7 +8,6 @@ set(Boost_USE_STATIC_RUNTIME OFF)
 
 find_package(Boost REQUIRED COMPONENTS graph log log_setup program_options system date_time filesystem thread)
 
-set(ITK_DIR "/home/zzhan896/InsightToolkit-4.13.0/build")
 find_package(ITK REQUIRED)
 find_package(Eigen REQUIRED)
 find_package(Flann REQUIRED)
@@ -17,8 +16,7 @@ include(${ITK_USE_FILE})
 include_directories(
 ${Boost_INCLUDE_DIRS}
 ${EIGEN_INCLUDE_DIRS}
-${FLANN_INCLUDE_DIRS}
-/home/zzhan896/VTE/IO)
+${FLANN_INCLUDE_DIRS})
 
 add_executable(
   GenerateNeighborhoodGraph

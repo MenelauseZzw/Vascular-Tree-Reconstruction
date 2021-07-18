@@ -28,8 +28,7 @@ endif(COMMAND cmake_policy)
 find_package(CUDA 8 EXACT REQUIRED)
 
 include_directories(
-   ${Boost_INCLUDE_DIRS} 
-   /home/zzhan896/VTE/IO)
+   ${Boost_INCLUDE_DIRS})
 
 source_group("CUDA Source Files" REGULAR_EXPRESSION "cu$")
 source_group("CUDA Header Files" REGULAR_EXPRESSION "cuh$")

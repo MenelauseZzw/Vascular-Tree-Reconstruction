@@ -6,6 +6,10 @@ project(VascularTreeEstimation)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMake/")
 
+# set path to boost and HDF5 directory
+set(HDF5_DIR "/home/z889zhan/VascularTreeEstimation/VTE-dependencies/CMake-hdf5-1.10.1/HDF5-1.10.1-Linux/HDF_Group/HDF5/1.10.1/share/cmake")
+set(BOOST_ROOT "/home/z889zhan/VascularTreeEstimation/VTE-dependencies/boost_1_65_0/install")
+
 if (UNIX)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
 
@@ -29,8 +33,9 @@ endif()
 add_subdirectory(GenerateTreeTopology)
 add_subdirectory(GenerateNeighborhoodGraph)
 add_subdirectory(IO)
-add_subdirectory(LevenbergMarquardtMinimizer)
 add_subdirectory(NonMaximumSuppressionFilter)
 add_subdirectory(ObjectnessMeasureImageFilter)
+add_subdirectory(LevenbergMarquardtMinimizer)
+
 
 

@@ -6,6 +6,7 @@
 # FLANN_INCLUDE_DIRS - Directories containing the FLANN include files.
 # FLANN_LIBRARIES - Libraries needed to use FLANN.
 # FLANN_DEFINITIONS - Compiler flags for FLANN.
+set(ENV{PKG_CONFIG_PATH} "/home/z889zhan/VascularTreeEstimation/VTE-dependencies/flann-1.8.4-src/install/lib/pkgconfig")
 
 find_package(PkgConfig)
 pkg_check_modules(PC_FLANN flann)

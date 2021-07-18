@@ -92,6 +92,7 @@ unset(EIGEN_FOUND)
 # Search user-installed locations first, so that we prefer user installs
 # to system installs where both exist.
 list(APPEND EIGEN_CHECK_INCLUDE_DIRS
+  /home/z889zhan/VascularTreeEstimation/VTE-dependencies/eigen-3.3.4/
   /usr/local/include
   /usr/local/homebrew/include # Mac OS X
   /opt/local/var/macports/software # Mac OS X.
