@@ -1,8 +1,6 @@
 
 # Vascular-Tree-Reconstruction
-This repository holds the source code for the papers [Divergence Prior and Vessel-tree Reconstruction][paper1] and [Confluent Vessel Trees with Accurate Bifurcations][paper2] appeared in CVPR19 and CVPR21 respectively.
-[paper1]:https://openaccess.thecvf.com/content_CVPR_2019/papers/Zhang_Divergence_Prior_and_Vessel-Tree_Reconstruction_CVPR_2019_paper.pdf
-[paper2]:https://openaccess.thecvf.com/content/CVPR2021/papers/Zhang_Confluent_Vessel_Trees_With_Accurate_Bifurcations_CVPR_2021_paper.pdf
+This repository holds the source code for the papers [Divergence Prior and Vessel-tree Reconstruction](https://openaccess.thecvf.com/content_CVPR_2019/papers/Zhang_Divergence_Prior_and_Vessel-Tree_Reconstruction_CVPR_2019_paper.pdf) and [Confluent Vessel Trees with Accurate Bifurcations](https://openaccess.thecvf.com/content/CVPR2021/papers/Zhang_Confluent_Vessel_Trees_With_Accurate_Bifurcations_CVPR_2021_paper.pdf) appeared in CVPR19 and CVPR21 respectively.
 
 ## How to install
 The following installation is tested using cmake-3.10.2 under Ubuntu 18.04.3 LTS.
