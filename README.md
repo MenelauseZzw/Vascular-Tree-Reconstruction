@@ -22,6 +22,8 @@ make install
 ## How to use 
 The example script is contained in the [Experiments](Experiments). To obtain the synthetic vessel volume data, use [fetchData.sh](Experiments/fetchData.sh). After downloading the data, simply run [ExprOutter.sh](Experiments/ExprOutter.sh).
 
+Five stages for vessel tree/centerline extraction:
+
  1. Do ObjectenessMasureImageFilter (Frangi filtering)
  
  2. Do NonmaximumSuppressionVolume
