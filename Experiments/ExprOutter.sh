@@ -1,6 +1,7 @@
 #!/bin/bash
 
-num=$1
+for num in {001..015} ; do
+
 dirname="./image$num"
 
 /home/z889zhan/VascularTreeEstimation/VTE-release/Bin/ObjectnessMeasureImageFilter \
@@ -15,3 +16,5 @@ dirname="./image$num"
 --outputFileName "$dirname/ObjectnessMeasureVolume.mhd"
 
 cat "./thresholdBelow.txt" | xargs -n 1 -I tb -P 4 bash ExprInner.sh $num tb
+
+done
