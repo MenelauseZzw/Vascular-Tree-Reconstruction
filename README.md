@@ -26,23 +26,23 @@ The example script is contained in the [Experiments](Experiments). To obtain the
  
  2. Do NonmaximumSuppressionVolume
   
-    Important `--thresholdValue` --- this is threshold for plots
+    Important `--thresholdValue --- this is threshold for plots`
 	
  3. DO GenerateNeighborhoodGraph
   
  4. Do LevenbergMarquardtMinimizer (use GPU)
   
-    Important `--lambda` --- curvature coefficient
+    Important `--lambda  --- curvature coefficient`
 	
-	`--beta` --- divergence coefficient
+	`--beta  --- divergence coefficient`
 	
-	`--tau` --- the hyperparameter in the oriented curvature
+	`--tau  --- the hyperparameter in the oriented curvature`
     
-        `--voxelPhysicalSize` --- defines allowed error in ||l_p - p||_+
+        `--voxelPhysicalSize  --- defines allowed error in ||l_p - p||_+`
  
  5. Do GenerateTreeTopology
   
-    Important `--directedLabel`  --- a flag used to decide whether to use minimum arborescence or MST
-         `--root` --- root index needs to be defined if using the minimum arborescence
+    Important `--directedLabel   --- a flag used to decide whether to use minimum arborescence or MST`
+         `--root   --- root index needs to be defined if using the minimum arborescence`
 	
 	Code for the minimum arborescence: https://github.com/atofigh/edmonds-alg.git
