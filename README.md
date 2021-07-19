@@ -28,10 +28,10 @@ The example script is contained in the [Experiments](Experiments). To obtain the
   
     Important 
     ```
-    --thresholdValue --- this is threshold for plots
+    --thresholdValue --- this is threshold for plots (ROC, angle error)
     ```
 	
- 3. DO GenerateNeighborhoodGraph
+ 3. Do GenerateNeighborhoodGraph
   
  4. Do LevenbergMarquardtMinimizer (use GPU)
   
