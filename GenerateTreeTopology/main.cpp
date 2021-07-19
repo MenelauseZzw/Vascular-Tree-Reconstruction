@@ -456,8 +456,7 @@ void GenerateMinimumSpanningTreeWith(
 	std::vector<ValueType>& weights,
 	int knn,
 	ValueType epsilon,
-	bool msf,
-	int root)
+	bool msf)
 {
 	using namespace std;
 	using namespace boost;
@@ -866,8 +865,7 @@ void DoGenerateMinimumSpanningTree(const std::string& inputFileName,
 	DistanceOptions distanceOption,
 	int knn,
 	double epsilon,
-	bool msf,
-	int root)
+	bool msf)
 {
 	const int NumDimensions = 3;
 
@@ -937,7 +935,7 @@ void DoGenerateMinimumSpanningTree(const std::string& inputFileName,
 			indices1,
 			indices2,
 			weights,
-			knn, epsilon, msf, root);
+			knn, epsilon, msf);
 		break;
 
 	case DistanceOptions::ArcLengthsSum:
@@ -950,7 +948,7 @@ void DoGenerateMinimumSpanningTree(const std::string& inputFileName,
 			indices1,
 			indices2,
 			weights,
-			knn, epsilon, msf, root);
+			knn, epsilon, msf);
 		break;
 
 	case DistanceOptions::ArcLengthsMin:
@@ -963,7 +961,7 @@ void DoGenerateMinimumSpanningTree(const std::string& inputFileName,
 			indices1,
 			indices2,
 			weights,
-			knn, epsilon, msf, root);
+			knn, epsilon, msf);
 		break;
 
 	default:
@@ -1147,7 +1145,7 @@ int main(int argc, char *argv[])
 
 	try
 	{
-		DoGenerateMinimumSpanningTree(inputFileName, outputFileName, noPositionsDataSet, (DistanceOptions)optionNum, knn, epsilon, msf, root);
+		DoGenerateMinimumSpanningTree(inputFileName, outputFileName, noPositionsDataSet, (DistanceOptions)optionNum, knn, epsilon, msf);
 		return EXIT_SUCCESS;
 	}
 	catch (std::exception& e)
