@@ -24,32 +24,25 @@ The example script is contained in the [Experiments](Experiments). To obtain the
 
  1. Do ObjectenessMasureImageFilter (Frangi filtering)
  
-    → ObjectnessMeasureVolume --- volume data
- 
  2. Do NonmaximumSuppressionVolume
- 
-    → NonMaximumSuppressionVolume --- volume data
- 
+  
     Important `--thresholdValue` --- this is threshold for plots
 	
  3. DO GenerateNeighborhoodGraph
- 
-    → NonMaximumSuppressionVolume.h5 --- graph
- 
+  
  4. Do LevenbergMarquardtMinimizer (use GPU)
- 
-    → NonMaximumSuppressionCurvDivVolume.h5
- 
+  
     Important `--lambda` --- curvature coefficient
 	
 	`--beta` --- divergence coefficient
+	
+	`--tau` --- the hyperparameter in the oriented curvature
     
-    `--voxelPhysicalSize` --- defines allowed error in ||l_p - p||_+
+        `--voxelPhysicalSize` --- defines allowed error in ||l_p - p||_+
  
  5. Do GenerateTreeTopology
- 
-    → NonMaximumSuppressionCurvDivVolumeTree.h5 --- tree
- 
+  
     Important `--directedLabel`  --- a flag used to decide whether to use minimum arborescence or MST
+         `--root` --- root index needs to be defined if using the minimum arborescence
 	
 	Code for the minimum arborescence: https://github.com/atofigh/edmonds-alg.git
