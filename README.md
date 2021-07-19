@@ -6,7 +6,7 @@ The following installation is tested using cmake-3.10.2 under Ubuntu 18.04.3 LTS
 0. c/c++ compiler: gcc-4.8/g++-4.8
 1. CUDA: 8.0
 2. Dependencies: boost-1.65.0, hdf5-1.10.1, eigen-3.3.4, ITK-4.13.3, flann-1.8.4, cusp-0.5.1.
-3. If these dependencies are installed in a custom folder, you may need to help cmake find them by explicitly setting some variables in [CMakeList.txt](CMakeList.txt), [CMake/FindEigen.cmake](CMake/FindEigen.cmake), [CMake/FindFlann.cmake](CMake/FindFlann.cmake) and [CMake/FindITK.cmake](CMake/FindITK.cmake).
+3. If these dependencies are installed in a custom folder, you may need to help cmake find them by explicitly setting some variables in [CMakeLists.txt](CMakeLists.txt), [CMake/FindEigen.cmake](CMake/FindEigen.cmake), [CMake/FindFlann.cmake](CMake/FindFlann.cmake) and [CMake/FindITK.cmake](CMake/FindITK.cmake).
 4. Create a new folder *Build* inside the folder where this repository is cloned.
 ```
 mkdir Build
