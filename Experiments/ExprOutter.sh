@@ -14,4 +14,4 @@ dirname="./image$num"
 --inputFileName "$dirname/GaussianNoiseVolume.mhd" \
 --outputFileName "$dirname/ObjectnessMeasureVolume.mhd"
 
-#cat "./thresholdBelow.txt" | xargs -n 1 -I tb -P 4 bash ExprInner.sh $num tb
+cat "./thresholdBelow.txt" | xargs -n 1 -I tb -P 4 bash ExprInner.sh $num tb

@@ -1008,7 +1008,6 @@ void DoGenerateMinimumArborescence(const std::string& inputFileName,
 	const std::string tangentLinesPoints2DataSetName = "tangentLinesPoints2";
 	const std::string radiusesDataSetName = "radiuses";
 	const std::string objectnessMeasureDataSetName = "objectnessMeasure";
-	const std::string rootIndexName = "rootIndex";
 
 	const std::string indices1DataSetName = "indices1";
 	const std::string indices2DataSetName = "indices2";
@@ -1027,17 +1026,15 @@ void DoGenerateMinimumArborescence(const std::string& inputFileName,
 	std::vector<ValueType> tangentLinesPoints2;
 	std::vector<ValueType> radiuses;
 	std::vector<ValueType> objectnessMeasure;
-	std::vector<IndexType> rootIndex;
 
 	inputFileReader.Read(measurementsDataSetName, measurements);
-    inputFileReader.Read(positionsDataSetName, positions);
+        inputFileReader.Read(positionsDataSetName, positions);
 	inputFileReader.Read(tangentLinesPoints1DataSetName, tangentLinesPoints1);
 	inputFileReader.Read(tangentLinesPoints2DataSetName, tangentLinesPoints2);
 	inputFileReader.Read(radiusesDataSetName, radiuses);
 	inputFileReader.Read(objectnessMeasureDataSetName, objectnessMeasure);
-	inputFileReader.Read(rootIndexName, rootIndex);
 
-	const IndexType rootInd = rootIndex[0];
+	const IndexType rootInd = root;
 
 	const std::vector<ValueType>& points = positions;
 

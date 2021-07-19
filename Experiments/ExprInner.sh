@@ -11,7 +11,7 @@ newdir="./image$num/$thresholdBelow"
 /home/z889zhan/VascularTreeEstimation/VTE-release/Bin/NonMaximumSuppressionFilter \
 --inputFileName "$dirname/ObjectnessMeasureVolume.mhd" \
 --outputFileName "$newdir/NonMaximumSuppressionVolume.mhd" \
---thresholdBelow $thresholdBelow
+--thresholdValue $thresholdBelow
 
 /home/z889zhan/VascularTreeEstimation/VTE-release/Bin/GenerateNeighborhoodGraph \
 --thresholdBelow $thresholdBelow \
@@ -30,6 +30,7 @@ voxelPhysicalSize=0.00001
 subdir="./image$num/$thresholdBelow/$lambda"
 beta=4.25
 tau=0.42
+
 if [ ! -d $subdir ]; then
 mkdir $subdir
 fi
@@ -42,12 +43,12 @@ fi
 --inputFileName "$newdir/NonMaximumSuppressionVolumeMalK4.h5" \
 --outputFileName "$subdir/NonMaximumSuppressionVolumeMalK4OriAbsCurvDivVolume.h5"
 
-# If using the minimum arborescence, root (index) has to be specified
+# If using the minimum arborescence, root (index) has to be specified and 'directLabel' is set to true
 # otherwise, no need for root
 /home/z889zhan/VascularTreeEstimation/VTE-release/Bin/GenerateTreeTopology \
 --directedLabel true \
 --root 0 \
 --knn 100 \
 --optionNum 2 \
---inputFileName "$subdir/NonMaximumSuppressionVolumeMalK4OriAbsCurvDivVolumeWithRoot.h5" \
---outputFileName "$subdir/NonMaximumSuppressionVolumeMalK4OriAbsCurvDivVolumeWithRootMArb.h5"
+--inputFileName "$subdir/NonMaximumSuppressionVolumeMalK4OriAbsCurvDivVolume.h5" \
+--outputFileName "$subdir/NonMaximumSuppressionVolumeMalK4OriAbsCurvDivVolumeMArb.h5"

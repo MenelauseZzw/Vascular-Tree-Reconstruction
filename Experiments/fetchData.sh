@@ -10,5 +10,5 @@ fi
 
 # std15 volumes
 for num in {001..015} ; do
-        ln -s ./synthetic_data/std15/image$num image$num
+        ln -s ./std15/image$num image$num
 done
