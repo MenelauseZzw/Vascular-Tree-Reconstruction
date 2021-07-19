@@ -48,7 +48,7 @@ The example script is contained in the [Experiments](Experiments). To obtain the
     Important 
     ```
     --directedLabel   --- a flag used to decide whether to use minimum arborescence or MST
-    --root   --- root index needs to be defined if using the minimum arborescence
+    --root   --- root index needs to be specified if using the minimum arborescence
     ```
 	
 	Code for the minimum arborescence: https://github.com/atofigh/edmonds-alg.git
