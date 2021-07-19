@@ -1,5 +1,5 @@
 
-# Vascular-Tree-Reconstruction (to be updated)
+# Vascular-Tree-Reconstruction
 
 ## How to install
 The following installation is tested using cmake-3.10.2 under Ubuntu 18.04.3 LTS.
